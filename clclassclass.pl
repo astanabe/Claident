@@ -2,7 +2,7 @@ use strict;
 use File::Spec;
 use Cwd 'getcwd';
 
-my $buildno = '0.2.2016.02.06';
+my $buildno = '0.2.2016.03.11';
 
 my $devnull = File::Spec->devnull();
 

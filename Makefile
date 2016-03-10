@@ -3,7 +3,7 @@ CONFIG ?= /etc/claident
 BINDIR ?= $(PREFIX)/bin
 PERL := $(filter /%,$(shell /bin/sh -c 'type perl'))
 PYTHON := $(filter /%,$(shell /bin/sh -c 'type python'))
-PROGRAM := classigntax clblastprimer clblastseq clclassclass clclassseq clclassseqv clcleanseq clcleanseqv clderepblastdb cldivseq clelimdupgi clfillassign clfilterseq clfiltersum clidentseq climportillumina clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clreclassclass clrecoverseqv clretrievegi clrunuchime clshrinkblastdb clsplitseq clsumclass sff_extract
+PROGRAM := classigntax clblastprimer clblastseq clclassclass clclassseq clclassseqv clcleanseq clcleanseqv clderepblastdb cldivseq clelimdupgi clfillassign clfilterseq clfiltersum clidentseq climportillumina clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clreclassclass clrecoverseqv clretrievegi clrunuchime clshrinkblastdb clsplitseq clsumclass
 
 all: $(PROGRAM)
 
@@ -117,10 +117,6 @@ clsplitseq: clsplitseq.pl
 
 clsumclass: clsumclass.pl
 	echo '#!'$(PERL) > $@
-	cat $< >> $@
-
-sff_extract: sff_extract.py
-	echo '#!'$(PYTHON) > $@
 	cat $< >> $@
 
 install: $(PROGRAM)

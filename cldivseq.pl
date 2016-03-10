@@ -1,6 +1,6 @@
 use strict;
 
-my $buildno = '0.2.2016.02.06';
+my $buildno = '0.2.2016.03.11';
 
 print(STDERR <<"_END");
 cldivseq $buildno

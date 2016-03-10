@@ -3,7 +3,7 @@ use File::Spec;
 
 my $devnull = File::Spec->devnull();
 
-my $buildno = '0.2.2016.02.06';
+my $buildno = '0.2.2016.03.11';
 
 #input/output
 my $inputfile;

@@ -3,7 +3,7 @@ use File::Spec;
 use Cwd 'getcwd';
 use File::Copy::Recursive ('fcopy', 'rcopy', 'dircopy');
 
-my $buildno = '0.2.2016.02.06';
+my $buildno = '0.2.2016.03.11';
 
 my $devnull = File::Spec->devnull();
 
