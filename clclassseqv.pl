@@ -24,8 +24,10 @@ my $root = getcwd();
 # file handles
 my $filehandleinput1;
 my $filehandleinput2;
+my $filehandleinput3;
 my $filehandleoutput1;
 my $filehandleoutput2;
+my $filehandleoutput3;
 my $pipehandleinput1;
 my $pipehandleinput2;
 my $pipehandleoutput1;
@@ -189,19 +191,59 @@ sub makeConcatenatedFiles {
 	$filehandleoutput1 = writeFile("concatenated.fasta");
 	$filehandleoutput2 = writeFile("concatenated.otu.gz");
 	foreach my $inputfile (@inputfiles) {
-		$filehandleinput1 = &readFile("$root/$inputfile");
+		my $filename = $inputfile;
+		$filename =~ s/^.+(?:\/|\\)//;
+		$filename =~ s/\.(?:gz|bz2|xz)$//;
+		$filename =~ s/\.[^\.]+$//;
+		my $tempinputfile;
+		{
+			my $inputpath;
+			if ($inputfile =~ /^\//) {
+				$inputpath = $inputfile;
+			}
+			else {
+				$inputpath = "$root/$inputfile";
+			}
+			if ($inputfile =~ /\.(?:fq|fastq)(?:\.gz|\.bz2|\.xz)?$/) {
+				&convertFASTQtoFASTA($inputpath, "$filename.fasta");
+				$tempinputfile = "$filename.fasta";
+			}
+			elsif ($inputfile =~ /\.xz$/) {
+				if (system("xz -dc $inputpath > $filename.fasta")) {
+					&errorMessage(__LINE__, "Cannot run \"xz -dc $inputpath > $filename.fasta\".");
+				}
+				$tempinputfile = "$filename.fasta";
+			}
+			else {
+				$tempinputfile = $inputpath;
+			}
+		}
+		$filehandleinput1 = &readFile($tempinputfile);
 		while (<$filehandleinput1>) {
 			print($filehandleoutput1 $_);
 		}
 		close($filehandleinput1);
 		my $otufile = $inputfile;
-		$otufile =~ s/\.fasta\.gz$/.otu.gz/;
-		$otufile =~ s/\.fasta$/.otu.gz/;
-		$filehandleinput1 = &readFile("$root/$otufile");
-		while (<$filehandleinput1>) {
-			print($filehandleoutput2 $_);
+		$otufile =~ s/\.(?:fq|fastq|fa|fasta|fas)(?:\.gz|\.bz2|\.xz)?$/.otu.gz/;
+		if ($otufile !~ /^\//) {
+			$otufile = "$root/$otufile";
 		}
-		close($filehandleinput1);
+		if (-e $otufile) {
+			$filehandleinput1 = &readFile($otufile);
+			while (<$filehandleinput1>) {
+				print($filehandleoutput2 $_);
+			}
+			close($filehandleinput1);
+		}
+		else {
+			$filehandleinput1 = &readFile($tempinputfile);
+			while (<$filehandleinput1>) {
+				if (/^>/) {
+					print($filehandleoutput2 $_);
+				}
+			}
+			close($filehandleinput1);
+		}
 	}
 	close($filehandleoutput1);
 	close($filehandleoutput2);
@@ -347,6 +389,29 @@ sub readFile {
 		}
 	}
 	return($filehandle);
+}
+
+sub convertFASTQtoFASTA {
+	my $fastqfile = shift(@_);
+	my $fastafile = shift(@_);
+	$filehandleinput3 = &readFile($fastqfile);
+	$filehandleoutput3 = &writeFile($fastafile);
+	while (<$filehandleinput3>) {
+		my $nameline = $_;
+		my $seqline = <$filehandleinput3>;
+		my $sepline = <$filehandleinput3>;
+		my $qualline = <$filehandleinput3>;
+		if (substr($nameline, 0, 1) ne '@') {
+			&errorMessage(__LINE__, "\"$fastqfile\" is invalid.");
+		}
+		if (substr($sepline, 0, 1) ne '+') {
+			&errorMessage(__LINE__, "\"$fastqfile\" is invalid.");
+		}
+		print($filehandleoutput3 '>' . substr($nameline, 1));
+		print($filehandleoutput3 $seqline);
+	}
+	close($filehandleoutput3);
+	close($filehandleinput3);
 }
 
 sub errorMessage {
