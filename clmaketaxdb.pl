@@ -1,7 +1,7 @@
 use strict;
 use DBI;
 
-my $buildno = '0.2.2016.03.11';
+my $buildno = '0.2.2016.04.07';
 
 print(STDERR <<"_END");
 clmaketaxdb $buildno

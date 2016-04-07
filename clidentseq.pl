@@ -1,7 +1,7 @@
 use strict;
 use File::Spec;
 
-my $buildno = '0.2.2016.03.11';
+my $buildno = '0.2.2016.04.07';
 
 print(STDERR <<"_END");
 clidentseq $buildno
@@ -497,7 +497,7 @@ unless (open($inputhandle, "< $inputfile")) {
 							$nnseq{$4} = $1;
 							my $evalue = $2;
 							$nnscore = $3;
-							if ($evalue =~ /^(\d+e[\+\-]?\d+)$/ || $evalue =~ /^(\d+\.\d+)$/ || $evalue =~ /^(\d+)$/) {
+							if ($evalue =~ /^(\d+\.\d+e[\+\-]?\d+)$/ || $evalue =~ /^(\d+e[\+\-]?\d+)$/ || $evalue =~ /^(\d+\.\d+)$/ || $evalue =~ /^(\d+)$/) {
 								my $tempnne = eval($1);
 								if ($tempnne > $nne) {
 									$nne = $tempnne;
@@ -698,7 +698,7 @@ unless (open($inputhandle, "< $inputfile")) {
 						}
 						my %borderlines;
 						while (<$temphandle>) {
-							if (!$borderlinescore && (/^\s*(\d+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
+							if (!$borderlinescore && (/^\s*(\d+)\s+(\d+\.\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
 								$borderlines{$1} = 1;
 								push(@borderlinegi, $1);
 								my $tempborderlinee = eval($2);
@@ -707,11 +707,11 @@ unless (open($inputhandle, "< $inputfile")) {
 								}
 								$borderlinescore = $3;
 							}
-							elsif ($borderlinescore && (/^\s*(\d+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $3 == $borderlinescore && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
+							elsif ($borderlinescore && (/^\s*(\d+)\s+(\d+\.\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $3 == $borderlinescore && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
 								$borderlines{$1} = 1;
 								push(@borderlinegi, $1);
 							}
-							elsif ($borderlinescore && (/^\s*(\d+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $3 < $borderlinescore && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
+							elsif ($borderlinescore && (/^\s*(\d+)\s+(\d+\.\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $3 < $borderlinescore && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
 								last;
 							}
 						}

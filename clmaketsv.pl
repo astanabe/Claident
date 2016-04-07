@@ -5,7 +5,7 @@ use open ':std';
 use Digest::MD5;
 use File::Spec;
 
-my $buildno = '0.2.2016.03.11';
+my $buildno = '0.2.2016.04.07';
 
 my $devnull = File::Spec->devnull();
 
