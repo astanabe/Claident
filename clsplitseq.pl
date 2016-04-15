@@ -2,7 +2,7 @@ use strict;
 use Fcntl ':flock';
 use File::Spec;
 
-my $buildno = '0.2.2016.04.07';
+my $buildno = '0.2.x';
 
 # options
 my $sequencerenaming = 1;
