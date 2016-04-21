@@ -1235,7 +1235,7 @@ sub concatenateFASTQ {
 		my $child = 0;
 		$| = 1;
 		$? = 0;
-		my @fastqfolder = glob("$outputfolder/$runname*");
+		my @fastqfolder = glob("$outputfolder/$runname\__*");
 		foreach my $fastqfolder (@fastqfolder) {
 			if (-d $fastqfolder) {
 				if (my $pid = fork()) {
