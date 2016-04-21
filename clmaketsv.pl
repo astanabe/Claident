@@ -17,7 +17,7 @@ Official web site of this script is
 http://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2015  Akifumi S. Tanabe
+Copyright (C) 2011-2016  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
