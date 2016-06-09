@@ -1,5 +1,4 @@
 PREFIX ?= /usr/local
-CONFIG ?= /etc/claident
 BINDIR ?= $(PREFIX)/bin
 PERL := $(filter /%,$(shell /bin/sh -c 'type perl'))
 VERSION := 0.2.2016.04.15
@@ -130,11 +129,10 @@ install: $(PROGRAM)
 	mkdir -p $(PREFIX)/share/claident
 	mkdir -p $(PREFIX)/share/claident/taxdb
 	mkdir -p $(PREFIX)/share/claident/blastdb
-	mkdir -p $(CONFIG)
-	echo "CLAIDENTHOME=$(PREFIX)/share/claident" > $(CONFIG)/.claident
-	echo "TAXONOMYDB=$(PREFIX)/share/claident/taxdb" >> $(CONFIG)/.claident
-	echo "BLASTDB=$(PREFIX)/share/claident/blastdb" >> $(CONFIG)/.claident
-	echo "UCHIMEDB=$(PREFIX)/share/claident/uchimedb" >> $(CONFIG)/.claident
+	echo "CLAIDENTHOME=$(PREFIX)/share/claident" > $(PREFIX)/share/claident/.claident
+	echo "TAXONOMYDB=$(PREFIX)/share/claident/taxdb" >> $(PREFIX)/share/claident/.claident
+	echo "BLASTDB=$(PREFIX)/share/claident/blastdb" >> $(PREFIX)/share/claident/.claident
+	echo "UCHIMEDB=$(PREFIX)/share/claident/uchimedb" >> $(PREFIX)/share/claident/.claident
 
 clean:
 	rm $(PROGRAM)
