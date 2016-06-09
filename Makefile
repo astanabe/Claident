@@ -3,7 +3,7 @@ CONFIG ?= /etc/claident
 BINDIR ?= $(PREFIX)/bin
 PERL := $(filter /%,$(shell /bin/sh -c 'type perl'))
 VERSION := 0.2.2016.04.15
-PROGRAM := classigntax clblastprimer clblastseq clclassclass clclassseq clclassseqv clcleanseq clcleanseqv clderepblastdb cldivseq clelimdupgi clfillassign clfilterseq clfiltersum clidentseq climportillumina clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clreclassclass clrecoverseqv clretrievegi clrunuchime clshrinkblastdb clsplitseq clsumclass
+PROGRAM := classigntax clblastprimer clblastseq clclassclass clclassseq clclassseqv clcleanseq clcleanseqv clderepblastdb cldivseq clelimdupgi clfillassign clfilterseq clfiltersum clidentseq climportfastq climportillumina clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clreclassclass clrecoverseqv clretrievegi clrunuchime clshrinkblastdb clsplitseq clsumclass
 
 all: $(PROGRAM)
 
@@ -64,6 +64,10 @@ clfiltersum: clfiltersum.pl
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clidentseq: clidentseq.pl
+	echo '#!'$(PERL) > $@
+	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+
+climportfastq: climportfastq.pl
 	echo '#!'$(PERL) > $@
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 
