@@ -90,7 +90,7 @@ clreclassclass $buildno
 =======================================================================
 
 Official web site of this script is
-http://www.fifthdimension.jp/products/claident/ .
+https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
 Copyright (C) 2011-2016  Akifumi S. Tanabe

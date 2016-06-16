@@ -9,7 +9,7 @@ clretrievegi $buildno
 =======================================================================
 
 Official web site of this script is
-http://www.fifthdimension.jp/products/claident/ .
+https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
 Copyright (C) 2011-2016  Akifumi S. Tanabe
@@ -218,7 +218,7 @@ unless ($taxdb) {
 	$ua->timeout($timeout);
 	$ua->agent('clretrievegi/prerelease');
 	$ua->env_proxy;
-	my $baseurl = 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=nuccore&term=' . &encodeURL($keyword);
+	my $baseurl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=nuccore&term=' . &encodeURL($keyword);
 	print(STDERR "Requesting $baseurl...\n");
 	my $req = HTTP::Request->new(POST => $baseurl . '&rettype=count');
 	my $res = $ua->request($req);
