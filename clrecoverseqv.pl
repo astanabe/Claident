@@ -266,7 +266,7 @@ sub runVSEARCH {
 	}
 	# remap dereplicated reads to centroids
 	if (system("$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc 1> $devnull")) {
-		&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc\".");
+		&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc\".");
 	}
 	&convertUCtoOTUMembers("clustered.uc", "clustered.otu.gz", "concatenated.otu.gz");
 	unless ($nodel) {

@@ -228,13 +228,13 @@ if ($blastoption =~ /\-(?:db|evalue|max_target_seqs|searchsp|gilist|negative_gil
 	&errorMessage(__LINE__, "The options for blastn is invalid.");
 }
 if ($blastoption !~ / \-task /) {
-	$blastoption .= ' -task blastn';
+	$blastoption .= ' -task dc-megablast -template_type coding_and_optimal -template_length 16';
 }
 if ($blastoption !~ / \-max_hsps /) {
 	$blastoption .= ' -max_hsps 1';
 }
 if ($blastoption !~ / \-word_size /) {
-	$blastoption .= ' -word_size 9';
+	$blastoption .= ' -word_size 11';
 }
 
 my $blastn;
@@ -921,7 +921,8 @@ Command line options
 ====================
 blastn options end
   Specify commandline options for blastn.
-(default: -task blastn -word_size 9)
+(default: -task dc-megablast -word_size 11 -template_length 16 -template_type
+coding_and_optimal)
 
 --bdb, --blastdb=BLASTDB(,BLASTDB)
   Specify name of BLAST database. (default: none)
