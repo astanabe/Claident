@@ -250,6 +250,9 @@ sub checkVariables {
 	elsif ($method =~ /^\d+/ && $blastdb1 ne $blastdb2) {
 		&errorMessage(__LINE__, "Cannot use multiple BLASTDBs in this method.");
 	}
+	if (-d $blastdb1 && $blastdb1 ne $blastdb2) {
+		&errorMessage(__LINE__, "Cannot use multiple BLASTDBs and cache DB simultaneously.");
+	}
 	if ($method =~ /^(\d+)$/ || $method =~ /^(\d+),\d+\%/i) {
 		$minnnseq = $1;
 		print(STDERR "$minnnseq-nearest-neighbor method was specified. The minimum number of neighborhoods is overridden.\n");
@@ -444,6 +447,15 @@ sub searchNeighborhoods {
 				else {
 					print(STDERR "Searching neighborhoods of sequence $qnum...\n");
 					local $/ = "\n";
+					if (-d $blastdb1 && $blastdb1 eq $blastdb2) {
+						if (-e "$blastdb1/query$qnum.nal" && -e "$blastdb1/query$qnum.n.gil") {
+							$blastdb1 = "$blastdb1/query$qnum";
+							$blastdb2 = "$blastdb2/query$qnum";
+						}
+						else {
+							exit;
+						}
+					}
 					my $qlen;
 					{
 						my @seq = $sequence =~ /\S/g;
@@ -994,7 +1006,7 @@ blastn options end
 -template_length 16)
 
 --bdb, --blastdb=BLASTDB(,BLASTDB)
-  Specify name of BLAST database. (default: none)
+  Specify name of BLAST database or cache database. (default: none)
 
 --method=QC|NNC|NNC+QC|INTEGER|INTEGER\%|INTEGER,INTEGER\%
   Specify identification method. (default: QC)
