@@ -19,9 +19,9 @@ my $minlen = 50;
 my $minalnlen = 50;
 my $minalnlennn = 100;
 my $minalnlenb = 50;
-my $minalnpcov = 0;
-my $minalnpcovnn = 0;
-my $minalnpcovb = 0;
+my $minalnpcov = 0.5;
+my $minalnpcovnn = 0.5;
+my $minalnpcovb = 0.5;
 my $minnnseq = 2;
 my $blastoption;
 my $numthreads = 1;
@@ -213,7 +213,10 @@ sub checkVariables {
 		&errorMessage(__LINE__, "Input file does not exist.");
 	}
 	while (glob("$outputfile1.*.*")) {
-		if (/^$outputfile1\..+\.(?:query|nn|ngilist|borderline|nnblast|qblast|fblast)$/) {
+		if (/^$outputfile1\..+\.temp$/) {
+			&errorMessage(__LINE__, "Temporary folder already exists.");
+		}
+		elsif (/^$outputfile1\..+\.(?:ngilist|nseqidlist)$/) {
 			&errorMessage(__LINE__, "Temporary file already exists.");
 		}
 	}
@@ -389,7 +392,7 @@ sub readNegativeSeqIDList {
 			print($filehandleoutput1 "$ngi\n");
 		}
 		close($filehandleoutput1);
-		$ngilist = " -negative_gilist $outputfile1.ngilist";
+		$ngilist = " -negative_gilist \"$outputfile1.ngilist\"";
 	}
 	elsif (%nseqidlist) {
 		unless (open($filehandleoutput1, "> $outputfile1.nseqidlist")) {
@@ -399,7 +402,7 @@ sub readNegativeSeqIDList {
 			print($filehandleoutput1 "$nseqid\n");
 		}
 		close($filehandleoutput1);
-		$nseqidlist = " -negative_seqidlist $outputfile1.nseqidlist";
+		$nseqidlist = " -negative_seqidlist \"$outputfile1.nseqidlist\"";
 	}
 }
 
@@ -448,9 +451,12 @@ sub searchNeighborhoods {
 						if ($qlen < $minlen) {
 							exit;
 						}
+						unless (mkdir("$outputfile1.$qnum.temp")) {
+							&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp\".");
+						}
 						# output an entry
-						unless (open($filehandleoutput1, "> $outputfile1.$qnum.query")) {
-							&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.query\".");
+						unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/query.fasta")) {
+							&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp/query.fasta\".");
 						}
 						print($filehandleoutput1 ">query$qnum\n");
 						print($filehandleoutput1 join('', @seq) . "\n");
@@ -462,8 +468,8 @@ sub searchNeighborhoods {
 					if ($method =~ /^\d+,(\d+)\%$/) {
 						my $perc_identity = $1;
 						my $tempnseq = $minnnseq + 100;
-						unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807 |")) {
-							&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
+						unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807 |")) {
+							&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
 						}
 						my $tempscore;
 						my %neighborhoods;
@@ -485,10 +491,10 @@ sub searchNeighborhoods {
 						}
 						close($pipehandleinput1);
 						#if ($?) {
-						#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs $tempnseq -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
+						#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs $tempnseq -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
 						#}
-						unless (open($filehandleoutput1, "> $outputfile1.$qnum.fblast")) {
-							&errorMessage(__LINE__, "Cannot write \"$outputfile1.$qnum.fblast\".");
+						unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/fblasthit.txt")) {
+							&errorMessage(__LINE__, "Cannot write \"$outputfile1.$qnum.temp/fblasthit.txt\".");
 						}
 						foreach my $neighborhood (sort({$a <=> $b} keys(%neighborhoods))) {
 							print($filehandleoutput1 "$neighborhood\n");
@@ -499,8 +505,8 @@ sub searchNeighborhoods {
 						my %neighborhoods;
 						if ($method =~ /^(\d+)\%$/) {
 							my $perc_identity = $1;
-							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807 |")) {
-								&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
+							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807 |")) {
+								&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
 							}
 							while (<$pipehandleinput1>) {
 								if (/^\s*(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $minalnlen && $3 >= $minalnpcov) {
@@ -509,14 +515,14 @@ sub searchNeighborhoods {
 							}
 							close($pipehandleinput1);
 							#if ($?) {
-							#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi length\" -show_gis -max_target_seqs 1000000000 -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
+							#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi length\" -show_gis -max_target_seqs 1000000000 -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
 							#}
 						}
 						my @tempneighborhoods = keys(%neighborhoods);
 						if ($method =~ /^\d+$/ || scalar(@tempneighborhoods) < $minnnseq) {
 							my $tempnseq = $minnnseq + 100;
-							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 |")) {
-								&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
+							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 |")) {
+								&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
 							}
 							my $tempscore;
 							undef(%neighborhoods);
@@ -537,11 +543,11 @@ sub searchNeighborhoods {
 							}
 							close($pipehandleinput1);
 							#if ($?) {
-							#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
+							#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
 							#}
 						}
-						unless (open($filehandleoutput1, "> $outputfile1.$qnum.fblast")) {
-							&errorMessage(__LINE__, "Cannot write \"$outputfile1.$qnum.fblast\".");
+						unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/fblasthit.txt")) {
+							&errorMessage(__LINE__, "Cannot write \"$outputfile1.$qnum.temp/fblasthit.txt\".");
 						}
 						foreach my $neighborhood (sort({$a <=> $b} keys(%neighborhoods))) {
 							print($filehandleoutput1 "$neighborhood\n");
@@ -550,8 +556,8 @@ sub searchNeighborhoods {
 					}
 					else {
 						my %nnseq;
-						unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi evalue score sseq qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807 |")) {
-							&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi evalue score sseq qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
+						unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi evalue score sseq qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807 |")) {
+							&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi evalue score sseq qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
 						}
 						while (<$pipehandleinput1>) {
 							if (!$nnscore && /^\s*(\d+)\s+(\S+)\s+(\d+)\s+(\S+)/) {
@@ -571,7 +577,7 @@ sub searchNeighborhoods {
 						}
 						close($pipehandleinput1);
 						#if ($?) {
-						#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi evalue score sseq\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
+						#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi evalue score sseq\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
 						#}
 						foreach my $tempseq (keys(%nnseq)) {
 							if (length($tempseq) < $minalnlennn || ($minalnpcovnn && (length($tempseq) / $qlen) * 100 < $minalnpcovnn)) {
@@ -581,8 +587,8 @@ sub searchNeighborhoods {
 						if (!%nnseq) {
 							exit;
 						}
-						unless (open($filehandleoutput1, "> $outputfile1.$qnum.nn")) {
-							&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.nn\".");
+						unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/nn.fasta")) {
+							&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp/nn.fasta\".");
 						}
 						foreach my $tempseq (sort({$nnseq{$a} <=> $nnseq{$b}} keys(%nnseq))) {
 							my $tempseq2 = $tempseq;
@@ -614,8 +620,8 @@ sub searchNeighborhoods {
 										$nne *= 1e+2;
 									}
 									my $tempeval = sprintf("%.2e", $nne);
-									unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -query $outputfile1.$qnum.nn -db $blastdb1 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 |")) {
-										&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query $outputfile1.$qnum.nn -db $blastdb1 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
+									unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 |")) {
+										&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
 									}
 									while (<$pipehandleinput1>) {
 										if (/^\s*(\d+)\s+(\d+)/ && !exists($ngilist{$1}) && $2 >= $nnscore) {
@@ -634,7 +640,7 @@ sub searchNeighborhoods {
 									}
 									close($pipehandleinput1);
 									#if ($?) {
-									#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query $outputfile1.$qnum.nn -db $blastdb1 -out - -evalue $tempeval -outfmt \"6 sgi score length\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
+									#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue $tempeval -outfmt \"6 sgi score length\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
 									#}
 									$iterno ++;
 								}
@@ -648,8 +654,8 @@ sub searchNeighborhoods {
 									print($filehandleoutput1 "$ngi\n");
 								}
 								close($filehandleoutput1);
-								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist $outputfile1.$qnum.ngilist -query $outputfile1.$qnum.nn -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807 |")) {
-									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist $outputfile1.$qnum.ngilist -query $outputfile1.$qnum.nn -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
+								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist \"$outputfile1.$qnum.ngilist\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807 |")) {
+									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist \"$outputfile1.$qnum.ngilist\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
 								}
 								my %borderlines;
 								while (<$pipehandleinput1>) {
@@ -668,12 +674,12 @@ sub searchNeighborhoods {
 								}
 								close($pipehandleinput1);
 								#if ($?) {
-								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist $outputfile1.$qnum.ngilist -query $outputfile1.$qnum.nn -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
+								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist \"$outputfile1.$qnum.ngilist\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
 								#}
 							}
 							if (@borderlinegi) {
-								unless (open($filehandleoutput1, "> $outputfile1.$qnum.borderline")) {
-									&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.borderline\".");
+								unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/borderline.txt")) {
+									&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp/borderline.txt\".");
 								}
 								foreach my $borderlinegi (@borderlinegi) {
 									print($filehandleoutput1 "$borderlinegi\n");
@@ -685,8 +691,8 @@ sub searchNeighborhoods {
 							}
 							if ($method eq 'nnc' || $method eq 'both') {
 								my $tempeval = sprintf("%.2e", $nne);
-								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.nn -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 |")) {
-									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.nn -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
+								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 |")) {
+									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
 								}
 								my %neighborhoods;
 								while (<$pipehandleinput1>) {
@@ -699,16 +705,16 @@ sub searchNeighborhoods {
 								}
 								close($pipehandleinput1);
 								#if ($?) {
-								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.nn -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
+								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
 								#}
 								my @tempneighborhoods = keys(%neighborhoods);
 								if (scalar(@tempneighborhoods) < $minnnseq) {
 									my $tempnseq = $minnnseq + 100;
-									unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.nn -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 |")) {
-										&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.nn -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
+									unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 |")) {
+										&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
 									}
-									unless (open($filehandleoutput1, "> $outputfile1.$qnum.nnblast")) {
-										&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.nnblast\".");
+									unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/nnblasthit.txt")) {
+										&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp/nnblasthit.txt\".");
 									}
 									undef(%neighborhoods);
 									my $tempscore;
@@ -732,12 +738,12 @@ sub searchNeighborhoods {
 									close($filehandleoutput1);
 									close($pipehandleinput1);
 									#if ($?) {
-									#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.nn -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
+									#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
 									#}
 								}
 								else {
-									unless (open($filehandleoutput1, "> $outputfile1.$qnum.nnblast")) {
-										&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.nnblast\".");
+									unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/nnblasthit.txt")) {
+										&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp/nnblasthit.txt\".");
 									}
 									foreach my $neighborhood (sort({$a <=> $b} keys(%neighborhoods))) {
 										print($filehandleoutput1 "$neighborhood\n");
@@ -754,8 +760,8 @@ sub searchNeighborhoods {
 						my $borderlinee = 1e-140;
 						my $borderlinescore;
 						{
-							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -query $outputfile1.$qnum.query -db $blastdb1 -gilist $outputfile1.$qnum.borderline -out - -evalue 1000000000 -outfmt \"6 sgi evalue score length qcovhsp\" -show_gis -max_target_seqs 100 -searchsp 9223372036854775807 |")) {
-								&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query $outputfile1.$qnum.query -db $blastdb1 -gilist $outputfile1.$qnum.borderline -out - -evalue 1000000000 -outfmt \"6 sgi evalue score length qcovhsp\" -show_gis -max_target_seqs 100 -searchsp 9223372036854775807\".");
+							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -gilist \"$outputfile1.$qnum.temp/borderline.txt\" -out - -evalue 1000000000 -outfmt \"6 sgi evalue score length qcovhsp\" -show_gis -max_target_seqs 100 -searchsp 9223372036854775807 |")) {
+								&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -gilist \"$outputfile1.$qnum.temp/borderline.txt\" -out - -evalue 1000000000 -outfmt \"6 sgi evalue score length qcovhsp\" -show_gis -max_target_seqs 100 -searchsp 9223372036854775807\".");
 							}
 							my %borderlines;
 							while (<$pipehandleinput1>) {
@@ -778,7 +784,7 @@ sub searchNeighborhoods {
 							}
 							close($pipehandleinput1);
 							#if ($?) {
-							#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query $outputfile1.$qnum.query -db $blastdb1 -gilist $outputfile1.$qnum.borderline -out - -evalue 1000000000 -outfmt \"6 sgi evalue score length\" -show_gis -max_target_seqs 100 -searchsp 9223372036854775807\".");
+							#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -gilist \"$outputfile1.$qnum.temp/borderline.txt\" -out - -evalue 1000000000 -outfmt \"6 sgi evalue score length\" -show_gis -max_target_seqs 100 -searchsp 9223372036854775807\".");
 							#}
 							if (!$borderlinescore) {
 								exit;
@@ -806,8 +812,8 @@ sub searchNeighborhoods {
 									$borderlinee *= 1e+2;
 								}
 								my $tempeval = sprintf("%.2e", $borderlinee);
-								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 |")) {
-									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
+								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 |")) {
+									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
 								}
 								undef(%neighborhoods);
 								while (<$pipehandleinput1>) {
@@ -827,7 +833,7 @@ sub searchNeighborhoods {
 								}
 								close($pipehandleinput1);
 								#if ($?) {
-								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
+								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sgi score length\" -show_gis -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
 								#}
 								$iterno ++;
 							}
@@ -839,11 +845,11 @@ sub searchNeighborhoods {
 							my @tempneighborhoods = keys(%neighborhoods);
 							if (scalar(@tempneighborhoods) < $minnnseq) {
 								my $tempnseq = $minnnseq + 100;
-								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 |")) {
-									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
+								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 |")) {
+									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp stitle\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
 								}
-								unless (open($filehandleoutput1, "> $outputfile1.$qnum.qblast")) {
-									&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.qblast\".");
+								unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/qblasthit.txt")) {
+									&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp/qblasthit.txt\".");
 								}
 								undef(%neighborhoods);
 								my $tempscore;
@@ -867,12 +873,12 @@ sub searchNeighborhoods {
 								close($filehandleoutput1);
 								close($pipehandleinput1);
 								#if ($?) {
-								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query $outputfile1.$qnum.query -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
+								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
 								#}
 							}
 							else {
-								unless (open($filehandleoutput1, "> $outputfile1.$qnum.qblast")) {
-									&errorMessage(__LINE__, "Cannot write \"$outputfile1.$qnum.qblast\".");
+								unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/qblasthit.txt")) {
+									&errorMessage(__LINE__, "Cannot write \"$outputfile1.$qnum.temp/qblasthit.txt\".");
 								}
 								foreach my $neighborhood (sort({$a <=> $b} keys(%neighborhoods))) {
 									print($filehandleoutput1 "$neighborhood\n");
@@ -895,49 +901,52 @@ sub searchNeighborhoods {
 	}
 	print(STDERR "done.\n\n");
 	unlink("$outputfile1.ngilist");
+	unlink("$outputfile1.nseqidlist");
 }
 
 sub makeOutputFile {
 	print(STDERR "Reading blastn results and save to output file...");
 	if ($method =~ /^\d+/) {
-		&outputFile('fblast', $outputfile1);
+		&outputFile('fblasthit.txt', $outputfile1);
 	}
 	else {
 		if ($method eq 'nnc' || $method eq 'both') {
-			&outputFile('nnblast', $outputfile1);
+			&outputFile('nnblasthit.txt', $outputfile1);
 		}
 		if ($method eq 'both') {
 			print(STDERR "done.\n\n");
 			print(STDERR "Reading blastn results and save to output file...");
-			&outputFile('qblast', $outputfile2);
+			&outputFile('qblasthit.txt', $outputfile2);
 		}
 		elsif ($method eq 'qc') {
-			&outputFile('qblast', $outputfile1);
+			&outputFile('qblasthit.txt', $outputfile1);
 		}
 	}
 	print(STDERR "done.\n\n");
 	unless ($nodel) {
 		for (my $i = 0; $i < scalar(@queries); $i ++) {
-			unlink("$outputfile1.$i.query");
-			unlink("$outputfile1.$i.nn");
-			unlink("$outputfile1.$i.ngilist");
-			unlink("$outputfile1.$i.borderline");
-			unlink("$outputfile1.$i.fblast");
-			unlink("$outputfile1.$i.nnblast");
-			unlink("$outputfile1.$i.qblast");
+			unlink("$outputfile1.$i.temp/query.fasta");
+			unlink("$outputfile1.$i.temp/nn.fasta");
+			unlink("$outputfile1.$i.temp/ngilist.txt");
+			unlink("$outputfile1.$i.temp/nseqidlist.txt");
+			unlink("$outputfile1.$i.temp/borderline.txt");
+			unlink("$outputfile1.$i.temp/fblasthit.txt");
+			unlink("$outputfile1.$i.temp/nnblasthit.txt");
+			unlink("$outputfile1.$i.temp/qblasthit.txt");
+			rmdir("$outputfile1.$i.temp");
 		}
 	}
 }
 
 sub outputFile {
-	my $extension = shift(@_);
+	my $listfile = shift(@_);
 	my $outputfile = shift(@_);
 	my %tempgis;
 	# retrieve blast results
 	for (my $i = 0; $i < scalar(@queries); $i ++) {
-		if (-e "$outputfile1.$i.$extension") {
-			unless (open($filehandleinput1, "< $outputfile1.$i.$extension")) {
-				&errorMessage(__LINE__, "Cannot read \"$outputfile1.$i.$extension\".");
+		if (-e "$outputfile1.$i.temp/$listfile") {
+			unless (open($filehandleinput1, "< $outputfile1.$i.temp/$listfile")) {
+				&errorMessage(__LINE__, "Cannot read \"$outputfile1.$i.temp/$listfile\".");
 			}
 			while (<$filehandleinput1>) {
 				if (/^\s*(\d+)/) {
@@ -996,6 +1005,12 @@ blastn options end
 --negativegi=GI(,GI..)
   Specify negative GIs.
 
+--negativeseqidlist=FILENAME
+  Specify file name of negative SeqID list. (default: none)
+
+--negativeseqid=SeqID(,SeqID..)
+  Specify negative SeqIDs.
+
 --minlen=INTEGER
   Specify minimum length of query sequence. (default: 50)
 
@@ -1013,15 +1028,15 @@ blastn options end
 
 --minalnpcov=DECIMAL
   Specify minimum percentage of alignment coverage of center vs neighborhoods.
-(default: 0)
+(default: 0.5)
 
 --minalnpcovnn=DECIMAL
   Specify minimum percentage of alignment coverage of query vs nearest-neighbor.
-(default: 0)
+(default: 0.5)
 
 --minalnpcovb=DECIMAL
   Specify minimum percentage of alignment coverage of query/nearest-neighbor vs
-borderline. (default: 0)
+borderline. (default: 0.5)
 
 --minnneighborhoodseq=INTEGER
   Specify minimum number of neighborhood sequences. (default: 2)
