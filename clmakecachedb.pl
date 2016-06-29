@@ -381,10 +381,14 @@ sub runBLAST {
 	local $/ = "\n";
 	while (<$pipehandleinput1>) {
 		if (/^\s*(\S+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\S+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
-			unless (open($filehandleoutput1, ">> $outputfolder/$1.fasta")) {
-				&errorMessage(__LINE__, "Cannot write \"$outputfolder/$1.fasta\".");
+			my $prefix = $1;
+			my $gi = $2;
+			my $seq = $5;
+			$seq =~ s/\-//g;
+			unless (open($filehandleoutput1, ">> $outputfolder/$prefix.fasta")) {
+				&errorMessage(__LINE__, "Cannot write \"$outputfolder/$prefix.fasta\".");
 			}
-			print($filehandleoutput1 ">gi|$2\n$5\n");
+			print($filehandleoutput1 ">gi|$gi\n$seq\n");
 			close($filehandleoutput1);
 		}
 	}
