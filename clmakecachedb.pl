@@ -345,28 +345,23 @@ sub retrieveSimilarSequences {
 
 sub runBLAST {
 	print(STDERR "Searching similar sequences of several sequences...\n");
-	my %similarseqs;
 	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp\" -num_threads $numthreads -searchsp 9223372036854775807 |")) {
 		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp\" -num_threads $numthreads -searchsp 9223372036854775807\".");
 	}
+	local $/ = "\n";
 	while (<$pipehandleinput1>) {
-		if (/^\s*(\S+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($similarseqs{$1}{$2}) && $3 >= $minalnlen && $4 >= $minalnpcov) {
-			$similarseqs{$1}{$2} = 1;
+		if (/^\s*(\S+)\s+(\d+)\s+(\d+)\s+(\S+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
+			unless (open($filehandleoutput1, ">> $outputfolder/$1.txt")) {
+				&errorMessage(__LINE__, "Cannot write \"$outputfolder/$1.txt\".");
+			}
+			print($filehandleoutput1 "$2\n");
+			close($filehandleoutput1);
 		}
 	}
 	close($pipehandleinput1);
 	#if ($?) {
 	#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp\" -num_threads $numthreads -searchsp 9223372036854775807\".");
 	#}
-	foreach my $query (keys(%similarseqs)) {
-		unless (open($filehandleoutput1, "> $outputfolder/$query.txt")) {
-			&errorMessage(__LINE__, "Cannot write \"$outputfolder/$query.txt\".");
-		}
-		foreach my $gi (keys(%{$similarseqs{$query}})) {
-			print($filehandleoutput1 "$gi\n");
-		}
-		close($filehandleoutput1);
-	}
 	unlink("$outputfolder/tempquery.fasta");
 }
 
