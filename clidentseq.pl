@@ -699,6 +699,7 @@ sub searchNeighborhoods {
 								close($filehandleoutput1);
 							}
 							else {
+								print(STDERR "WARNING!: Cannot find borderline for $query.");
 								exit;
 							}
 							if ($method eq 'nnc' || $method eq 'both') {
@@ -799,6 +800,7 @@ sub searchNeighborhoods {
 							#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -gilist \"$outputfile1.$qnum.temp/borderline.txt\" -out - -evalue 1000000000 -outfmt \"6 sgi evalue score length\" -show_gis -max_target_seqs 100 -searchsp 9223372036854775807\".");
 							#}
 							if (!$borderlinescore) {
+								print(STDERR "WARNING!: Cannot calculate borderline score for $query.");
 								exit;
 							}
 						}
