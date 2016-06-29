@@ -399,15 +399,43 @@ sub makeBLASTDB {
 	unless (chdir($outputfolder)) {
 		&errorMessage(__LINE__, "Cannot change working directory.");
 	}
-	while (glob("query*.txt")) {
-		my $gilist = $_;
-		$gilist =~ /(query\d+)\.txt/;
-		my $prefix = $1;
-		if (system("BLASTDB=\"$blastdbpath\" $blastdb_aliastool -dbtype nucl -db $blastdb -gilist $gilist -out $prefix -title $prefix 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot make cachedb \"$prefix\".");
+	{
+		my $child = 0;
+		$| = 1;
+		$? = 0;
+		while (glob("query*.txt")) {
+			if (my $pid = fork()) {
+				$child ++;
+				if ($child == $numthreads) {
+					if (wait == -1) {
+						$child = 0;
+					} else {
+						$child --;
+					}
+				}
+				if ($?) {
+					&errorMessage(__LINE__);
+				}
+				next;
+			}
+			else {
+				my $gilist = $_;
+				$gilist =~ /(query\d+)\.txt/;
+				my $prefix = $1;
+				if (system("BLASTDB=\"$blastdbpath\" $blastdb_aliastool -dbtype nucl -db $blastdb -gilist $gilist -out $prefix -title $prefix 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot make cachedb \"$prefix\".");
+				}
+				unless ($nodel) {
+					unlink($gilist);
+				}
+				exit;
+			}
 		}
-		unless ($nodel) {
-			unlink($gilist);
+	}
+	# join
+	while (wait != -1) {
+		if ($?) {
+			&errorMessage(__LINE__, 'Cannot run $blastdb_aliastool correctly.');
 		}
 	}
 	unless (chdir($root)) {
