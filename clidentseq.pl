@@ -448,7 +448,7 @@ sub searchNeighborhoods {
 					print(STDERR "Searching neighborhoods of sequence $qnum...\n");
 					local $/ = "\n";
 					if (-d $blastdb1 && $blastdb1 eq $blastdb2) {
-						if (-e "$blastdb1/query$qnum.nal" && -e "$blastdb1/query$qnum.n.gil") {
+						if (-e "$blastdb1/query$qnum.nsq") {
 							$blastdb1 = "$blastdb1/query$qnum";
 							$blastdb2 = "$blastdb2/query$qnum";
 						}
