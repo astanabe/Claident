@@ -427,6 +427,7 @@ sub makeBLASTDB {
 				my $tempfasta = $_;
 				$tempfasta =~ /(query\d+)\.fasta/;
 				my $prefix = $1;
+				print(STDERR "Constructing cache database for $prefix...\n");
 				if (system("BLASTDB=\"$blastdbpath\" $makeblastdb -in $tempfasta -input_type fasta -dbtype nucl -parse_seqids -hash_index -out $prefix -title $prefix 1> $devnull")) {
 					&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $makeblastdb -in $tempfasta -input_type fasta -dbtype nucl -parse_seqids -hash_index -out $prefix -title $prefix\".");
 				}
