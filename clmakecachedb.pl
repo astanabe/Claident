@@ -26,7 +26,7 @@ my $outputfolder;
 
 # commands
 my $blastn;
-my $blastdb_aliastool;
+my $makeblastdb;
 
 # global variables
 my $blastdbpath;
@@ -182,7 +182,7 @@ sub checkVariables {
 	if ($blastoption !~ / \-max_target_seqs /) {
 		$blastoption .= ' -max_target_seqs 10000';
 	}
-	# search blastn and blastdb_aliastool
+	# search blastn and makeblastdb
 	{
 		my $pathto;
 		if ($ENV{'CLAIDENTHOME'}) {
@@ -222,11 +222,11 @@ sub checkVariables {
 				&errorMessage(__LINE__, "Cannot find \"$pathto\".");
 			}
 			$blastn = "\"$pathto/blastn\"";
-			$blastdb_aliastool = "\"$pathto/blastdb_aliastool\"";
+			$makeblastdb = "\"$pathto/makeblastdb\"";
 		}
 		else {
 			$blastn = 'blastn';
-			$blastdb_aliastool = 'blastdb_aliastool';
+			$makeblastdb = 'makeblastdb';
 		}
 	}
 	# set BLASTDB path
@@ -375,27 +375,28 @@ sub retrieveSimilarSequences {
 sub runBLAST {
 	my $tempnseq = shift(@_);
 	print(STDERR "Searching similar sequences of $tempnseq sequences...\n");
-	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp\" -num_threads $numthreads -searchsp 9223372036854775807 |")) {
-		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp\" -num_threads $numthreads -searchsp 9223372036854775807\".");
+	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp sseq\" -show_gis -num_threads $numthreads -searchsp 9223372036854775807 |")) {
+		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp sseq\" -show_gis -num_threads $numthreads -searchsp 9223372036854775807\".");
 	}
 	local $/ = "\n";
 	while (<$pipehandleinput1>) {
-		if (/^\s*(\S+)\s+(\d+)\s+(\d+)\s+(\S+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
-			unless (open($filehandleoutput1, ">> $outputfolder/$1.txt")) {
-				&errorMessage(__LINE__, "Cannot write \"$outputfolder/$1.txt\".");
+		if (/^\s*(\S+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\S+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
+			unless (open($filehandleoutput1, ">> $outputfolder/$1.fasta")) {
+				&errorMessage(__LINE__, "Cannot write \"$outputfolder/$1.fasta\".");
 			}
-			print($filehandleoutput1 "$2\n");
+			print($filehandleoutput1 ">gi|$2\n$5\n");
 			close($filehandleoutput1);
 		}
 	}
 	close($pipehandleinput1);
 	#if ($?) {
-	#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp\" -num_threads $numthreads -searchsp 9223372036854775807\".");
+	#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp sseq\" -show_gis -num_threads $numthreads -searchsp 9223372036854775807\".");
 	#}
 	unlink("$outputfolder/tempquery.fasta");
 }
 
 sub makeBLASTDB {
+	print(STDERR "Constructing cache databases...\n");
 	unless (chdir($outputfolder)) {
 		&errorMessage(__LINE__, "Cannot change working directory.");
 	}
@@ -403,7 +404,7 @@ sub makeBLASTDB {
 		my $child = 0;
 		$| = 1;
 		$? = 0;
-		while (glob("query*.txt")) {
+		while (glob("query*.fasta")) {
 			if (my $pid = fork()) {
 				$child ++;
 				if ($child == $numthreads) {
@@ -419,14 +420,14 @@ sub makeBLASTDB {
 				next;
 			}
 			else {
-				my $gilist = $_;
-				$gilist =~ /(query\d+)\.txt/;
+				my $tempfasta = $_;
+				$tempfasta =~ /(query\d+)\.fasta/;
 				my $prefix = $1;
-				if (system("BLASTDB=\"$blastdbpath\" $blastdb_aliastool -dbtype nucl -db $blastdb -gilist $gilist -out $prefix -title $prefix 1> $devnull")) {
-					&errorMessage(__LINE__, "Cannot make cachedb \"$prefix\".");
+				if (system("BLASTDB=\"$blastdbpath\" $makeblastdb -in $tempfasta -input_type fasta -dbtype nucl -parse_seqids -hash_index -out $prefix -title $prefix 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $makeblastdb -in $tempfasta -input_type fasta -dbtype nucl -parse_seqids -hash_index -out $prefix -title $prefix\".");
 				}
 				unless ($nodel) {
-					unlink($gilist);
+					unlink($tempfasta);
 				}
 				exit;
 			}
@@ -435,12 +436,13 @@ sub makeBLASTDB {
 	# join
 	while (wait != -1) {
 		if ($?) {
-			&errorMessage(__LINE__, 'Cannot run $blastdb_aliastool correctly.');
+			&errorMessage(__LINE__, 'Cannot run $makeblastdb correctly.');
 		}
 	}
 	unless (chdir($root)) {
 		&errorMessage(__LINE__, "Cannot change working directory.");
 	}
+	print(STDERR "done.\n\n");
 }
 
 # error message
