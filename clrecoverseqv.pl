@@ -19,6 +19,7 @@ my $centroidfile;
 
 # commands
 my $vsearch;
+my $vsearch5d;
 
 # global variables
 my $root = getcwd();
