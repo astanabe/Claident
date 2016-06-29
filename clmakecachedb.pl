@@ -1,5 +1,6 @@
 use strict;
 use File::Spec;
+use Cwd 'getcwd';
 
 my $buildno = '0.2.x';
 
@@ -17,6 +18,7 @@ my $numthreads = 1;
 my $minlen = 50;
 my $minalnlen = 50;
 my $minalnpcov = 0.5;
+my $minnseq = 1000;
 
 # input/output
 my $inputfile;
@@ -28,6 +30,7 @@ my $blastdb_aliastool;
 
 # global variables
 my $blastdbpath;
+my $root = getcwd();
 
 # file handles
 my $filehandleinput1;
@@ -133,6 +136,9 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+min(?:imum)?(?:aln|alignment)(?:r|rate|p|percentage)(?:cov|coverage)=(.+)$/i) {
 			$minalnpcov = $1;
 		}
+		elsif ($ARGV[$i] =~ /^-+min(?:imum)?n(?:um)?seq(?:uence)?s?=(\d+)$/i) {
+			$minnseq = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+nodel$/i) {
 			$nodel = 1;
 		}
@@ -157,6 +163,9 @@ sub checkVariables {
 	}
 	if ($minalnpcov) {
 		$minalnpcov *= 100;
+	}
+	if ($minnseq < 1) {
+		&errorMessage(__LINE__, "The minimum number of sequences is too small.");
 	}
 	if ($blastoption =~ /\-(?:db|evalue|searchsp|gilist|negative_gilist|seqidlist|entrez_query|query|out|outfmt|num_descriptions|num_alignments|num_threads|subject|subject_loc|max_hsps) /) {
 		&errorMessage(__LINE__, "The options for blastn is invalid.");
@@ -299,6 +308,26 @@ sub readNegativeSeqIDList {
 }
 
 sub retrieveSimilarSequences {
+	# count number of sequences
+	unless (open($filehandleinput1, "< $inputfile")) {
+		&errorMessage(__LINE__, "Cannot open \"$inputfile\".");
+	}
+	my $nseq = 0;
+	while (<$filehandleinput1>) {
+		if (/^>.+\r?\n?$/) {
+			$nseq ++;
+		}
+	}
+	close($filehandleinput1);
+	my $nseqpersearch;
+	# calculate nseqs of each file
+	if ($nseq < $minnseq * 2) {
+		$nseqpersearch = $nseq;
+	}
+	else {
+		my $nsplit = int($nseq / $minnseq);
+		$nseqpersearch = int($nseq / $nsplit) + 1;
+	}
 	# read input file
 	print(STDERR "Searching similar sequences...\n");
 	unless (open($filehandleinput1, "< $inputfile")) {
@@ -330,13 +359,13 @@ sub retrieveSimilarSequences {
 				print($filehandleoutput1 join('', @seq) . "\n");
 				close($filehandleoutput1);
 				# search similar sequences
-				if (scalar(@queries) % ($numthreads * 100) == 0) {
-					&runBLAST($numthreads * 100);
+				if (scalar(@queries) % $nseqpersearch == 0) {
+					&runBLAST($nseqpersearch);
 				}
 			}
 		}
 		if (-e "$outputfolder/tempquery.fasta") {
-			&runBLAST(scalar(@queries) % ($numthreads * 100));
+			&runBLAST(scalar(@queries) % $nseqpersearch);
 		}
 	}
 	close($filehandleinput1);
@@ -367,16 +396,22 @@ sub runBLAST {
 }
 
 sub makeBLASTDB {
-	while (glob("$outputfolder/query*.txt")) {
+	unless (chdir($outputfolder)) {
+		&errorMessage(__LINE__, "Cannot change working directory.");
+	}
+	while (glob("query*.txt")) {
 		my $gilist = $_;
 		$gilist =~ /(query\d+)\.txt/;
 		my $prefix = $1;
-		if (system("BLASTDB=\"$blastdbpath\" $blastdb_aliastool -dbtype nucl -db $blastdb -gilist $gilist -out $outputfolder/$prefix -title $prefix 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot make cachedb \"$outputfolder/$prefix\".");
+		if (system("BLASTDB=\"$blastdbpath\" $blastdb_aliastool -dbtype nucl -db $blastdb -gilist $gilist -out $prefix -title $prefix 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot make cachedb \"$prefix\".");
 		}
 		unless ($nodel) {
 			unlink($gilist);
 		}
+	}
+	unless (chdir($root)) {
+		&errorMessage(__LINE__, "Cannot change working directory.");
 	}
 }
 
@@ -427,6 +462,10 @@ blastn options end
 --minalnpcov=DECIMAL
   Specify minimum percentage of alignment coverage.
 (default: 0.5)
+
+--minnseq=INTEGER
+  Specify minimum number of sequences of each splitted search.
+(default: 1000)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)
