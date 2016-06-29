@@ -344,7 +344,7 @@ sub retrieveSimilarSequences {
 }
 
 sub runBLAST {
-	print(STDERR "Searching similar sequences of several sequences...\n");
+	print(STDERR "Searching similar sequences of " . ($numthreads * 2) . " sequences...\n");
 	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp\" -num_threads $numthreads -searchsp 9223372036854775807 |")) {
 		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp\" -num_threads $numthreads -searchsp 9223372036854775807\".");
 	}
