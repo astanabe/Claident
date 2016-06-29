@@ -330,13 +330,13 @@ sub retrieveSimilarSequences {
 				print($filehandleoutput1 join('', @seq) . "\n");
 				close($filehandleoutput1);
 				# search similar sequences
-				if (scalar(@queries) % ($numthreads * 2) == 0) {
-					&runBLAST();
+				if (scalar(@queries) % ($numthreads * 10) == 0) {
+					&runBLAST($numthreads * 10);
 				}
 			}
 		}
 		if (-e "$outputfolder/tempquery.fasta") {
-			&runBLAST();
+			&runBLAST(scalar(@queries) % ($numthreads * 10));
 		}
 	}
 	close($filehandleinput1);
@@ -344,7 +344,8 @@ sub retrieveSimilarSequences {
 }
 
 sub runBLAST {
-	print(STDERR "Searching similar sequences of " . ($numthreads * 2) . " sequences...\n");
+	my $tempnseq = shift(@_);
+	print(STDERR "Searching similar sequences of $tempnseq sequences...\n");
 	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp\" -num_threads $numthreads -searchsp 9223372036854775807 |")) {
 		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp\" -num_threads $numthreads -searchsp 9223372036854775807\".");
 	}
