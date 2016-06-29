@@ -254,6 +254,9 @@ sub concatenateSequences {
 			my @outputfastq;
 			for (my $i = 0; $i < scalar(@inputfiles); $i += 2) {
 				my $prefix = $inputfiles[$i];
+				if ($prefix =~ /\//) {
+					$prefix =~ s/^.+\///;
+				}
 				$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
 				if (system("$vsearch --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads 1> $devnull")) {
 					&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads\".");
@@ -278,6 +281,9 @@ sub concatenateSequences {
 			my @outputfastq;
 			for (my $i = 0; $i < scalar(@inputfiles); $i += 2) {
 				my $prefix = $inputfiles[$i];
+				if ($prefix =~ /\//) {
+					$prefix =~ s/^.+\///;
+				}
 				$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
 				&concatenateNonoverlappedPair($inputfiles[$i], $inputfiles[($i + 1)], "$output/$prefix.fastq");
 				push(@outputfastq, "$output/$prefix.fastq");
