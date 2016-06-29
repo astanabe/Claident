@@ -46,7 +46,7 @@ unless (-e $inputfile) {
 	&errorMessage(__LINE__, "\"$inputfile\" does not exist.");
 }
 my $qualfile;
-my $border = 'start';
+my $border = 'both';
 my %query;
 my $queryfile;
 my $reversecomplement;
@@ -79,7 +79,7 @@ for (my $i = 0; $i < scalar(@ARGV) - 3; $i ++) {
 	elsif ($ARGV[$i] =~ /^-+(?:reversecomplement|revcomp)$/i) {
 		$reversecomplement = 1;
 	}
-	elsif ($ARGV[$i] =~ /^-+border=(start|end)$/i) {
+	elsif ($ARGV[$i] =~ /^-+border=(start|end|both)$/i) {
 		$border = lc($1);
 	}
 	elsif ($ARGV[$i] =~ /^-+g(?:ap)?o(?:pen)?(?:score)?=(-?\d+)$/i) {
@@ -200,15 +200,19 @@ if (-e $qualfile) {
 			}
 			my @seq = $sequence =~ /\S/g;
 			my $seq = join('', @seq);
-			my $borderpos;
+			my @borderpos;
 			foreach my $query (keys(%query)) {
 				my ($start, $end, $pmismatch, $nmismatch) = &searchQuery($query, $seq);
 				if ((!defined($maxnmismatch) || $nmismatch <= $maxnmismatch) && $pmismatch <= $maxpmismatch) {
 					if ($border eq 'start') {
-						$borderpos = $start;
+						push(@borderpos, $start);
+					}
+					elsif ($border eq 'end') {
+						push(@borderpos, ($end + 1));
 					}
 					else {
-						$borderpos = $end + 1;
+						push(@borderpos, $start);
+						push(@borderpos, ($end + 1));
 					}
 					last;
 				}
@@ -218,10 +222,18 @@ if (-e $qualfile) {
 			my $formerqual;
 			my $latterseq;
 			my $latterqual;
-			if (defined($borderpos)) {
-				$latterseq = join('', splice(@seq, $borderpos));
+			if (scalar(@borderpos) == 1) {
+				$latterseq = join('', splice(@seq, $borderpos[0]));
 				if (@qual) {
-					$latterqual = join(' ', splice(@qual, $borderpos));
+					$latterqual = join(' ', splice(@qual, $borderpos[0]));
+				}
+			}
+			elsif (scalar(@borderpos) == 2) {
+				$latterseq = join('', splice(@seq, $borderpos[1]));
+				splice(@seq, $borderpos[0]);
+				if (@qual) {
+					$latterqual = join(' ', splice(@qual, $borderpos[1]));
+					splice(@qual, $borderpos[0])
 				}
 			}
 			$formerseq = join('', @seq);
@@ -512,8 +524,8 @@ Command line options
   If this option is specified, reverse-complement of query sequence will be
 searched. (default: off)
 
---border=START|END
-  Specify split border position. (default: start)
+--border=START|END|BOTH
+  Specify split border position. (default: both)
 
 --maxpmismatch=DECIMAL
   Specify maximum acceptable mismatch percentage for queries. (default: 0.15)
