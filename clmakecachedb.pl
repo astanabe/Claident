@@ -330,13 +330,13 @@ sub retrieveSimilarSequences {
 				print($filehandleoutput1 join('', @seq) . "\n");
 				close($filehandleoutput1);
 				# search similar sequences
-				if (scalar(@queries) % ($numthreads * 10) == 0) {
-					&runBLAST($numthreads * 10);
+				if (scalar(@queries) % ($numthreads * 100) == 0) {
+					&runBLAST($numthreads * 100);
 				}
 			}
 		}
 		if (-e "$outputfolder/tempquery.fasta") {
-			&runBLAST(scalar(@queries) % ($numthreads * 10));
+			&runBLAST(scalar(@queries) % ($numthreads * 100));
 		}
 	}
 	close($filehandleinput1);
