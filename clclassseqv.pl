@@ -9,6 +9,7 @@ my $devnull = File::Spec->devnull();
 # options
 my $numthreads = 1;
 my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --sizein --sizeout --qmask none --fulldp --cluster_size';
+my $paddinglen = 0;
 my $nodel;
 
 # input/output
@@ -17,6 +18,7 @@ my @inputfiles;
 
 # commands
 my $vsearch;
+my $vsearch5d;
 
 # global variables
 my $root = getcwd();
@@ -104,6 +106,9 @@ sub getOptions {
 				&errorMessage(__LINE__, "The minimum identity threshold is invalid.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+padding(?:len|length)=(\d+)$/i) {
+			$paddinglen = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
 			$numthreads = $1;
 		}
@@ -180,9 +185,11 @@ sub checkVariables {
 				&errorMessage(__LINE__, "Cannot find \"$pathto\".");
 			}
 			$vsearch = "\"$pathto/vsearch\"";
+			$vsearch5d = "\"$pathto/vsearch5d\"";
 		}
 		else {
 			$vsearch = 'vsearch';
+			$vsearch5d = 'vsearch5d';
 		}
 	}
 }
@@ -251,8 +258,15 @@ sub makeConcatenatedFiles {
 
 sub runVSEARCH {
 	print(STDERR "Running clustering by VSEARCH...\n");
-	if (system("$vsearch$vsearchoption concatenated.fasta --threads $numthreads --centroids clustered.fasta --uc clustered.uc 1> $devnull")) {
-		&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --threads $numthreads --centroids clustered.fasta --uc clustered.uc\".");
+	if ($paddinglen > 0) {
+		if (system("$vsearch5d$vsearchoption concatenated.fasta --idoffset $paddinglen --threads $numthreads --centroids clustered.fasta --uc clustered.uc 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --idoffset $paddinglen --threads $numthreads --centroids clustered.fasta --uc clustered.uc\".");
+		}
+	}
+	else {
+		if (system("$vsearch$vsearchoption concatenated.fasta --threads $numthreads --centroids clustered.fasta --uc clustered.uc 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --threads $numthreads --centroids clustered.fasta --uc clustered.uc\".");
+		}
 	}
 	&convertUCtoOTUMembers("clustered.uc", "clustered.otu.gz", "concatenated.otu.gz");
 	unlink("concatenated.fasta");
@@ -432,6 +446,9 @@ Command line options
 ====================
 --minident=DECIMAL
   Specify the minimum identity threshold. (default: 0.97)
+
+--paddinglen=INTEGER
+  Specify the length of padding. (default: 0)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)

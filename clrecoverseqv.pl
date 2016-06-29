@@ -9,6 +9,7 @@ my $devnull = File::Spec->devnull();
 # options
 my $numthreads = 1;
 my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --xsize --qmask none --dbmask none --fulldp --usearch_global';
+my $paddinglen = 0;
 my $nodel;
 
 # input/output
@@ -113,6 +114,9 @@ sub getOptions {
 				&errorMessage(__LINE__, "The centroid sequence file does not exist.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+padding(?:len|length)=(\d+)$/i) {
+			$paddinglen = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
 			$numthreads = $1;
 		}
@@ -189,9 +193,11 @@ sub checkVariables {
 				&errorMessage(__LINE__, "Cannot find \"$pathto\".");
 			}
 			$vsearch = "\"$pathto/vsearch\"";
+			$vsearch5d = "\"$pathto/vsearch5d\"";
 		}
 		else {
 			$vsearch = 'vsearch';
+			$vsearch5d = 'vsearch5d';
 		}
 	}
 }
@@ -261,12 +267,19 @@ sub makeConcatenatedFiles {
 sub runVSEARCH {
 	print(STDERR "Running remapping by VSEARCH...\n");
 	# sort by abundance
-	if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads 1> $devnull")) {
-		&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads\".");
+	if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --idoffset $paddinglen --threads $numthreads 1> $devnull")) {
+		&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --idoffset $paddinglen --threads $numthreads\".");
 	}
 	# remap dereplicated reads to centroids
-	if (system("$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc 1> $devnull")) {
-		&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc\".");
+	if ($paddinglen > 0) {
+		if (system("$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc\".");
+		}
+	}
+	else {
+		if (system("$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc\".");
+		}
 	}
 	&convertUCtoOTUMembers("clustered.uc", "clustered.otu.gz", "concatenated.otu.gz");
 	unless ($nodel) {
