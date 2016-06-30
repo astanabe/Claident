@@ -268,13 +268,13 @@ sub makeConcatenatedFiles {
 sub runVSEARCH {
 	print(STDERR "Running remapping by VSEARCH...\n");
 	# sort by abundance
-	if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --idoffset $paddinglen --threads $numthreads 1> $devnull")) {
-		&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --idoffset $paddinglen --threads $numthreads\".");
+	if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads 1> $devnull")) {
+		&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads\".");
 	}
 	# remap dereplicated reads to centroids
 	if ($paddinglen > 0) {
-		if (system("$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc\".");
+		if (system("$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --idoffset $paddinglen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --idoffset $paddinglen\".");
 		}
 	}
 	else {
@@ -467,6 +467,9 @@ Command line options
 
 --centroid=FILENAME
   Specify the centroid sequence file. (default: none)
+
+--paddinglen=INTEGER
+  Specify the length of padding. (default: 0)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)
