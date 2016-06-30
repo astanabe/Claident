@@ -8,6 +8,8 @@ my $devnull = File::Spec->devnull();
 
 # options
 my $folder = 0;
+my $maxnmismatch = 20;
+my $minovllen = 20;
 my $compress = 'gz';
 my $mode = 'ovl';
 my $padding = 'ACGTACGTTGCATGCA';
@@ -83,12 +85,19 @@ sub getOptions {
 	my %inputfiles;
 	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 		if ($ARGV[$i] =~ /^-+(?:mode|m)=(.+)$/i) {
-			if ($1 =~ /^(?:ovl|non)$/i) {
-				$mode = lc($1);
+			my $value = $1;
+			if ($value =~ /^(?:ovl|non)$/i) {
+				$mode = lc($value);
 			}
 			else {
 				&errorMessage(__LINE__, "The concatenation mode is invalid.");
 			}
+		}
+		elsif ($ARGV[$i] =~ /^-+max(?:imum)?n(?:um)?mismatch=(.+)$/i) {
+			$maxnmismatch = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+min(?:imum)?(?:overlap|ovl)(?:length|len)=(\d+)$/i) {
+			$minovllen = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:padding|p)=(.+)$/i) {
 			if ($1 =~ /^[ACGT]+$/i) {
@@ -241,8 +250,9 @@ sub concatenateSequences {
 	print(STDERR "\nProcessing sequences...\n");
 	if ($mode eq 'ovl') {
 		if (scalar(@inputfiles) == 2 && !$folder) {
-			if (system("$vsearch --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_allowmergestagger --fastqout $output --threads $numthreads 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_allowmergestagger --fastqout $output --threads $numthreads\".");
+			print(STDERR "Concatenating $inputfiles[0] and $inputfiles[1] using VSEARCH...\n");
+			if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads\".");
 			}
 			&compressFileByName($output);
 		}
@@ -258,8 +268,9 @@ sub concatenateSequences {
 					$prefix =~ s/^.+\///;
 				}
 				$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
-				if (system("$vsearch --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads 1> $devnull")) {
-					&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads\".");
+				print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . " using VSEARCH...\n");
+				if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads\".");
 				}
 				push(@outputfastq, "$output/$prefix.fastq");
 			}
@@ -270,8 +281,9 @@ sub concatenateSequences {
 	}
 	elsif ($mode eq 'non') {
 		if (scalar(@inputfiles) == 2 && !$folder) {
+			print(STDERR "Concatenating $inputfiles[0] and $inputfiles[1]...\n");
 			&concatenateNonoverlappedPair($inputfiles[0], $inputfiles[1], $output);
-			&compressFileByName($output);
+			&concatenateFiles($output);
 		}
 		else {
 			# make output directory
@@ -285,12 +297,11 @@ sub concatenateSequences {
 					$prefix =~ s/^.+\///;
 				}
 				$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
+				print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . "...\n");
 				&concatenateNonoverlappedPair($inputfiles[$i], $inputfiles[($i + 1)], "$output/$prefix.fastq");
 				push(@outputfastq, "$output/$prefix.fastq");
 			}
-			if ($compress) {
-				&compressInParallel(@outputfastq);
-			}
+			&concatenateFiles(@outputfastq);
 		}
 	}
 	print(STDERR "done.\n");
@@ -302,6 +313,7 @@ sub concatenateNonoverlappedPair {
 	my $outputfile = shift(@_);
 	$filehandleinput1 = &readFile($forwardread);
 	$filehandleinput2 = &readFile($reverseread);
+	# concatenate
 	{
 		my $tempnline = 1;
 		my $seqname;
@@ -402,6 +414,70 @@ sub concatenateNonoverlappedPair {
 				&errorMessage(__LINE__, "Invalid FASTQ.\nFile: $forwardread\nLine: $tempnline");
 			}
 			$tempnline ++;
+		}
+		# join
+		while (wait != -1) {
+			if ($?) {
+				&errorMessage(__LINE__, 'Cannot concatenate sequences correctly.');
+			}
+		}
+	}
+	close($filehandleinput1);
+	close($filehandleinput2);
+}
+
+sub concatenateFiles {
+	{
+		my $child = 0;
+		$| = 1;
+		$? = 0;
+		foreach my $outputfile (@_) {
+			if (my $pid = fork()) {
+				$child ++;
+				if ($child == $numthreads) {
+					if (wait == -1) {
+						$child = 0;
+					} else {
+						$child --;
+					}
+				}
+				if ($?) {
+					&errorMessage(__LINE__);
+				}
+				next;
+			}
+			else {
+				my @seqfiles = glob("$outputfile.*");
+				if (scalar(@seqfiles) == $numthreads * 2) {
+					if ($folder && $compress) {
+						$filehandleoutput1 = writeFile("$outputfile.$compress");
+					}
+					else {
+						$filehandleoutput1 = writeFile("$outputfile");
+					}
+					foreach my $seqfile (@seqfiles) {
+						unless (open($filehandleinput1, "< $seqfile")) {
+							&errorMessage(__LINE__, "Cannot open \"$seqfile\".");
+						}
+						while (<$filehandleinput1>) {
+							print($filehandleoutput1 $_);
+						}
+						close($filehandleinput1);
+						unlink($seqfile);
+					}
+					close($filehandleoutput1);
+				}
+				else {
+					&errorMessage(__LINE__, "Invalid results.");
+				}
+				exit;
+			}
+		}
+		# join
+		while (wait != -1) {
+			if ($?) {
+				&errorMessage(__LINE__, 'Cannot concatenate sequence file correctly.');
+			}
 		}
 	}
 }
@@ -520,6 +596,32 @@ sub readFile {
 	return($filehandle);
 }
 
+sub writeFile {
+	my $filehandle;
+	my $filename = shift(@_);
+	if ($filename =~ /\.gz$/i) {
+		unless (open($filehandle, "| gzip -c >> $filename 2> $devnull")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	elsif ($filename =~ /\.bz2$/i) {
+		unless (open($filehandle, "| bzip2 -c >> $filename 2> $devnull")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	elsif ($filename =~ /\.xz$/i) {
+		unless (open($filehandle, "| xz -c >> $filename 2> $devnull")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	else {
+		unless (open($filehandle, ">> $filename")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	return($filehandle);
+}
+
 sub reversecomplement {
 	my @temp = split('', $_[0]);
 	my @seq;
@@ -548,14 +650,17 @@ clconcatpair options forwardread reverseread outputfile (or outputfolder)
 
 Command line options
 ====================
-vsearch options end
-  Specify commandline options for vsearch.
-
 -o, --output=FILE|DIRECTORY
   Specify output format. (default: DIRECTORY)
 
 -m, --mode=OVL|NON
   Specify the concatenation mode. (default: OVL)
+
+--maxnmismatch=INTEGER
+  Specify the maximum number of mismatches. (default: 20)
+
+--minovllen=INTEGER
+  Specify the minimum length of overlap. (default: 20)
 
 -p, --padding=SEQUENCE
   Specify the padding sequence for non-overlapped paired-end mode.

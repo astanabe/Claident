@@ -402,8 +402,8 @@ sub runNoiseDetection {
 		}
 	}
 	else {
-		if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --cons_truncate --uc primarycluster.uc 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --cons_truncate --uc primarycluster.uc\".");
+		if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --msaout primarycluster_msa.fasta --consout primarycluster.fasta --cons_truncate --uc primarycluster.uc 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --msaout primarycluster_msa.fasta --consout primarycluster.fasta --cons_truncate --uc primarycluster.uc\".");
 		}
 		if (system("perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta 1> $devnull")) {
 			&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta\".");
