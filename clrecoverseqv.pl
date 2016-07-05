@@ -382,6 +382,39 @@ sub convertUCtoOTUMembers {
 	close($filehandleoutput1);
 }
 
+sub getMinimumLength {
+	my $filename = shift(@_);
+	my $minlen;
+	unless (open($filehandleinput1, "< $filename")) {
+		&errorMessage(__LINE__, "Cannot read \"$filename\".");
+	}
+	my $templength = 0;
+	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
+		s/\s+//g;
+		if (/^>/ && $templength > 0) {
+			if (!defined($minlen) || $templength < $minlen) {
+				$minlen = $templength;
+			}
+			$templength = 0;
+		}
+		else {
+			$templength += length($_);
+		}
+	}
+	close($filehandleinput1);
+	if (!defined($minlen) || $templength < $minlen) {
+		$minlen = $templength;
+	}
+	if ($minlen < 100) {
+		$minlen = 100;
+	}
+	if ($minlen > 10000) {
+		$minlen = 10000;
+	}
+	return($minlen);
+}
+
 sub writeFile {
 	my $filehandle;
 	my $filename = shift(@_);

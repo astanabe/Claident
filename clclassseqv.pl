@@ -371,7 +371,7 @@ sub getMinimumLength {
 		&errorMessage(__LINE__, "Cannot read \"$filename\".");
 	}
 	my $templength = 0;
-	while (<$pipehandleinput1>) {
+	while (<$filehandleinput1>) {
 		s/\r?\n?$//;
 		s/\s+//g;
 		if (/^>/ && $templength > 0) {
