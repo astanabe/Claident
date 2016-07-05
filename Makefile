@@ -137,6 +137,7 @@ install: $(PROGRAM)
 	mkdir -p $(PREFIX)/share/claident
 	mkdir -p $(PREFIX)/share/claident/taxdb
 	mkdir -p $(PREFIX)/share/claident/blastdb
+	mkdir -p $(PREFIX)/share/claident/uchimedb
 	echo "CLAIDENTHOME=$(PREFIX)/share/claident" > $(PREFIX)/share/claident/.claident
 	echo "TAXONOMYDB=$(PREFIX)/share/claident/taxdb" >> $(PREFIX)/share/claident/.claident
 	echo "BLASTDB=$(PREFIX)/share/claident/blastdb" >> $(PREFIX)/share/claident/.claident
