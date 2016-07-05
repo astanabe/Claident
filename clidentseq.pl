@@ -659,15 +659,15 @@ sub searchNeighborhoods {
 							}
 							# make negative GI list and search borderline
 							if (!@borderlinegi) {
-								unless (open($filehandleoutput1, "> $outputfile1.$qnum.ngilist")) {
-									&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.ngilist\".");
+								unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/ngilist.txt")) {
+									&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp/ngilist.txt\".");
 								}
 								foreach my $ngi (sort({$a <=> $b} keys(%ngilist))) {
 									print($filehandleoutput1 "$ngi\n");
 								}
 								close($filehandleoutput1);
-								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist \"$outputfile1.$qnum.ngilist\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807 |")) {
-									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist \"$outputfile1.$qnum.ngilist\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
+								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist \"$outputfile1.$qnum.temp/ngilist.txt\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807 |")) {
+									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist \"$outputfile1.$qnum.temp/ngilist.txt\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length qcovhsp\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
 								}
 								my %borderlines;
 								while (<$pipehandleinput1>) {
@@ -686,7 +686,7 @@ sub searchNeighborhoods {
 								}
 								close($pipehandleinput1);
 								#if ($?) {
-								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist \"$outputfile1.$qnum.ngilist\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
+								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_gilist \"$outputfile1.$qnum.temp/ngilist.txt\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sgi score length\" -show_gis -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
 								#}
 							}
 							if (@borderlinegi) {
