@@ -25,6 +25,7 @@ my $minnreplicate = 2;
 my $minpreplicate = 1;
 my $minnpositive = 1;
 my $minppositive = 0;
+my $minovllen = 0;
 my $numthreads = 1;
 my $derepmode = 'prefix';
 my $nodel;
@@ -161,6 +162,9 @@ sub getOptions {
 		}
 		elsif ($ARGV[$i] =~ /^-+min(?:imum)?(?:r|rate|p|percentage)positive=(\d(?:\.\d+)?)$/i) {
 			$minppositive = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+min(?:imum)?(?:overlap|ovl)(?:length|len)=(\d+)$/i) {
+			$minovllen = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+runname=(.+)$/i) {
 			$runname = $1;
@@ -396,20 +400,29 @@ sub runNoiseDetection {
 		}
 	}
 	# primary clustering and make consensus for canceling errors out
-	if ($primarymaxnmismatch == 0) {
-		if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc\".");
+	{
+		my $tempminovllen;
+		if ($minovllen == 0) {
+			$tempminovllen = &getMinimumLength("temp2.fasta") - 10;
 		}
-	}
-	else {
-		if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc\".");
+		else {
+			$tempminovllen = $minovllen;
 		}
-		if (system("perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta\".");
+		if ($primarymaxnmismatch == 0) {
+			if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen\".");
+			}
 		}
-		unless ($nodel) {
-			unlink("primarycluster.fasta.bak");
+		else {
+			if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc\".");
+			}
+			if (system("perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta\".");
+			}
+			unless ($nodel) {
+				unlink("primarycluster.fasta.bak");
+			}
 		}
 	}
 	&convertUCtoOTUMembers("primarycluster.uc", "primarycluster.otu.gz", "temp2.otu.gz");
@@ -432,10 +445,17 @@ sub runNoiseDetection {
 		&errorMessage(__LINE__, "\"primarycluster.otu.gz\" is invalid.");
 	}
 	if ($mincleanclustersize == 0) {
+		my $tempminovllen;
+		if ($minovllen == 0) {
+			$tempminovllen = &getMinimumLength("primarycluster.fasta") - 10;
+		}
+		else {
+			$tempminovllen = $minovllen;
+		}
 		# cluster primarycluster to secondarycluster
 		if (-e 'primarycluster.otu.gz' && -e 'primarycluster.fasta') {
-			if (system("$vsearch$vsearch4option primarycluster.fasta --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch4option primarycluster.fasta --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc\".");
+			if (system("$vsearch$vsearch4option primarycluster.fasta --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc --mincols $tempminovllen 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch4option primarycluster.fasta --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc --mincols $tempminovllen\".");
 			}
 			&convertUCtoOTUMembers("secondarycluster.uc", "secondarycluster.otu.gz");
 		}
@@ -824,6 +844,39 @@ sub compressFASTAs {
 	print(STDERR "done.\n\n");
 }
 
+sub getMinimumLength {
+	my $filename = shift(@_);
+	my $minlen;
+	unless (open($filehandleinput1, "< $filename")) {
+		&errorMessage(__LINE__, "Cannot read \"$filename\".");
+	}
+	my $templength = 0;
+	while (<$pipehandleinput1>) {
+		s/\r?\n?$//;
+		s/\s+//g;
+		if (/^>/ && $templength > 0) {
+			if (!defined($minlen) || $templength < $minlen) {
+				$minlen = $templength;
+			}
+			$templength = 0;
+		}
+		else {
+			$templength += length($_);
+		}
+	}
+	close($filehandleinput1);
+	if (!defined($minlen) || $templength < $minlen) {
+		$minlen = $templength;
+	}
+	if ($minlen < 100) {
+		$minlen = 100;
+	}
+	if ($minlen > 10000) {
+		$minlen = 10000;
+	}
+	return($minlen);
+}
+
 sub getOTUMembers {
 	my $otufile = shift(@_);
 	my %otumembers;
@@ -1153,6 +1206,9 @@ positive in noise/chimera detection. (default: 1)
 --minppositive=DECIMAL
   The OTU that consists of this proportion of reads will be treated as true
 positive in noise/chimera detection. (default: 0)
+
+--minovllen=INTEGER
+  Specify minimum overlap length. 0 means automatic. (default: 0)
 
 --runname=RUNNAME
   Specify run name for replacing run name.

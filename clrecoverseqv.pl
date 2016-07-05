@@ -10,6 +10,7 @@ my $devnull = File::Spec->devnull();
 my $numthreads = 1;
 my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --xsize --qmask none --dbmask none --fulldp --usearch_global';
 my $paddinglen = 0;
+my $minovllen = 0;
 my $nodel;
 
 # input/output
@@ -117,6 +118,9 @@ sub getOptions {
 		}
 		elsif ($ARGV[$i] =~ /^-+padding(?:len|length)=(\d+)$/i) {
 			$paddinglen = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+min(?:imum)?(?:overlap|ovl)(?:length|len)=(\d+)$/i) {
+			$minovllen = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
 			$numthreads = $1;
@@ -271,15 +275,22 @@ sub runVSEARCH {
 	if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads 1> $devnull")) {
 		&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads\".");
 	}
+	my $tempminovllen;
+	if ($minovllen == 0) {
+		$tempminovllen = &getMinimumLength("concatenated.fasta") - 10;
+	}
+	else {
+		$tempminovllen = $minovllen;
+	}
 	# remap dereplicated reads to centroids
 	if ($paddinglen > 0) {
-		if (system("$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --idoffset $paddinglen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --idoffset $paddinglen\".");
+		if (system("$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --idoffset $paddinglen --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --idoffset $paddinglen --mincols $tempminovllen\".");
 		}
 	}
 	else {
-		if (system("$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc\".");
+		if (system("$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --mincols $tempminovllen\".");
 		}
 	}
 	&convertUCtoOTUMembers("clustered.uc", "clustered.otu.gz", "concatenated.otu.gz");
@@ -470,6 +481,9 @@ Command line options
 
 --paddinglen=INTEGER
   Specify the length of padding. (default: 0)
+
+--minovllen=INTEGER
+  Specify minimum overlap length. 0 means automatic. (default: 0)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)
