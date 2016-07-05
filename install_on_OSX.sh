@@ -6,4 +6,5 @@ gmake PREFIX=$PREFIX || exit $?
 gmake PREFIX=$PREFIX install || sudo gmake PREFIX=$PREFIX install || exit $?
 gmake clean || exit $?
 cp $PREFIX/share/claident/.claident ~/.claident || exit $?
-sudo cp $PREFIX/share/claident/.claident /etc/claident/.claident || exit $?
+#sudo mkdir /etc/claident/.claident || exit $?
+#sudo cp $PREFIX/share/claident/.claident /etc/claident/.claident || exit $?
