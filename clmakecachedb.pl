@@ -18,7 +18,7 @@ my $numthreads = 1;
 my $minlen = 50;
 my $minalnlen = 50;
 my $minalnpcov = 0.5;
-my $minnseq = 1000;
+my $minnseq = 500;
 
 # input/output
 my $inputfile;
