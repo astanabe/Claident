@@ -8,7 +8,7 @@ my $devnull = File::Spec->devnull();
 
 # options
 my $numthreads = 1;
-my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --sizein --sizeout --qmask none --fulldp --cluster_size';
+my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --qmask none --fulldp --cluster_size';
 my $paddinglen = 0;
 my $minovllen = 0;
 my $nodel;
@@ -107,6 +107,14 @@ sub getOptions {
 				&errorMessage(__LINE__, "The minimum identity threshold is invalid.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:strand|s)=(forward|plus|single|both|double)$/i) {
+			if ($1 =~ /^(?:forward|plus|single)$/i) {
+				$vsearchoption = ' --strand plus' . $vsearchoption;
+			}
+			else {
+				$vsearchoption = ' --strand both' . $vsearchoption;
+			}
+		}
 		elsif ($ARGV[$i] =~ /^-+padding(?:len|length)=(\d+)$/i) {
 			$paddinglen = $1;
 		}
@@ -148,6 +156,9 @@ sub checkVariables {
 	}
 	if ($vsearchoption !~ / -+id \d+/) {
 		$vsearchoption = " --id 0.97" . $vsearchoption;
+	}
+	if ($vsearchoption !~ /-+strand (plus|both)/i) {
+		$vsearchoption = ' --strand plus' . $vsearchoption;
 	}
 	# search vsearch
 	{
@@ -490,6 +501,9 @@ Command line options
 ====================
 --minident=DECIMAL
   Specify the minimum identity threshold. (default: 0.97)
+
+--strand=PLUS|BOTH
+  Specify search strand option for VSEARCH. (default: PLUS)
 
 --paddinglen=INTEGER
   Specify the length of padding. (default: 0)

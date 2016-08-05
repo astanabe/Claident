@@ -8,7 +8,7 @@ my $devnull = File::Spec->devnull();
 
 # options
 my $numthreads = 1;
-my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --xsize --qmask none --dbmask none --fulldp --usearch_global';
+my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --xsize --qmask none --dbmask none --fulldp --usearch_global';
 my $paddinglen = 0;
 my $minovllen = 0;
 my $nodel;
@@ -108,6 +108,14 @@ sub getOptions {
 				&errorMessage(__LINE__, "The minimum identity threshold is invalid.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:strand|s)=(forward|plus|single|both|double)$/i) {
+			if ($1 =~ /^(?:forward|plus|single)$/i) {
+				$vsearchoption = ' --strand plus' . $vsearchoption;
+			}
+			else {
+				$vsearchoption = ' --strand both' . $vsearchoption;
+			}
+		}
 		elsif ($ARGV[$i] =~ /^-+centroids?=(.+)$/i) {
 			if (-e $1) {
 				$centroidfile = $1;
@@ -157,6 +165,9 @@ sub checkVariables {
 	}
 	if ($vsearchoption !~ / -+id \d+/) {
 		$vsearchoption = " --id 0.97" . $vsearchoption;
+	}
+	if ($vsearchoption !~ /-+strand (plus|both)/i) {
+		$vsearchoption = ' --strand plus' . $vsearchoption;
 	}
 	# search vsearch
 	{
@@ -508,6 +519,9 @@ Command line options
 ====================
 --minident=DECIMAL
   Specify the minimum identity threshold. (default: 0.97)
+
+--strand=PLUS|BOTH
+  Specify search strand option for VSEARCH. (default: PLUS)
 
 --centroid=FILENAME
   Specify the centroid sequence file. (default: none)

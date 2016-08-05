@@ -13,9 +13,9 @@ my $vsearch1option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 
 # vsearch option for among-sample dereplication
 my $vsearch2option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --sizein --sizeout';
 # vsearch option for primary clustering
-my $vsearch3option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --sizein --sizeout --qmask none --fulldp --wordlength 12 --cluster_size';
+my $vsearch3option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --qmask none --fulldp --wordlength 12 --cluster_size';
 # vsearch option for secondary clustering
-my $vsearch4option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --sizein --sizeout --qmask none --fulldp --wordlength 12 --cluster_size';
+my $vsearch4option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --qmask none --fulldp --wordlength 12 --cluster_size';
 my $mincleanclustersize = 0;
 my $pnoisycluster = 0.5;
 my $runname;
@@ -136,6 +136,16 @@ sub getOptions {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:strand|s)=(forward|plus|single|both|double)$/i) {
+			if ($1 =~ /^(?:forward|plus|single)$/i) {
+				$vsearch3option = ' --strand plus' . $vsearch3option;
+				$vsearch4option = ' --strand plus' . $vsearch4option;
+			}
+			else {
+				$vsearch3option = ' --strand both' . $vsearch3option;
+				$vsearch4option = ' --strand both' . $vsearch4option;
+			}
+		}
 		elsif ($ARGV[$i] =~ /^-+primarymax(?:imum)?n(?:um)?(?:mismatch|mismatches)=(\d+)$/i) {
 			$primarymaxnmismatch = $1;
 		}
@@ -201,6 +211,12 @@ sub checkVariables {
 	}
 	if (!@inputfiles) {
 		&errorMessage(__LINE__, "No input file was specified.");
+	}
+	if ($vsearch3option !~ /-+strand (plus|both)/i) {
+		$vsearch3option = ' --strand plus' . $vsearch3option;
+	}
+	if ($vsearch4option !~ /-+strand (plus|both)/i) {
+		$vsearch4option = ' --strand plus' . $vsearch4option;
 	}
 	if ($replicatelist && !-e $replicatelist) {
 		&errorMessage(__LINE__, "\"$replicatelist\" does not exist.");
@@ -1172,6 +1188,9 @@ Command line options
 ====================
 --derepmode=FULL|PREFIX
   Specify dereplication mode for VSEARCH. (default: PREFIX)
+
+--strand=PLUS|BOTH
+  Specify search strand option for VSEARCH. (default: PLUS)
 
 --primarymaxnmismatch=INTEGER
   Specify the maximum number of acceptable mismatches for primary clustering.

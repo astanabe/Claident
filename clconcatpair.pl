@@ -12,7 +12,7 @@ my $maxnmismatch = 20;
 my $minovllen = 20;
 my $compress = 'gz';
 my $mode = 'ovl';
-my $padding = 'ACGTACGTTGCATGCA';
+my $padding = 'ACGTACGTACGTACGT';
 my $numthreads = 1;
 my $nodel;
 
@@ -664,7 +664,7 @@ Command line options
 
 -p, --padding=SEQUENCE
   Specify the padding sequence for non-overlapped paired-end mode.
-(default: ACGTACGTTGCATGCA)
+(default: ACGTACGTACGTACGT)
 
 --compress=GZIP|BZIP2|XZ|DISABLE
   Specify compress output files or not. (default: GZIP)
