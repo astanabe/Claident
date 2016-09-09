@@ -11,8 +11,8 @@ clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.' --gilist=
 # make BLAST database
 cd blastdb || exit $?
 # NT-independent, but prokaryota_all_genus-dependent
-blastdb_aliastool -dbtype nucl -db ./prokaryota_all_genus -gilist ../prokaryota_16S_genus.txt -out prokaryota_16S_genus -title prokaryota_16S_genus 2> /dev/null || exit $?
-blastdb_aliastool -dbtype nucl -db ./prokaryota_all_genus -gilist ../prokaryota_16S_species.txt -out prokaryota_16S_species -title prokaryota_16S_species 2> /dev/null || exit $?
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_16S_genus.txt -out prokaryota_16S_genus -title prokaryota_16S_genus 2> /dev/null || exit $?
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_16S_species.txt -out prokaryota_16S_species -title prokaryota_16S_species 2> /dev/null || exit $?
 #
 blastdbcmd -db ./prokaryota_16S_genus -target_only -entry all -out ../prokaryota_16S_genus.txt -outfmt %g || exit $?
 cd .. || exit $?

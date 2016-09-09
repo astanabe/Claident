@@ -1,4 +1,4 @@
-sudo apt-get install make libdbi-perl libdbd-sqlite3-perl libwww-perl tar xz-utils || exit $?
+sudo apt-get install make libdbi-perl libdbd-sqlite3-perl libfile-copy-recursive-perl libwww-perl tar xz-utils || exit $?
 if test -z $PREFIX; then
 export PREFIX=/usr/local || exit $?
 fi

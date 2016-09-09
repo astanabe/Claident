@@ -4,6 +4,7 @@ export PATH=/usr/local/share/claident/bin:$PATH
 # search by keywords at INSD
 clretrievegi --keywords='"ddbj embl genbank"[Filter] AND (txid33208[Organism:exp] AND 200:10000[Sequence Length] AND ("cytochrome c oxidase subunit 1"[Title] OR "cytochrome c oxydase subunit 1"[Title] OR "cytochrome c oxidase subunit I"[Title] OR "cytochrome c oxydase subunit I"[Title] OR "cytochrome oxidase subunit 1"[Title] OR "cytochrome oxydase subunit 1"[Title] OR "cytochrome oxidase subunit I"[Title] OR "cytochrome oxydase subunit I"[Title] OR COX1[Title] OR CO1[Title] OR COI[Title]) NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title])' animals_COX11.txt || exit $?
 clretrievegi --keywords='"ddbj embl genbank"[Filter] AND (txid33208[Organism:exp] AND "complete genome"[Title] AND mitochondrion[Filter] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title])' animals_mitogenomes.txt || exit $?
+wait
 cat animals_mitogenomes.txt >> animals_COX11.txt || exit $?
 # make taxonomy database
 clmaketaxdb --includetaxid=33208 taxonomy animals.taxdb || exit $?

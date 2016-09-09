@@ -1,4 +1,4 @@
-sudo port install p5-dbi p5-dbd-sqlite p5-libwww-perl gmake gnutar xz build_arch=x86_64 || exit $?
+sudo port install p5-dbi p5-dbd-sqlite p5-file-copy-recursive p5-libwww-perl gmake gnutar xz build_arch=x86_64 || exit $?
 if test -z $PREFIX; then
 export PREFIX=/usr/local || exit $?
 fi
