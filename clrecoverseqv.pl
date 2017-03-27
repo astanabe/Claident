@@ -8,7 +8,7 @@ my $devnull = File::Spec->devnull();
 
 # options
 my $numthreads = 1;
-my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --xsize --qmask none --dbmask none --fulldp --usearch_global';
+my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --qmask none --dbmask none --fulldp --usearch_global';
 my $paddinglen = 0;
 my $minovllen = 0;
 my $nodel;
@@ -283,8 +283,8 @@ sub makeConcatenatedFiles {
 sub runVSEARCH {
 	print(STDERR "Running remapping by VSEARCH...\n");
 	# sort by abundance
-	if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads 1> $devnull")) {
-		&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads\".");
+	if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads 1> $devnull")) {
+		&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads\".");
 	}
 	my $tempminovllen;
 	if ($minovllen == 0) {

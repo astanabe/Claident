@@ -82,11 +82,20 @@ sub fillBlanks {
 	while (<$filehandleinput1>) {
 		if (/\t/) {
 			s/\r?\n?$//;
-			my @cell = split(/\t/, $_);
+			my @cell = split(/\t/, $_, -1);
 			my $taxon;
-			for (my $i = -1; $i * (-1) <= scalar(@cell); $i --) {
+			for (my $i = -1; $i * (-1) < scalar(@cell); $i --) {
 				if ($taxon && $cell[$i] eq '') {
 					$cell[$i] = $taxon;
+				}
+				elsif ($cell[$i]) {
+					$taxon = $cell[$i];
+				}
+			}
+			undef($taxon);
+			for (my $i = 1; $i < scalar(@cell); $i ++) {
+				if ($taxon && $cell[$i] eq '') {
+					$cell[$i] = "unidentified $taxon";
 				}
 				elsif ($cell[$i]) {
 					$taxon = $cell[$i];

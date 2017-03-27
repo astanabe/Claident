@@ -585,6 +585,7 @@ sub processSequences {
 			s/\r?\n?$//;
 			if ($tempnline % 4 == 1 && /^\@(\S+)/) {
 				$seqname = $1;
+				$seqname =~ s/;size=\d+;?//g;
 				if ($filehandleinput2) {
 					readline($filehandleinput2);
 				}

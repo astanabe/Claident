@@ -26,10 +26,10 @@ wait
 #
 blastdbcmd -db ./semiall_class -target_only -entry all -out ../semiall_underclass.txt -outfmt %g || exit $?
 cd .. || exit $?
-# minimize taxdb
-clmaketaxdb --workspace=disk --gilist=semiall_underclass.txt taxonomy semiall_class.taxdb || exit $?
-ln -s semiall_class.taxdb semiall_order.taxdb || exit $?
-ln -s semiall_class.taxdb semiall_family.taxdb || exit $?
-ln -s semiall_class.taxdb semiall_genus.taxdb || exit $?
-ln -s semiall_class.taxdb semiall_species.taxdb || exit $?
+# make taxdb
+ln -s overall_class.taxdb semiall_class.taxdb || exit $?
+ln -s overall_class.taxdb semiall_order.taxdb || exit $?
+ln -s overall_class.taxdb semiall_family.taxdb || exit $?
+ln -s overall_class.taxdb semiall_genus.taxdb || exit $?
+ln -s overall_class.taxdb semiall_species.taxdb || exit $?
 rm semiall_temp.taxdb || exit $?
