@@ -293,7 +293,7 @@ sub runVSEARCH {
 	&convertUCtoOTUMembers("clustered.uc", "clustered.otu.gz", "concatenated.otu.gz");
 	unlink("concatenated.fasta");
 	unlink("concatenated.otu.gz");
-	if (system("perl -i.bak -npe 's/;size=\d+;?//' clustered.fasta")) {
+	if (system("perl -i.bak -npe 's/;size=\\d+;?//' clustered.fasta")) {
 		&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/;size=\\d+;?//' clustered.fasta\".");
 	}
 	unlink("clustered.fasta.bak");
