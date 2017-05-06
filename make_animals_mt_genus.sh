@@ -1,7 +1,7 @@
 #!/bin/sh
 export PATH=/usr/local/share/claident/bin:$PATH
 # search by keywords at INSD
-clretrievegi --keywords='"ddbj embl genbank"[Filter] AND (txid33208[Organism:exp] AND mitochondrion[Filter] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title])' animals_mt.txt || exit $?
+clretrievegi --keywords='"ddbj embl genbank"[Filter] AND (txid33208[Organism:exp] AND (mitochondrion[Filter] OR mitochondrial[Filter]) NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title])' animals_mt.txt || exit $?
 # make taxonomy database
 #clmaketaxdb --includetaxid=33208 taxonomy animals.taxdb || exit $?
 # extract genus-level identified sequences

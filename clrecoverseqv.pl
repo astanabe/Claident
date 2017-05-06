@@ -282,9 +282,8 @@ sub makeConcatenatedFiles {
 
 sub runVSEARCH {
 	print(STDERR "Running remapping by VSEARCH...\n");
-	# sort by abundance
-	if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads 1> $devnull")) {
-		&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sortbysize $root/$centroidfile --output clustered.fasta --threads $numthreads\".");
+	unless (fcopy("$root/$centroidfile", "clustered.fasta")) {
+		&errorMessage(__LINE__, "Cannot copy \"$root/$centroidfile\" to \"clustered.fasta\".");
 	}
 	my $tempminovllen;
 	if ($minovllen == 0) {
@@ -313,10 +312,10 @@ sub runVSEARCH {
 		unlink("nohit.fasta");
 	}
 	else {
-		print(STDERR "WARNING!: Several centroid sequences did not match the input sequences.\nThis is weird.\nPlease check the input files.\n");
-		if (system("gzip nohit.fasta")) {
-			&errorMessage(__LINE__, "Cannot run \"gzip nohit.fasta\".");
-		}
+		print(STDERR "WARNING!: Several centroid sequences did not match the input sequences.\nThis is weird.\nPlease check the input files and \"nohit.fasta\".\n");
+		#if (system("gzip nohit.fasta")) {
+		#	&errorMessage(__LINE__, "Cannot run \"gzip nohit.fasta\".");
+		#}
 	}
 	#if (system("gzip clustered.fasta")) {
 	#	&errorMessage(__LINE__, "Cannot run \"gzip clustered.fasta\".");

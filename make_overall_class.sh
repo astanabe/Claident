@@ -1,5 +1,5 @@
 #!/bin/sh
-#$ -l nc=28
+#$ -l nc=8
 export PATH=/usr/local/share/claident/bin:$PATH
 # make taxonomy database
 clmaketaxdb --includetaxid=2,2157 taxonomy prokaryota.taxdb &
@@ -26,7 +26,7 @@ cd blastdb || exit $?
 blastdbcmd -db ./nt -target_only -entry_batch ../prokaryota_all_undergenus.txt -outfmt '%g %l' -out - 2> /dev/null | perl -ne 'if(/^(\d+)\s+(\d+)/&&$2>200000){print("$1\n");}' | blastdbcmd -db ./nt -target_only -entry_batch - -out - 2> /dev/null | gzip -c > prokaryota_long_temp.fasta.gz &
 blastdbcmd -db ./nt -target_only -entry_batch ../overall_underclass.txt -out - 2> /dev/null | gzip -c > overall_temp.fasta.gz &
 wait
-clderepblastdb --minlen=100 --maxlen=200000 --dellongseq=enable --numthreads=28 overall_temp.fasta.gz overall_class.fasta.gz || exit $?
+clderepblastdb --minlen=100 --maxlen=200000 --dellongseq=enable --numthreads=8 overall_temp.fasta.gz overall_class.fasta.gz || exit $?
 rm overall_temp.fasta.gz || exit $?
 # make BLAST database
 # NT-independent
