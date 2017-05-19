@@ -172,7 +172,12 @@ foreach my $temp ('.claident', $ENV{'HOME'} . '/.claident', '/etc/claident/.clai
 		$pathto =~ s/^"(.+)"$/$1/;
 		$pathto =~ s/\/$//;
 		if ($blastdbpath) {
-			$blastdbpath .= ':' . $pathto;
+			if ($^O eq 'cygwin') {
+				$blastdbpath .= ';' . $pathto;
+			}
+			else {
+				$blastdbpath .= ':' . $pathto;
+			}
 		}
 		else {
 			$blastdbpath = $pathto;

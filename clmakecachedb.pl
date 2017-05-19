@@ -253,7 +253,12 @@ sub checkVariables {
 			$pathto =~ s/^"(.+)"$/$1/;
 			$pathto =~ s/\/$//;
 			if ($blastdbpath) {
-				$blastdbpath .= ':' . $pathto;
+				if ($^O eq 'cygwin') {
+					$blastdbpath .= ';' . $pathto;
+				}
+				else {
+					$blastdbpath .= ':' . $pathto;
+				}
 			}
 			else {
 				$blastdbpath = $pathto;

@@ -5,5 +5,8 @@ fi
 make PREFIX=$PREFIX || exit $?
 make PREFIX=$PREFIX install || exit $?
 make clean || exit $?
+echo "CLAIDENTHOME=$PREFIX/share/claident" > $PREFIX/share/claident/.claident || exit $?
+echo "TAXONOMYDB=$PREFIX/share/claident/taxdb" >> $PREFIX/share/claident/.claident || exit $?
+echo "BLASTDB="`cygpath -w "$PREFIX/share/claident/blastdb"` >> $PREFIX/share/claident/.claident || exit $?
+echo "UCHIMEDB=$PREFIX/share/claident/uchimedb" >> $PREFIX/share/claident/.claident || exit $?
 cp $PREFIX/share/claident/.claident ~/.claident || exit $?
-cp $PREFIX/share/claident/.claident /etc/claident/.claident || exit $?
