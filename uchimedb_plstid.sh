@@ -14,6 +14,8 @@ vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp matKn
 cat matKnr99.fasta matKnr99rc.fasta > cdumatk.fasta
 
 extractfeat -type CDS -tag gene -value "rbcL" plastid.gb rbcL.fasta
+extractfeat -type CDS -tag gene -value "rbcL" cyanobacteria.gb stdout >> rbcL.fasta
+extractfeat -type CDS -tag product -value "ribulose*large*subunit" cyanobacteria.gb stdout >> rbcL.fasta
 vsearch --id 0.99 --qmask none --strand both --threads 8 --notrunclabels --cluster_fast rbcL.fasta --centroids rbcLnr99.fasta
 vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp rbcLnr99.fasta --fastaout rbcLnr99rc.fasta
 cat rbcLnr99.fasta rbcLnr99rc.fasta > cdurbcl.fasta

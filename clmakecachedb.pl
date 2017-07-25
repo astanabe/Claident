@@ -68,7 +68,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2016  Akifumi S. Tanabe
+Copyright (C) 2011-2017  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -505,7 +505,7 @@ blastn options end
 
 --minnseq=INTEGER
   Specify minimum number of sequences of each splitted search.
-(default: 1000)
+(default: 500)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)

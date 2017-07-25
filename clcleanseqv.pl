@@ -64,6 +64,8 @@ sub main {
 	&checkVariables();
 	# read replicate list file
 	&readListFiles();
+	# check input file format
+	&checkInputFiles();
 	# make output directory
 	if (!-e $outputfolder && !mkdir($outputfolder)) {
 		&errorMessage(__LINE__, 'Cannot make output folder.');
@@ -98,7 +100,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2016  Akifumi S. Tanabe
+Copyright (C) 2011-2017  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -315,6 +317,68 @@ sub readListFiles {
 		}
 		close($filehandleinput1);
 	}
+}
+
+sub checkInputFiles {
+	print(STDERR "Checking input files...\n");
+	{
+		my $child = 0;
+		$| = 1;
+		$? = 0;
+		foreach my $inputfile (@inputfiles) {
+			if (my $pid = fork()) {
+				$child ++;
+				if ($child == $numthreads) {
+					if (wait == -1) {
+						$child = 0;
+					} else {
+						$child --;
+					}
+				}
+				if ($?) {
+					&errorMessage(__LINE__);
+				}
+				next;
+			}
+			else {
+				print(STDERR "Checking $inputfile...\n");
+				if ($inputfile =~ /^.+__.+__.+/) {
+					my $fileformat;
+					my $lineno = 1;
+					$filehandleinput1 = &readFile($inputfile);
+					while (<$filehandleinput1>) {
+						if (!$fileformat && $lineno == 1) {
+							if (/^>/) {
+								$fileformat = 'FASTA';
+							}
+							elsif (/^\@/) {
+								$fileformat = 'FASTQ';
+							}
+							else {
+								&errorMessage(__LINE__, "The input file \"$inputfile\" is invalid.");
+							}
+						}
+						if ($fileformat eq 'FASTA' && /^>/ || $fileformat eq 'FASTQ' && $lineno % 4 == 1) {
+							if ($_ =~ /.+__.+__.+__.+/) {
+								next;
+							}
+							else {
+								$_ = s/^[>\@](.+)\r?\n?$/$1/;
+								&errorMessage(__LINE__, "The sequence name \"$_\" in \"$inputfile\" is invalid.");
+							}
+						}
+						$lineno ++;
+					}
+					close($filehandleinput1);
+				}
+				else {
+					&erorrMessage(__LINE__, "The input file name \"$inputfile\" is invalid.");
+				}
+				exit;
+			}
+		}
+	}
+	print(STDERR "done.\n\n");
 }
 
 sub runVSEARCHExactEach {
