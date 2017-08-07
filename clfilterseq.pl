@@ -607,7 +607,7 @@ sub processSequences {
 				}
 				next;
 			}
-			elsif ($tempnline % 4 == 0 && $seqname && $nucseq1) {
+			elsif ($tempnline % 4 == 0 && $seqname) {
 				s/\s//g;
 				$qualseq1 = $_;
 				if ($filehandleinput2) {
@@ -682,6 +682,12 @@ sub processSequences {
 				&errorMessage(__LINE__, "Invalid FASTQ.\nFile: $inputfiles[0]\nLine: $tempnline");
 			}
 			$tempnline ++;
+		}
+		# join
+		while (wait != -1) {
+			if ($?) {
+				&errorMessage(__LINE__, 'Cannot split sequence file correctly.');
+			}
 		}
 	}
 	elsif ($format eq 'FASTA') {
@@ -767,11 +773,11 @@ sub processSequences {
 				}
 			}
 		}
-	}
-	# join
-	while (wait != -1) {
-		if ($?) {
-			&errorMessage(__LINE__, 'Cannot split sequence file correctly.');
+		# join
+		while (wait != -1) {
+			if ($?) {
+				&errorMessage(__LINE__, 'Cannot split sequence file correctly.');
+			}
 		}
 	}
 	close($filehandleinput1);

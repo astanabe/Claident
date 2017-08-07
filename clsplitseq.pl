@@ -784,7 +784,7 @@ sub processOneSequence {
 		elsif ($nucseq1 && $nucseq2 && !$nucseq3 && !$nucseq4) {
 			my $tagseq = substr($nucseq1, 0, $taglength, '') . '-' . substr($nucseq2, 0, $reversetaglength, '');
 			my $tagqual = substr($qualseq1, 0, $taglength, '') . substr($qualseq2, 0, $reversetaglength, '');
-			if ($tag{$tagseq} && &checkTagQualities($tagqual)) {
+			if ($tag{$tagseq} && &checkTagQualities($tagqual) && $nucseq1 && $nucseq2) {
 				$suffix .= '__' . $tag{$tagseq};
 				if ($primerfile) {
 					&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, $suffix, $child);
@@ -799,7 +799,7 @@ sub processOneSequence {
 					&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
 				}
 			}
-			else {
+			elsif ($nucseq1 && $nucseq2) {
 				$suffix .= '__undetermined';
 				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
 				&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
@@ -809,7 +809,7 @@ sub processOneSequence {
 		elsif ($nucseq1 && !$nucseq2 && !$nucseq3 && !$nucseq4) {
 			my $tagseq = substr($nucseq1, 0, $taglength, '') . '-' . substr($nucseq1, (-1 * $reversetaglength), $reversetaglength, '');
 			my $tagqual = substr($qualseq1, 0, $taglength, '') . substr($qualseq1, (-1 * $reversetaglength), $reversetaglength, '');
-			if ($tag{$tagseq} && &checkTagQualities($tagqual)) {
+			if ($tag{$tagseq} && &checkTagQualities($tagqual) && $nucseq1) {
 				$suffix .= '__' . $tag{$tagseq};
 				if ($primerfile) {
 					&searchPrimers($nucseq1, $qualseq1, '', '', 2, $seqname, $suffix, $child);
@@ -822,7 +822,7 @@ sub processOneSequence {
 					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
 				}
 			}
-			else {
+			elsif ($nucseq1) {
 				$suffix .= '__undetermined';
 				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
 			}
@@ -883,7 +883,7 @@ sub processOneSequence {
 		elsif ($nucseq1 && $nucseq2) {
 			my $tagseq = substr($nucseq1, 0, $taglength, '');
 			my $tagqual = substr($qualseq1, 0, $taglength, '');
-			if ($tag{$tagseq} && &checkTagQualities($tagqual)) {
+			if ($tag{$tagseq} && &checkTagQualities($tagqual) && $nucseq1) {
 				$suffix .= '__' . $tag{$tagseq};
 				if ($primerfile) {
 					&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, $suffix, $child);
@@ -898,7 +898,7 @@ sub processOneSequence {
 					&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
 				}
 			}
-			else {
+			elsif ($nucseq1) {
 				$suffix .= '__undetermined';
 				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
 				&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
@@ -908,7 +908,7 @@ sub processOneSequence {
 		elsif ($nucseq1) {
 			my $tagseq = substr($nucseq1, 0, $taglength, '');
 			my $tagqual = substr($qualseq1, 0, $taglength, '');
-			if ($tag{$tagseq} && &checkTagQualities($tagqual)) {
+			if ($tag{$tagseq} && &checkTagQualities($tagqual) && $nucseq1) {
 				$suffix .= '__' . $tag{$tagseq};
 				if ($primerfile) {
 					&searchPrimers($nucseq1, $qualseq1, '', '', 1, $seqname, $suffix, $child);
@@ -921,7 +921,7 @@ sub processOneSequence {
 					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
 				}
 			}
-			else {
+			elsif ($nucseq1) {
 				$suffix .= '__undetermined';
 				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
 			}
@@ -982,7 +982,7 @@ sub processOneSequence {
 		elsif ($nucseq1 && $nucseq2) {
 			my $reversetagseq = substr($nucseq2, 0, $reversetaglength, '');
 			my $reversetagqual = substr($qualseq2, 0, $reversetaglength, '');
-			if ($reversetag{$reversetagseq} && &checkTagQualities($reversetagqual)) {
+			if ($reversetag{$reversetagseq} && &checkTagQualities($reversetagqual) && $nucseq2) {
 				$suffix .= '__' . $reversetag{$reversetagseq};
 				if ($primerfile) {
 					&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, $suffix, $child);
@@ -997,7 +997,7 @@ sub processOneSequence {
 					&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
 				}
 			}
-			else {
+			elsif ($nucseq2) {
 				$suffix .= '__undetermined';
 				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
 				&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
@@ -1007,7 +1007,7 @@ sub processOneSequence {
 		elsif ($nucseq1) {
 			my $reversetagseq = substr($nucseq1, (-1 * $reversetaglength), $reversetaglength, '');
 			my $reversetagqual = substr($qualseq1, (-1 * $reversetaglength), $reversetaglength, '');
-			if ($reversetag{$reversetagseq} && &checkTagQualities($reversetagqual)) {
+			if ($reversetag{$reversetagseq} && &checkTagQualities($reversetagqual) && $nucseq1) {
 				$suffix .= '__' . $reversetag{$reversetagseq};
 				if ($primerfile) {
 					&searchPrimers($nucseq1, $qualseq1, '', '', 2, $seqname, $suffix, $child);
@@ -1020,7 +1020,7 @@ sub processOneSequence {
 					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
 				}
 			}
-			else {
+			elsif ($nucseq1) {
 				$suffix .= '__undetermined';
 				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
 			}
