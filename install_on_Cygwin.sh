@@ -1,4 +1,4 @@
-sh -c "yes '' | cpan -fi DBI DBD::SQLite LWP File::Copy::Recursive" || exit $?
+sh -c "yes '' | cpan -fi DBI DBD::SQLite LWP File::Copy::Recursive IO::Compress::Lzma" || exit $?
 if test -z $PREFIX; then
 export PREFIX=/usr/local || exit $?
 fi

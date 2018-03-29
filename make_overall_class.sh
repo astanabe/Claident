@@ -24,7 +24,8 @@ clelimdupgi --workspace=disk overall_underorder.txt overall_class.txt overall_un
 cd blastdb || exit $?
 # make BLAST database
 # NT-independent
-blastdbcmd -db ./nt -target_only -entry_batch ../overall_underclass.txt -out - -long_seqids 2> /dev/null | makeblastdb -dbtype nucl -parse_seqids -hash_index -out overall_class -title overall_class || exit $?
+clblastdbcmd --blastdb=./nt --output=FASTA --numthreads=8 ../overall_underclass.txt overall_class.fasta.gz || exit $?
+clmakeblastdb --minlen=100 --maxlen=1000000 --numthreads=8 overall_class.fasta.gz overall_class || exit $?
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_all_undergenus.txt -out prokaryota_all_genus -title prokaryota_all_genus &
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_all_species.txt -out prokaryota_all_species -title prokaryota_all_species &
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_underorder.txt -out overall_order -title overall_order &
@@ -33,13 +34,12 @@ blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_undergenus
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_species.txt -out overall_species -title overall_species &
 wait
 #
-blastdbcmd -db ./prokaryota_all_genus -target_only -entry all -out ../prokaryota_all_undergenus.txt -outfmt '%g' &
-blastdbcmd -db ./overall_class -target_only -entry all -out ../overall_underclass.txt -outfmt '%g' &
-wait
+clblastdbcmd --blastdb=./prokaryota_all_genus --output=GI --numthreads=8 ../prokaryota_all_undergenus.txt prokaryota_all_undergenus.txt || exit $?
+clblastdbcmd --blastdb=./overall_class --output=GI --numthreads=8 ../overall_underclass.txt overall_underclass.txt || exit $?
 cd .. || exit $?
 # minimize taxdb
-clmaketaxdb --gilist=prokaryota_all_undergenus.txt taxonomy prokaryota_all_genus.taxdb &
-clmaketaxdb --workspace=disk --gilist=overall_underclass.txt taxonomy overall_class.taxdb &
+clmaketaxdb --gilist=blastdb/prokaryota_all_undergenus.txt taxonomy prokaryota_all_genus.taxdb &
+clmaketaxdb --workspace=disk --gilist=blastdb/overall_underclass.txt taxonomy overall_class.taxdb &
 wait
 ln -s prokaryota_all_genus.taxdb prokaryota_all_species.taxdb || exit $?
 ln -s overall_class.taxdb overall_order.taxdb || exit $?

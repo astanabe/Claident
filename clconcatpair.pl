@@ -107,7 +107,7 @@ sub getOptions {
 				&errorMessage(__LINE__, "The padding sequence is invalid.");
 			}
 		}
-		elsif ($ARGV[$i] =~ /^-+output=(?:folder|dir|directory)$/i) {
+		elsif ($ARGV[$i] =~ /^-+(?:o|output)=(?:folder|dir|directory)$/i) {
 			$folder = 1;
 		}
 		elsif ($ARGV[$i] =~ /^-+compress=(.+)$/i) {

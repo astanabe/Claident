@@ -1,4 +1,5 @@
-sudo yum install -y make perl-DBI perl-DBD-SQLite perl-libwww-perl perl-File-Copy-Recursive perl-CPAN perl-YAML tar gzip xz || exit $?
+sudo -E yum install -y make perl-DBI perl-DBD-SQLite perl-libwww-perl perl-File-Copy-Recursive perl-CPAN perl-YAML tar gzip xz perl-IO-Compress || exit $?
+sudo -HE sh -c "yes '' | cpan -fi IO::Compress::Lzma" || exit $?
 if test -z $PREFIX; then
 export PREFIX=/usr/local || exit $?
 fi

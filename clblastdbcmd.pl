@@ -16,6 +16,7 @@ my $blastdbcmdoption = ' -dbtype nucl -target_only -ctrl_a -long_seqids';
 
 # options
 my $blastdb;
+my $outputformat = 'FASTA';
 my $numthreads = 1;
 my $ngilist;
 my $nseqidlist;
@@ -96,6 +97,21 @@ sub getOptions {
 		if ($ARGV[$i] =~ /^-+(?:db|blastdb|bdb)=(.+)$/i) {
 			$blastdb = $1;
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:o|output)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^FASTA$/i) {
+				$outputformat = 'FASTA';
+			}
+			elsif ($value =~ /^(?:GI|GenBankID)$/i) {
+				$outputformat = 'GI';
+			}
+			elsif ($value =~ /^(?:ACCESSION|ACC)$/i) {
+				$outputformat = 'ACCESSION';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
 		elsif ($ARGV[$i] =~ /^-+n(?:egative)?gilist=(.+)$/i) {
 			$ngilist = $1;
 		}
@@ -141,6 +157,15 @@ sub checkVariables {
 	}
 	if (!-e $inputfile) {
 		&errorMessage(__LINE__, "Input file does not exist.");
+	}
+	if ($outputformat eq 'FASTA') {
+		$outputformat = "'" . '%f' . "'";
+	}
+	elsif ($outputformat eq 'GI') {
+		$outputformat = "'" . '%g' . "'";
+	}
+	elsif ($outputformat eq 'ACCESSION') {
+		$outputformat = "'" . '%a' . "'";
 	}
 	# search blastn
 	{
@@ -347,7 +372,7 @@ sub runBlastdbcmd {
 		close($filehandleoutput1);
 	}
 	if (-e "$outputfile.$tempnfile.list" && !-z "$outputfile.$tempnfile.list") {
-		system("BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry_batch $outputfile.$tempnfile.list -out $outputfile.$tempnfile.fasta -outfmt '%f' 2> $devnull");
+		system("BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry_batch $outputfile.$tempnfile.list -out $outputfile.$tempnfile.fasta -outfmt $outputformat 2> $devnull");
 		if (!-e "$outputfile.$tempnfile.fasta") {
 			&errorMessage(__LINE__, "Cannot run blastdbcmd correctly.");
 		}
@@ -444,6 +469,9 @@ Command line options
 ====================
 --blastdb=BLASTDB
   Specify name of BLAST database. (default: none)
+
+-o, --output=FASTA|GI|ACCESSION
+  Specify output format. (default: FASTA)
 
 --negativegilist=FILENAME
   Specify file name of negative GI list. (default: none)
