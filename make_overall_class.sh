@@ -17,21 +17,14 @@ wait
 # del duplicate
 clelimdupgi --workspace=disk prokaryota_all_species.txt prokaryota_all_genus.txt prokaryota_all_undergenus.txt &
 clelimdupgi --workspace=disk overall_species.txt overall_genus.txt overall_undergenus.txt || exit $?
+wait
 clelimdupgi --workspace=disk overall_undergenus.txt overall_family.txt overall_underfamily.txt || exit $?
 clelimdupgi --workspace=disk overall_underfamily.txt overall_order.txt overall_underorder.txt || exit $?
 clelimdupgi --workspace=disk overall_underorder.txt overall_class.txt overall_underclass.txt || exit $?
-wait
 cd blastdb || exit $?
-# shrink database
-blastdbcmd -db ./nt -target_only -entry_batch ../prokaryota_all_undergenus.txt -outfmt '%g %l' -out - 2> /dev/null | perl -ne 'if(/^(\d+)\s+(\d+)/&&$2>200000){print("$1\n");}' | blastdbcmd -db ./nt -target_only -entry_batch - -out - 2> /dev/null | gzip -c > prokaryota_long_temp.fasta.gz &
-blastdbcmd -db ./nt -target_only -entry_batch ../overall_underclass.txt -out - 2> /dev/null | gzip -c > overall_temp.fasta.gz &
-wait
-clderepblastdb --minlen=100 --maxlen=200000 --dellongseq=enable --numthreads=8 overall_temp.fasta.gz overall_class.fasta.gz || exit $?
-rm overall_temp.fasta.gz || exit $?
 # make BLAST database
 # NT-independent
-gzip -dc overall_class.fasta.gz prokaryota_long_temp.fasta.gz | makeblastdb -dbtype nucl -parse_seqids -hash_index -out overall_class -title overall_class || exit $?
-rm overall_class.fasta.gz prokaryota_long_temp.fasta.gz || exit $?
+blastdbcmd -db ./nt -target_only -entry_batch ../overall_underclass.txt -out - -long_seqids 2> /dev/null | makeblastdb -dbtype nucl -parse_seqids -hash_index -out overall_class -title overall_class || exit $?
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_all_undergenus.txt -out prokaryota_all_genus -title prokaryota_all_genus &
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_all_species.txt -out prokaryota_all_species -title prokaryota_all_species &
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_underorder.txt -out overall_order -title overall_order &

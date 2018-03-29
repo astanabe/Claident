@@ -38,6 +38,7 @@ my $devnull = File::Spec->devnull();
 my $numthreads = 1;
 my $ht;
 my $blastoption;
+my $output = 'GI';
 
 # get input file name
 my $inputfile = $ARGV[-2];
@@ -291,6 +292,10 @@ Command line options
 ====================
 blastn options end
   Specify commandline options for blastn. (default: none)
+
+-o, --output=GI|FASTA
+  Specify output format. GI makes GI list, FASTA makes FASTA sequeces of aligned
+part of BLAST-hit entries. (default: GI)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)

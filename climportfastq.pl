@@ -187,7 +187,7 @@ sub processFASTQ {
 					$tempnline ++;
 					next;
 				}
-				elsif ($tempnline % 4 == 0 && $seqname && $nucseq) {
+				elsif ($tempnline % 4 == 0 && $seqname) {
 					s/\s//g;
 					$qualseq = $_;
 					if (my $pid = fork()) {

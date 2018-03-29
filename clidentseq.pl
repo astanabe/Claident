@@ -52,7 +52,7 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
-	# read replicate list file
+	# read negative seqids list file
 	&readNegativeSeqIDList();
 	# search neighborhood sequences
 	&searchNeighborhoods();
@@ -371,9 +371,7 @@ sub checkVariables {
 
 sub readNegativeSeqIDList {
 	if ($ngilist) {
-		unless (open($filehandleinput1, "< $ngilist")) {
-			&errorMessage(__LINE__, "Cannot open \"$ngilist\".");
-		}
+		$filehandleinput1 = &readFile($ngilist);
 		while (<$filehandleinput1>) {
 			if (/^\s*(\d+)/) {
 				$ngilist{$1} = 1;
@@ -382,9 +380,7 @@ sub readNegativeSeqIDList {
 		close($filehandleinput1);
 	}
 	elsif ($nseqidlist) {
-		unless (open($filehandleinput1, "< $nseqidlist")) {
-			&errorMessage(__LINE__, "Cannot open \"$nseqidlist\".");
-		}
+		$filehandleinput1 = &readFile($nseqidlist);
 		while (<$filehandleinput1>) {
 			if (/^\s*(\d+)/) {
 				$nseqidlist{$1} = 1;
@@ -417,9 +413,7 @@ sub readNegativeSeqIDList {
 sub searchNeighborhoods {
 	# read input file
 	print(STDERR "Searching neighborhoods...\n");
-	unless (open($filehandleinput1, "< $inputfile")) {
-		&errorMessage(__LINE__, "Cannot open \"$inputfile\".");
-	}
+	$filehandleinput1 = &readFile($inputfile);
 	{
 		my $qnum = -1;
 		my $child = 0;
@@ -976,9 +970,7 @@ sub outputFile {
 		}
 	}
 	# save results to output file
-	unless (open($filehandleoutput1, "> $outputfile")) {
-		&errorMessage(__LINE__, "Cannot make \"$outputfile\".");
-	}
+	$filehandleoutput1 = &writeFile($outputfile);
 	foreach my $query (@queries) {
 		if ($tempgis{$query}) {
 			print($filehandleoutput1 "$query\t" . join("\t", sort({$a <=> $b} keys(%{$tempgis{$query}}))) . "\n");
@@ -988,6 +980,58 @@ sub outputFile {
 		}
 	}
 	close($filehandleoutput1);
+}
+
+sub writeFile {
+	my $filehandle;
+	my $filename = shift(@_);
+	if ($filename =~ /\.gz$/i) {
+		unless (open($filehandle, "| gzip -c > $filename 2> $devnull")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	elsif ($filename =~ /\.bz2$/i) {
+		unless (open($filehandle, "| bzip2 -c > $filename 2> $devnull")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	elsif ($filename =~ /\.xz$/i) {
+		unless (open($filehandle, "| xz -c > $filename 2> $devnull")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	else {
+		unless (open($filehandle, "> $filename")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	return($filehandle);
+}
+
+sub readFile {
+	my $filehandle;
+	my $filename = shift(@_);
+	if ($filename =~ /\.gz$/i) {
+		unless (open($filehandle, "gzip -dc $filename 2> $devnull |")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	elsif ($filename =~ /\.bz2$/i) {
+		unless (open($filehandle, "bzip2 -dc $filename 2> $devnull |")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	elsif ($filename =~ /\.xz$/i) {
+		unless (open($filehandle, "xz -dc $filename 2> $devnull |")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	else {
+		unless (open($filehandle, "< $filename")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	return($filehandle);
 }
 
 # error message

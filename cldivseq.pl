@@ -50,6 +50,7 @@ my $border = 'both';
 my %query;
 my $queryfile;
 my $reversecomplement;
+my $nohit = 'output';
 my $maxpmismatch = 0.15;
 my $maxnmismatch;
 my $makedummy;
@@ -81,6 +82,18 @@ for (my $i = 0; $i < scalar(@ARGV) - 3; $i ++) {
 	}
 	elsif ($ARGV[$i] =~ /^-+border=(start|end|both)$/i) {
 		$border = lc($1);
+	}
+	elsif ($ARGV[$i] =~ /^-+nohit=(.+)$/i) {
+		my $value = $1;
+		if ($value =~ /^output$/i) {
+			$nohit = 'output';
+		}
+		elsif ($value =~ /^(?:eliminate|remove|delete)$/i) {
+			$nohit = 'eliminate';
+		}
+		else {
+			&errorMessage(__LINE__, "\"--nohit\" option is invalid.");
+		}
 	}
 	elsif ($ARGV[$i] =~ /^-+g(?:ap)?o(?:pen)?(?:score)?=(-?\d+)$/i) {
 		$goscore = $1;
@@ -179,7 +192,7 @@ if (-e $qualfile) {
 	while (<$inputhandle>) {
 		if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
 			my $taxon = $1;
-			my $sequence = $2;
+			my $sequence = uc($2);
 			$taxon =~ s/\s+$//;
 			$sequence =~ s/[> \r\n]//g;
 			my @qual;
@@ -201,9 +214,11 @@ if (-e $qualfile) {
 			my @seq = $sequence =~ /\S/g;
 			my $seq = join('', @seq);
 			my @borderpos;
+			my $hit = 0;
 			foreach my $query (keys(%query)) {
 				my ($start, $end, $pmismatch, $nmismatch) = &searchQuery($query, $seq);
 				if ((!defined($maxnmismatch) || $nmismatch <= $maxnmismatch) && $pmismatch <= $maxpmismatch) {
+					$hit = 1;
 					if ($border eq 'start') {
 						push(@borderpos, $start);
 					}
@@ -255,6 +270,9 @@ if (-e $qualfile) {
 						$latterqual = 20;
 					}
 				}
+			}
+			if ($nohit eq 'eliminate' && $hit == 0) {
+				next;
 			}
 			print($outputhandle1 ">$taxon\n");
 			print($outputhandle1 "$formerseq\n");
@@ -533,6 +551,9 @@ searched. (default: off)
 --maxnmismatch=INTEGER
   Specify maximum acceptable mismatch number for queries.
 (default: Inf)
+
+--nohit=OUTPUT|ELIMINATE
+  Specify handling method of unmatched sequences. (default: OUTPUT)
 
 -q, --qualfile=FILENAME
   Specify .qual file name. (default: inputfile.qual)
