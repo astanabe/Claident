@@ -400,10 +400,10 @@ sub writeFileAppend {
 		&errorMessage(__LINE__, "Cannot open \"$filename\".");
 	}
 	unless (flock($filehandle, LOCK_EX)) {
-		&errorMessage(__LINE__, "Cannot lock \"$outputfile\".");
+		&errorMessage(__LINE__, "Cannot lock \"$filename\".");
 	}
 	unless (seek($filehandle, 0, 2)) {
-		&errorMessage(__LINE__, "Cannot seek \"$outputfile\".");
+		&errorMessage(__LINE__, "Cannot seek \"$filename\".");
 	}
 	if ($filename =~ /\.gz$/i) {
 		unless ($filehandle = new IO::Compress::Gzip($filehandle, Append => 1)) {

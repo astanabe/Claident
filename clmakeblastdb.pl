@@ -9,7 +9,7 @@ my $buildno = '0.2.x';
 
 my $devnull = File::Spec->devnull();
 
-my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 3G';
+my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 2G';
 
 # options
 my $numthreads = 1;
@@ -17,8 +17,8 @@ my $ngilist;
 my $nseqidlist;
 my %ngilist;
 my %nseqidlist;
-my $minlen;
-my $maxlen;
+my $minlen = 0;
+my $maxlen = 10000000000;
 
 # input/output
 my $inputfile;
@@ -29,7 +29,7 @@ my $makeblastdb;
 my $blastdb_aliastool;
 
 # global variables
-my $maxsize = 4000000000;
+my $maxsize = 10000000000;
 
 # file handles
 my $filehandleinput1;
@@ -123,6 +123,16 @@ sub getOptions {
 }
 
 sub checkVariables {
+	print(STDERR "Minimum length: $minlen\nMaximum length: $maxlen\n");
+	if ($minlen > $maxlen) {
+		&errorMessage(__LINE__, "The minimum length threshold must be equal to or smaller than the maximum length threshold.");
+	}
+	if ($minlen > $maxsize) {
+		&errorMessage(__LINE__, "The minimum length threshold must be equal to or smaller than $maxsize.");
+	}
+	if ($maxlen > $maxsize) {
+		&errorMessage(__LINE__, "The maximum length threshold must be equal to or smaller than $maxsize.");
+	}
 	while (glob("$output.*.*")) {
 		if (/^$output\..+\.fasta$/) {
 			&errorMessage(__LINE__, "Temporary file already exists.");
@@ -230,13 +240,14 @@ sub splitInputFile {
 				}
 				$switch = 1;
 				if ($tempseq) {
-					if ($minlen && $maxlen && $tempseqlen >= $minlen && $tempseqlen <= $maxlen || $minlen && $tempseqlen >= $minlen || $maxlen && $tempseqlen <= $maxlen || !defined($minlen) && !defined($maxlen)) {
+					if (defined($minlen) && defined($maxlen) && $tempseqlen >= $minlen && $tempseqlen <= $maxlen) {
+						#print(STDERR "Sequence length: $tempseqlen\n");
 						print($filehandleoutput1 $tempseq);
 						$temptotal += $tempseqlen;
 					}
-					$tempseq = $_;
-					$tempseqlen = 0;
 				}
+				$tempseq = $_;
+				$tempseqlen = 0;
 				if ($temptotal >= $maxsize) {
 					close($filehandleoutput1);
 					if (my $pid = fork()) {
@@ -269,7 +280,8 @@ sub splitInputFile {
 		}
 		close($filehandleinput1);
 		if ($tempseq) {
-			if ($minlen && $maxlen && $tempseqlen >= $minlen && $tempseqlen <= $maxlen || $minlen && $tempseqlen >= $minlen || $maxlen && $tempseqlen <= $maxlen || !defined($minlen) && !defined($maxlen)) {
+			if (defined($minlen) && defined($maxlen) && $tempseqlen >= $minlen && $tempseqlen <= $maxlen) {
+				#print(STDERR "Sequence length: $tempseqlen\n");
 				print($filehandleoutput1 $tempseq);
 				$temptotal += $tempseqlen;
 			}
@@ -313,7 +325,7 @@ sub splitInputFile {
 sub runMakeblastdb {
 	my $tempnfile = shift(@_);
 	print(STDERR "Running makeblastdb using $output.$tempnfile.fasta...\n");
-	system("$makeblastdb$makeblastdboption -in $output.$tempnfile.fasta -out $output.$tempnfile -title $output.$tempnfile 2> $devnull");
+	system("$makeblastdb$makeblastdboption -in $output.$tempnfile.fasta -out $output.$tempnfile -title $output.$tempnfile 1> $devnull 2> $devnull");
 	if (!-e "$output.$tempnfile.nsq" || -z "$output.$tempnfile.nsq") {
 		&errorMessage(__LINE__, "Cannot run makeblastdb correctly.");
 	}
@@ -321,18 +333,69 @@ sub runMakeblastdb {
 }
 
 sub makeNal {
-	print(STDERR "Aggregating databases...\n");
-	$filehandleoutput1 = &writeFile("$output.dblist");
-	while (glob("$output.*.nsq")) {
-		print($filehandleoutput1 $_);
+	my @databases = glob("$output.*.nsq");
+	if (scalar(@databases) > 1) {
+		print(STDERR "Aggregating databases...\n");
+		$filehandleoutput1 = &writeFile("$output.dblist");
+		foreach (@databases) {
+			s/\.nsq$//;
+			print($filehandleoutput1 "$_\n");
+		}
+		close($filehandleoutput1);
+		system("$blastdb_aliastool -dbtype nucl -dblist_file $output.dblist -out $output -title $output");
+		unlink("$output.dblist");
+		if (!-e "$output.nal" || -z "$output.nal") {
+			&errorMessage(__LINE__, "Cannot run blastdb_aliastool correctly.");
+		}
 	}
-	close($filehandleoutput1);
-	system("$blastdb_aliastool -dbtype nucl -dblist_file $output.dblist -out $output -title $output");
-	unlink("$output.dblist");
-	if (!-e "$output.nal" || -z "$output.nal") {
-		&errorMessage(__LINE__, "Cannot run blastdb_aliastool correctly.");
+	elsif (scalar(@databases) == 1) {
+		print(STDERR "Renaming databases...\n");
+		$databases[0] =~ s/\.nsq$//;
+		rename("$databases[0].nhd", "$output.nhd");
+		rename("$databases[0].nhi", "$output.nhi");
+		rename("$databases[0].nhr", "$output.nhr");
+		rename("$databases[0].nin", "$output.nin");
+		rename("$databases[0].nnd", "$output.nnd");
+		rename("$databases[0].nni", "$output.nni");
+		rename("$databases[0].nog", "$output.nog");
+		rename("$databases[0].nsd", "$output.nsd");
+		rename("$databases[0].nsi", "$output.nsi");
+		rename("$databases[0].nsq", "$output.nsq");
+	}
+	else {
+		&errorMessage(__LINE__, "Cannot find constructed databases.");
 	}
 	print(STDERR "done.\n\n");
+}
+
+sub writeFile {
+	my $filehandle;
+	my $filename = shift(@_);
+	unless (open($filehandle, "> $filename")) {
+		&errorMessage(__LINE__, "Cannot open \"$filename\".");
+	}
+	unless (flock($filehandle, LOCK_EX)) {
+		&errorMessage(__LINE__, "Cannot lock \"$filename\".");
+	}
+	if ($filename =~ /\.gz$/i) {
+		unless ($filehandle = new IO::Compress::Gzip($filehandle)) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+		binmode($filehandle);
+	}
+	elsif ($filename =~ /\.bz2$/i) {
+		unless ($filehandle = new IO::Compress::Bzip2($filehandle)) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+		binmode($filehandle);
+	}
+	elsif ($filename =~ /\.xz$/i) {
+		unless ($filehandle = new IO::Compress::Xz($filehandle)) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+		binmode($filehandle);
+	}
+	return($filehandle);
 }
 
 sub readFile {
@@ -389,10 +452,10 @@ Command line options
   Specify negative SeqIDs.
 
 --minlen=INTEGER
-  Specify minimum length of sequence. (default: none)
+  Specify minimum length of sequence. (default: 0)
 
 --maxlen=INTEGER
-  Specify maximum length of sequence. (default: none)
+  Specify maximum length of sequence. (default: 10000000000)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)
