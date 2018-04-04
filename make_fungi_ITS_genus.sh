@@ -25,7 +25,7 @@ cd blastdb || exit $?
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../fungi_ITS_genus.txt -out fungi_ITS_genus -title fungi_ITS_genus 2> /dev/null || exit $?
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../fungi_ITS_species.txt -out fungi_ITS_species -title fungi_ITS_species 2> /dev/null || exit $?
 #
-blastdbcmd -db ./fungi_ITS_genus -target_only -entry all -out ../fungi_ITS_genus.txt -outfmt %g || exit $?
+clblastdbcmd --blastdb=./fungi_ITS_genus --output=GI --numthreads=8 ../fungi_ITS_genus.txt fungi_ITS_genus.txt || exit $?
 cd .. || exit $?
 # minimize taxdb
 clmaketaxdb --gilist=fungi_ITS_genus.txt taxonomy fungi_ITS_genus.taxdb || exit $?

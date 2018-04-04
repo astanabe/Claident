@@ -1,9 +1,6 @@
 use strict;
 use Fcntl ':flock';
 use File::Spec;
-use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
-use IO::Uncompress::Bunzip2 qw(bunzip2 $Bunzip2Error);
-use IO::Uncompress::UnXz qw(unxz $UnXzError);
 use IO::Compress::Gzip qw(gzip $GzipError);
 use IO::Compress::Bzip2 qw(bzip2 $Bzip2Error);
 use IO::Compress::Xz qw(xz $XzError);
@@ -429,21 +426,23 @@ sub writeFileAppend {
 sub readFile {
 	my $filehandle;
 	my $filename = shift(@_);
-	unless (open($filehandle, "< $filename")) {
-		&errorMessage(__LINE__, "Cannot open \"$filename\".");
-	}
 	if ($filename =~ /\.gz$/i) {
-		unless ($filehandle = new IO::Uncompress::Gunzip($filehandle)) {
+		unless (open($filehandle, "gzip -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless ($filehandle = new IO::Uncompress::Bunzip2($filehandle)) {
+		unless (open($filehandle, "bzip2 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless ($filehandle = new IO::Uncompress::UnXz($filehandle)) {
+		unless (open($filehandle, "xz -dc $filename 2> $devnull |")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	else {
+		unless (open($filehandle, "< $filename")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}

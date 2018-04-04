@@ -24,7 +24,7 @@ blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../semiall_undergenus
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../semiall_species.txt -out semiall_species -title semiall_species &
 wait
 #
-blastdbcmd -db ./semiall_class -target_only -entry all -out ../semiall_underclass.txt -outfmt %g || exit $?
+#clblastdbcmd --blastdb=./semiall_class --output=GI --numthreads=8 ../semiall_underclass.txt semiall_underclass.txt || exit $?
 cd .. || exit $?
 # make taxdb
 ln -s overall_class.taxdb semiall_class.taxdb || exit $?

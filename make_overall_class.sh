@@ -25,7 +25,7 @@ cd blastdb || exit $?
 # make BLAST database
 # NT-independent
 clblastdbcmd --blastdb=./nt --output=FASTA --numthreads=8 ../overall_underclass.txt overall_class.fasta.gz || exit $?
-clmakeblastdb --minlen=100 --maxlen=1000000 --numthreads=8 overall_class.fasta.gz overall_class || exit $?
+gzip -dc overall_class.fasta.gz | makeblastdb -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 2G -in - -out overall_class -title overall_class || exit $?
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_all_undergenus.txt -out prokaryota_all_genus -title prokaryota_all_genus &
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_all_species.txt -out prokaryota_all_species -title prokaryota_all_species &
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_underorder.txt -out overall_order -title overall_order &

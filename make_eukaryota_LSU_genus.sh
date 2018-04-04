@@ -14,7 +14,7 @@ cd blastdb || exit $?
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../eukaryota_LSU_genus.txt -out eukaryota_LSU_genus -title eukaryota_LSU_genus 2> /dev/null || exit $?
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../eukaryota_LSU_species.txt -out eukaryota_LSU_species -title eukaryota_LSU_species 2> /dev/null || exit $?
 #
-blastdbcmd -db ./eukaryota_LSU_genus -target_only -entry all -out ../eukaryota_LSU_genus.txt -outfmt %g || exit $?
+clblastdbcmd --blastdb=./eukaryota_LSU_genus --output=GI --numthreads=8 ../eukaryota_LSU_genus.txt eukaryota_LSU_genus.txt || exit $?
 cd .. || exit $?
 # minimize taxdb
 clmaketaxdb --gilist=eukaryota_LSU_genus.txt taxonomy eukaryota_LSU_genus.taxdb || exit $?

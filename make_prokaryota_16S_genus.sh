@@ -14,9 +14,9 @@ cd blastdb || exit $?
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_16S_genus.txt -out prokaryota_16S_genus -title prokaryota_16S_genus 2> /dev/null || exit $?
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_16S_species.txt -out prokaryota_16S_species -title prokaryota_16S_species 2> /dev/null || exit $?
 #
-blastdbcmd -db ./prokaryota_16S_genus -target_only -entry all -out ../prokaryota_16S_genus.txt -outfmt %g || exit $?
+clblastdbcmd --blastdb=./prokaryota_16S_genus --output=GI --numthreads=8 ../prokaryota_16S_genus.txt prokaryota_16S_genus.txt || exit $?
 cd .. || exit $?
 # minimize taxdb
-clmaketaxdb --gilist=prokaryota_16S_genus.txt taxonomy prokaryota_16S_genus.taxdb || exit $?
+clblastdbcmd --blastdb=./prokaryota_16S_genus --output=GI --numthreads=8 ../prokaryota_16S_genus.txt prokaryota_16S_genus.txt
 ln -s prokaryota_16S_genus.taxdb prokaryota_16S_species.taxdb || exit $?
 #rm prokaryota.taxdb || exit $?
