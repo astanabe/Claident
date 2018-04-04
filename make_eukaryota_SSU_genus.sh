@@ -17,6 +17,6 @@ blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../eukaryota_SSU_spec
 clblastdbcmd --blastdb=./eukaryota_SSU_genus --output=GI --numthreads=8 ../eukaryota_SSU_genus.txt eukaryota_SSU_genus.txt || exit $?
 cd .. || exit $?
 # minimize taxdb
-clmaketaxdb --gilist=eukaryota_SSU_genus.txt taxonomy eukaryota_SSU_genus.taxdb || exit $?
+clmaketaxdb --gilist=blastdb/eukaryota_SSU_genus.txt taxonomy eukaryota_SSU_genus.taxdb || exit $?
 ln -s eukaryota_SSU_genus.taxdb eukaryota_SSU_species.taxdb || exit $?
 rm eukaryota_SSU_temp.taxdb || exit $?

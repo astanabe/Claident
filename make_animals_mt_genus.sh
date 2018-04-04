@@ -17,7 +17,7 @@ blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../animals_mt_species
 clblastdbcmd --blastdb=./animals_mt_genus --output=GI --numthreads=8 ../animals_mt_genus.txt animals_mt_genus.txt exit $?
 cd .. || exit $?
 # minimize taxdb
-clmaketaxdb --gilist=animals_mt_genus.txt taxonomy animals_mt_genus.taxdb || exit $?
+clmaketaxdb --gilist=blastdb/animals_mt_genus.txt taxonomy animals_mt_genus.taxdb || exit $?
 ln -s animals_mt_genus.taxdb animals_mt_species.taxdb || exit $?
 #rm animals.taxdb || exit $?
 #rm blastdb/animals_genus.* || exit $?

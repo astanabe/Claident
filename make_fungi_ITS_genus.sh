@@ -28,7 +28,7 @@ blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../fungi_ITS_species.
 clblastdbcmd --blastdb=./fungi_ITS_genus --output=GI --numthreads=8 ../fungi_ITS_genus.txt fungi_ITS_genus.txt || exit $?
 cd .. || exit $?
 # minimize taxdb
-clmaketaxdb --gilist=fungi_ITS_genus.txt taxonomy fungi_ITS_genus.taxdb || exit $?
+clmaketaxdb --gilist=blastdb/fungi_ITS_genus.txt taxonomy fungi_ITS_genus.taxdb || exit $?
 ln -s fungi_ITS_genus.taxdb fungi_ITS_species.taxdb || exit $?
 rm fungi.taxdb || exit $?
 rm blastdb/fungi_genus.* || exit $?

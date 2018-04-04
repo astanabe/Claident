@@ -29,5 +29,5 @@ blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../plants_rbcL_specie
 clblastdbcmd --blastdb=./plants_rbcL_genus --output=GI --numthreads=8 ../plants_rbcL_genus.txt plants_rbcL_genus.txt || exit $?
 cd .. || exit $?
 # minimize taxdb
-clmaketaxdb --gilist=plants_rbcL_genus.txt taxonomy plants_rbcL_genus.taxdb || exit $?
+clmaketaxdb --gilist=blastdb/plants_rbcL_genus.txt taxonomy plants_rbcL_genus.taxdb || exit $?
 ln -s plants_rbcL_genus.taxdb plants_rbcL_species.taxdb || exit $?

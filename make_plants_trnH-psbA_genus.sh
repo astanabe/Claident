@@ -29,7 +29,7 @@ blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../plants_trnH-psbA_s
 clblastdbcmd --blastdb=./plants_trnH-psbA_genus --output=GI --numthreads=8 ../plants_trnH-psbA_genus.txt plants_trnH-psbA_genus.txt || exit $?
 cd .. || exit $?
 # minimize taxdb
-clmaketaxdb --gilist=plants_trnH-psbA_genus.txt taxonomy plants_trnH-psbA_genus.taxdb || exit $?
+clmaketaxdb --gilist=blastdb/plants_trnH-psbA_genus.txt taxonomy plants_trnH-psbA_genus.taxdb || exit $?
 ln -s plants_trnH-psbA_genus.taxdb plants_trnH-psbA_species.taxdb || exit $?
 #rm plants.taxdb || exit $?
 #rm blastdb/plants_genus.* || exit $?
