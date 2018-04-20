@@ -221,6 +221,7 @@ sub processFASTQ {
 						next;
 					}
 					else {
+						#print(STDERR "Thread $child\n");
 						if (!-e "$outputfolder/$in2out{$tempin}") {
 							mkdir("$outputfolder/$in2out{$tempin}");
 						}

@@ -22,8 +22,6 @@ my $minquallen = 1;
 my $minqualtag;
 my $minmeanqual;
 my $replaceinternal;
-my %keywords;
-my %ngwords;
 my $converse;
 my $maxpmismatch = 0.14;
 my $maxnmismatch;
@@ -118,19 +116,7 @@ sub getOptions {
 	$outputfolder = $ARGV[-1];
 	my %inputfiles;
 	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
-		if ($ARGV[$i] =~ /^-+(?:keyword|keywords|k)=(.+)$/i) {
-			my $keywords = $1;
-			foreach my $keyword (split(/,/, $keywords)) {
-				$keywords{$keyword} = 1;
-			}
-		}
-		elsif ($ARGV[$i] =~ /^-+(?:ngword|ngwords|n)=(.+)$/i) {
-			my $ngwords = $1;
-			foreach my $ngword (split(/,/, $ngwords)) {
-				$ngwords{$ngword} = 1;
-			}
-		}
-		elsif ($ARGV[$i] =~ /^-+compress=(.+)$/i) {
+		if ($ARGV[$i] =~ /^-+compress=(.+)$/i) {
 			my $value = $1;
 			if ($value =~ /^(?:g|gz|gzip)$/i) {
 				$compress = 'gz';
@@ -672,6 +658,7 @@ sub splitSequences {
 					next;
 				}
 				else {
+					#print(STDERR "Thread $child\n");
 					&processOneSequence($seqname, $nucseq1, $qualseq1, $nucseq2, $qualseq2, $nucseq3, $qualseq3, $nucseq4, $qualseq4, $child);
 					exit;
 				}

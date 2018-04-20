@@ -251,11 +251,12 @@ sub checkInputFiles {
 							}
 						}
 						if ($fileformat eq 'FASTA' && /^>/ || $fileformat eq 'FASTQ' && $lineno % 4 == 1) {
-							if ($_ =~ /.+__.+__.+__.+/) {
+							if ($_ =~ /.+__.+__.+__.+/ || $_ =~ /^\s*\r?\n?$/) {
+								$lineno ++;
 								next;
 							}
 							else {
-								$_ = s/^[>\@](.+)\r?\n?$/$1/;
+								$_ =~ s/^[>\@](.+)\r?\n?$/$1/;
 								&errorMessage(__LINE__, "The sequence name \"$_\" in \"$inputfile\" is invalid.");
 							}
 						}
