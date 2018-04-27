@@ -16,6 +16,10 @@ my $vsearch2option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 
 my $vsearch3option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --qmask none --fulldp --wordlength 12 --cluster_size';
 # vsearch option for secondary clustering
 my $vsearch4option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --qmask none --fulldp --wordlength 12 --cluster_size';
+# swarm option for secondary clustering
+my $swarmoption = ' --no-otu-breaking --usearch-abundance --differences 3';
+my $exactmode = 0;
+my $minsizeratio = 2.0;
 my $mincleanclustersize = 0;
 my $pnoisycluster = 0.5;
 my $runname;
@@ -37,6 +41,7 @@ my $replicatelist;
 
 # commands
 my $vsearch;
+my $swarm;
 
 # global variables
 my $root = getcwd();
@@ -127,7 +132,18 @@ sub getOptions {
 	$outputfolder = $ARGV[-1];
 	my %inputfiles;
 	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
-		if ($ARGV[$i] =~ /^-+(?:derep|dereplication)mode=(.+)$/i) {
+		if ($ARGV[$i] =~ /^-+mode=(.+)$/i) {
+			if ($1 =~ /^(?:exact|ESV|ASV)$/i) {
+				$exactmode = 1;
+			}
+			elsif ($1 =~ /^(?:normal)$/i) {
+				$exactmode = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:derep|dereplication)mode=(.+)$/i) {
 			if ($1 =~ /^(?:full|fulllen|fulllength)$/i) {
 				$derepmode = 'full';
 			}
@@ -217,6 +233,9 @@ sub checkVariables {
 	if ($vsearch3option !~ /-+strand (plus|both)/i) {
 		$vsearch3option = ' --strand plus' . $vsearch3option;
 	}
+	if ($vsearch3option =~ /-+strand both/i && $exactmode) {
+		&errorMessage(__LINE__, "Exact mode and both-strand search mode are incompatible.");
+	}
 	if ($vsearch4option !~ /-+strand (plus|both)/i) {
 		$vsearch4option = ' --strand plus' . $vsearch4option;
 	}
@@ -230,10 +249,14 @@ sub checkVariables {
 		&errorMessage(__LINE__, "The minimum percentage of replicate is invalid.");
 	}
 	if ($minnpositive < 1) {
-		&errorMessage(__LINE__, "The minimum number of true positive for noisy/chimeric OTU detection is invalid.");
+		&errorMessage(__LINE__, "The minimum number of true positive for noisy/unshared OTU detection is invalid.");
 	}
 	if ($minppositive > 1) {
-		&errorMessage(__LINE__, "The minimum percentage of true positive for noisy/chimeric OTU detection is invalid.");
+		&errorMessage(__LINE__, "The minimum percentage of true positive for noisy/unshared OTU detection is invalid.");
+	}
+	if ($exactmode) {
+		print(STDERR "Exact mode is enabled. In this mode, dereplication mode will be switched to full-length mode.\n");
+		$derepmode = 'full';
 	}
 	if ($derepmode eq 'prefix') {
 		$vsearch1option .= ' --derep_prefix';
@@ -242,6 +265,14 @@ sub checkVariables {
 	elsif ($derepmode eq 'full') {
 		$vsearch1option .= ' --derep_fulllength';
 		$vsearch2option .= ' --derep_fulllength';
+	}
+	if ($exactmode) {
+		if ($primarymaxnmismatch > 0) {
+			&errorMessage(__LINE__, "In exact mode, maximum number of acceptable mismatches of primary clustering must be zero.");
+		}
+		if ($secondarymaxnmismatch != 1) {
+			&errorMessage(__LINE__, "In exact mode, maximum number of acceptable mismatches of secondary clustering has no effect.");
+		}
 	}
 	if ($primarymaxnmismatch == 0) {
 		$vsearch3option = " --id 1" . $vsearch3option;
@@ -298,9 +329,11 @@ sub checkVariables {
 				&errorMessage(__LINE__, "Cannot find \"$pathto\".");
 			}
 			$vsearch = "\"$pathto/vsearch\"";
+			$swarm = "\"$pathto/swarm\"";
 		}
 		else {
 			$vsearch = 'vsearch';
+			$swarm = 'swarm';
 		}
 	}
 }
@@ -311,7 +344,7 @@ sub readListFiles {
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			my @temp = split(/\t/, $_);
-			for (my $i = 1; $i < scalar(@temp); $i ++) {
+			for (my $i = 0; $i < scalar(@temp); $i ++) {
 				push(@{$replicate{$temp[0]}}, $temp[$i]);
 			}
 		}
@@ -391,7 +424,7 @@ sub runVSEARCHExactEach {
 		my $filename = $inputfile;
 		$filename =~ s/^.+(?:\/|\\)//;
 		$filename =~ s/\.(?:gz|bz2|xz)$//;
-		$filename =~ s/\.[^\.]+$//;
+		$filename =~ s/\..+$//;
 		push(@newinput, $filename);
 		my $tempinputfile;
 		{
@@ -481,7 +514,15 @@ sub runNoiseDetection {
 		}
 	}
 	# primary clustering and make consensus for canceling errors out
-	{
+	if ($exactmode) {
+		unless (fcopy("temp2.fasta", "primarycluster.fasta")) {
+			&errorMessage(__LINE__, "Cannot copy \"temp2.fasta\" to \"primarycluster.fasta\".");
+		}
+		unless (fcopy("temp2.otu.gz", "primarycluster.otu.gz")) {
+			&errorMessage(__LINE__, "Cannot copy \"temp2.otu.gz\" to \"primarycluster.otu.gz\".");
+		}
+	}
+	else {
 		my $tempminovllen;
 		if ($minovllen == 0) {
 			$tempminovllen = &getMinimumLength("temp2.fasta") - 10;
@@ -489,24 +530,17 @@ sub runNoiseDetection {
 		else {
 			$tempminovllen = $minovllen;
 		}
-		if ($primarymaxnmismatch == 0) {
-			if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen\".");
-			}
+		if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --cons_truncate --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --cons_truncate --uc primarycluster.uc --mincols $tempminovllen\".");
 		}
-		else {
-			if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen\".");
-			}
-			if (system("perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta\".");
-			}
-			unless ($nodel) {
-				unlink("primarycluster.fasta.bak");
-			}
+		if (system("perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta\".");
 		}
+		unless ($nodel) {
+			unlink("primarycluster.fasta.bak");
+		}
+		&convertUCtoOTUMembers("primarycluster.uc", "primarycluster.otu.gz", "temp2.otu.gz");
 	}
-	&convertUCtoOTUMembers("primarycluster.uc", "primarycluster.otu.gz", "temp2.otu.gz");
 	unless ($nodel) {
 		unlink("temp2.fasta");
 		unlink("temp2.otu.gz");
@@ -525,80 +559,78 @@ sub runNoiseDetection {
 	else {
 		&errorMessage(__LINE__, "\"primarycluster.otu.gz\" is invalid.");
 	}
-	if ($mincleanclustersize == 0) {
-		my $tempminovllen;
-		if ($minovllen == 0) {
-			$tempminovllen = &getMinimumLength("primarycluster.fasta") - 10;
+	if ($exactmode) {
+		if (system("$swarm$swarmoption --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --threads $numthreads primarycluster.fasta 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$swarm$swarmoption --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --threads $numthreads primarycluster.fasta\".");
 		}
-		else {
-			$tempminovllen = $minovllen;
-		}
-		# cluster primarycluster to secondarycluster
-		if (-e 'primarycluster.otu.gz' && -e 'primarycluster.fasta') {
-			if (system("$vsearch$vsearch4option primarycluster.fasta --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc --mincols $tempminovllen 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch4option primarycluster.fasta --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc --mincols $tempminovllen\".");
-			}
-			&convertUCtoOTUMembers("secondarycluster.uc", "secondarycluster.otu.gz");
-		}
-		else {
-			&errorMessage(__LINE__, "Cannot find \"primarycluster.otu.gz\" and/or \"primarycluster.fasta\".");
-		}
-		# read clustering result
+		&convertUCtoOTUMembers("secondarycluster.uc", "secondarycluster.otu.gz");
 		my ($secondaryotumembers, $secondarysingletons) = &getOTUMembers("secondarycluster.otu.gz");
-		# determine threshold
 		if (%{$secondaryotumembers}) {
-			my @primaryclustersize;
-			foreach my $secondaryotu (keys(%{$secondaryotumembers})) {
+			foreach my $secondaryotu (sort({$a cmp $b} keys(%{$secondaryotumembers}))) {
 				my @tempclustersize;
 				foreach my $primaryotu (@{$secondaryotumembers->{$secondaryotu}}) {
-					if ($primaryclustersize{$primaryotu}) {
+					if ($primaryclustersize{$primaryotu} && $primaryclustersize{$primaryotu} > 2) {
 						push(@tempclustersize, $primaryclustersize{$primaryotu});
 					}
 				}
-				@tempclustersize = sort({$b <=> $a} @tempclustersize);
-				#print(STDERR "Sorted primary cluster sizes of $secondaryotu : @tempclustersize\n");
-				# drop largest cluster size
-				shift(@tempclustersize);
-				if (@tempclustersize) {
-					push(@primaryclustersize, @tempclustersize);
-				}
-			}
-			#print(STDERR "Unsorted primary cluster sizes : @primaryclustersize\n");
-			@primaryclustersize = sort({$a <=> $b} @primaryclustersize);
-			#print(STDERR "Sorted primary cluster sizes : @primaryclustersize\n");
-			$mincleanclustersize = $primaryclustersize[int(scalar(@primaryclustersize) * $pnoisycluster)];
-		}
-		if ($mincleanclustersize < 2) {
-			&errorMessage(__LINE__, "There are no secondary cluster. This data seems too noisy for this setting.");
-		}
-		print(STDERR "The minimum clean cluster size has been determined as $mincleanclustersize.\n");
-	}
-	# save sequence names for elimination
-	if ($mincleanclustersize > 2) {
-		foreach my $primaryotu (sort({$a cmp $b} keys(%{$primaryotumembers}))) {
-			if ($primaryclustersize{$primaryotu} < $mincleanclustersize) {
-				foreach my $member (@{$primaryotumembers->{$primaryotu}}) {
-					my $prefix = $member;
-					$prefix =~ s/^.+?__//;
-					unless (open($filehandleoutput1, ">> $prefix.noisyreads.txt")) {
-						&errorMessage(__LINE__, "Cannot write \"$prefix.noisyreads.txt\".");
+				@tempclustersize = sort({$a <=> $b} @tempclustersize);
+				# determine threshold
+				my $tempcleansize;
+				for (my $i = 0; $i < scalar(@tempclustersize); $i ++) {
+					if ($tempclustersize[($i + 1)] - $tempclustersize[$i] < 3) {
+						next;
 					}
-					print($filehandleoutput1 $member . "\n");
-					close($filehandleoutput1);
+					elsif ($tempclustersize[($i + 1)] / $tempclustersize[$i] >= $minsizeratio) {
+						$tempcleansize = $tempclustersize[$i] + 1;
+						last;
+					}
+				}
+				# save sequence names for elimination
+				foreach my $primaryotu (@{$secondaryotumembers->{$secondaryotu}}) {
+					if ($primaryclustersize{$primaryotu} && $primaryclustersize{$primaryotu} < $tempcleansize) {
+						foreach my $member (@{$primaryotumembers->{$primaryotu}}) {
+							my $prefix = $member;
+							$prefix =~ s/^.+?__//;
+							unless (open($filehandleoutput1, ">> $prefix.noisyreads.txt")) {
+								&errorMessage(__LINE__, "Cannot write \"$prefix.noisyreads.txt\".");
+							}
+							print($filehandleoutput1 $member . "\n");
+							close($filehandleoutput1);
+						}
+					}
 				}
 			}
 		}
-	}
-	# save singleton names for elimination
-	foreach my $member (sort({$a cmp $b} keys(%{$primarysingletons}))) {
-		my $prefix = $member;
-		$prefix =~ s/^.+?__//;
-		unless (open($filehandleoutput1, ">> $prefix.singletons.txt")) {
-			&errorMessage(__LINE__, "Cannot write \"$prefix.singletons.txt\".");
+		# save secondary singleton names for elimination
+		if (%{$secondarysingletons}) {
+			foreach my $primaryotu (sort({$a cmp $b} keys(%{$secondarysingletons}))) {
+				if ($primaryclustersize{$primaryotu}) {
+					foreach my $member (@{$primaryotumembers->{$primaryotu}}) {
+						my $prefix = $member;
+						$prefix =~ s/^.+?__//;
+						unless (open($filehandleoutput1, ">> $prefix.isolatedreads.txt")) {
+							&errorMessage(__LINE__, "Cannot write \"$prefix.isolatedreads.txt\".");
+						}
+						print($filehandleoutput1 $member . "\n");
+						close($filehandleoutput1);
+						unless (open($filehandleoutput1, ">> $prefix.noisyreads.txt")) {
+							&errorMessage(__LINE__, "Cannot write \"$prefix.noisyreads.txt\".");
+						}
+						print($filehandleoutput1 $member . "\n");
+						close($filehandleoutput1);
+					}
+				}
+			}
 		}
-		print($filehandleoutput1 $member . "\n");
-		close($filehandleoutput1);
-		if ($mincleanclustersize > 1) {
+		# save primary singleton names for elimination
+		foreach my $member (sort({$a cmp $b} keys(%{$primarysingletons}))) {
+			my $prefix = $member;
+			$prefix =~ s/^.+?__//;
+			unless (open($filehandleoutput1, ">> $prefix.singletons.txt")) {
+				&errorMessage(__LINE__, "Cannot write \"$prefix.singletons.txt\".");
+			}
+			print($filehandleoutput1 $member . "\n");
+			close($filehandleoutput1);
 			unless (open($filehandleoutput1, ">> $prefix.noisyreads.txt")) {
 				&errorMessage(__LINE__, "Cannot write \"$prefix.noisyreads.txt\".");
 			}
@@ -606,13 +638,101 @@ sub runNoiseDetection {
 			close($filehandleoutput1);
 		}
 	}
-	# additional noise and/or chimera detection based on replicate list
+	else {
+		if ($mincleanclustersize == 0) {
+			my $tempminovllen;
+			if ($minovllen == 0) {
+				$tempminovllen = &getMinimumLength("primarycluster.fasta") - 10;
+			}
+			else {
+				$tempminovllen = $minovllen;
+			}
+			# cluster primarycluster to secondarycluster
+			if (-e 'primarycluster.otu.gz' && -e 'primarycluster.fasta') {
+				if (system("$vsearch$vsearch4option primarycluster.fasta --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc --mincols $tempminovllen 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch4option primarycluster.fasta --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc --mincols $tempminovllen\".");
+				}
+				&convertUCtoOTUMembers("secondarycluster.uc", "secondarycluster.otu.gz");
+			}
+			else {
+				&errorMessage(__LINE__, "Cannot find \"primarycluster.otu.gz\" and/or \"primarycluster.fasta\".");
+			}
+			# read clustering result
+			my ($secondaryotumembers, $secondarysingletons) = &getOTUMembers("secondarycluster.otu.gz");
+			# determine threshold
+			if (%{$secondaryotumembers}) {
+				my @primaryclustersize;
+				foreach my $secondaryotu (sort({$a cmp $b} keys(%{$secondaryotumembers}))) {
+					my @tempclustersize;
+					foreach my $primaryotu (@{$secondaryotumembers->{$secondaryotu}}) {
+						if ($primaryclustersize{$primaryotu}) {
+							push(@tempclustersize, $primaryclustersize{$primaryotu});
+						}
+					}
+					@tempclustersize = sort({$b <=> $a} @tempclustersize);
+					#print(STDERR "Sorted primary cluster sizes of $secondaryotu : @tempclustersize\n");
+					# drop largest cluster size
+					shift(@tempclustersize);
+					if (@tempclustersize) {
+						push(@primaryclustersize, @tempclustersize);
+					}
+				}
+				#print(STDERR "Unsorted primary cluster sizes : @primaryclustersize\n");
+				@primaryclustersize = sort({$a <=> $b} @primaryclustersize);
+				#print(STDERR "Sorted primary cluster sizes : @primaryclustersize\n");
+				if (int(scalar(@primaryclustersize) * $pnoisycluster) == scalar(@primaryclustersize)) {
+					$mincleanclustersize = $primaryclustersize[-1];
+				}
+				else {
+					$mincleanclustersize = $primaryclustersize[int(scalar(@primaryclustersize) * $pnoisycluster)];
+				}
+			}
+			if ($mincleanclustersize < 2) {
+				&errorMessage(__LINE__, "There are no secondary cluster. This data seems too noisy for this setting.");
+			}
+			print(STDERR "The minimum clean cluster size has been determined as $mincleanclustersize.\n");
+		}
+		# save sequence names for elimination
+		if ($mincleanclustersize > 2) {
+			foreach my $primaryotu (sort({$a cmp $b} keys(%{$primaryotumembers}))) {
+				if ($primaryclustersize{$primaryotu} < $mincleanclustersize) {
+					foreach my $member (@{$primaryotumembers->{$primaryotu}}) {
+						my $prefix = $member;
+						$prefix =~ s/^.+?__//;
+						unless (open($filehandleoutput1, ">> $prefix.noisyreads.txt")) {
+							&errorMessage(__LINE__, "Cannot write \"$prefix.noisyreads.txt\".");
+						}
+						print($filehandleoutput1 $member . "\n");
+						close($filehandleoutput1);
+					}
+				}
+			}
+		}
+		# save singleton names for elimination
+		foreach my $member (sort({$a cmp $b} keys(%{$primarysingletons}))) {
+			my $prefix = $member;
+			$prefix =~ s/^.+?__//;
+			unless (open($filehandleoutput1, ">> $prefix.singletons.txt")) {
+				&errorMessage(__LINE__, "Cannot write \"$prefix.singletons.txt\".");
+			}
+			print($filehandleoutput1 $member . "\n");
+			close($filehandleoutput1);
+			if ($mincleanclustersize > 1) {
+				unless (open($filehandleoutput1, ">> $prefix.noisyreads.txt")) {
+					&errorMessage(__LINE__, "Cannot write \"$prefix.noisyreads.txt\".");
+				}
+				print($filehandleoutput1 $member . "\n");
+				close($filehandleoutput1);
+			}
+		}
+	}
+	# additional noisy and/or unshared sequence detection based on replicate list
 	if ($replicatelist && %replicate) {
-		print(STDERR "Running additional chimera detection using replicates...\n");
+		print(STDERR "Running additional detection of unshared sequences among replicates...\n");
 		my %table;
 		my %otusum;
 		my @otunames;
-		foreach my $primaryotu (keys(%{$primaryotumembers})) {
+		foreach my $primaryotu (sort({$a cmp $b} keys(%{$primaryotumembers}))) {
 			push(@otunames, $primaryotu);
 			foreach my $member (@{$primaryotumembers->{$primaryotu}}) {
 				my @temp = split(/__/, $member);
@@ -632,9 +752,8 @@ sub runNoiseDetection {
 				}
 			}
 		}
-		# determine whether chimeric OTU or not within sample
 		my %withinsample;
-		foreach my $sample (keys(%replicate)) {
+		foreach my $sample (sort({$a cmp $b} keys(%replicate))) {
 			my %nreps;
 			my %nreads;
 			foreach my $replicate (@{$replicate{$sample}}) {
@@ -645,20 +764,20 @@ sub runNoiseDetection {
 					}
 				}
 			}
-			foreach my $otuname (keys(%nreps)) {
-				if ($nreps{$otuname} < $minnreplicate || ($nreps{$otuname} / @{$replicate{$sample}}) < $minpreplicate) {
+			foreach my $otuname (sort({$a cmp $b} keys(%nreps))) {
+				if ($nreps{$otuname} < $minnreplicate || ($nreps{$otuname} / scalar(@{$replicate{$sample}})) < $minpreplicate) {
 					$withinsample{$otuname} += $nreads{$otuname};
 				}
 			}
 		}
-		# determine whether chimeric OTU or not in total
+		# determine whether unshared OTU or not in total
 		foreach my $otuname (@otunames) {
 			if ($withinsample{$otuname} >= $minnpositive && ($withinsample{$otuname} / $otusum{$otuname}) >= $minppositive) {
 				foreach my $member (@{$primaryotumembers->{$otuname}}) {
 					my $prefix = $member;
 					$prefix =~ s/^.+?__//;
-					unless (open($filehandleoutput1, ">> $prefix.chimericreads.txt")) {
-						&errorMessage(__LINE__, "Cannot write \"$prefix.chimericreads.txt\".");
+					unless (open($filehandleoutput1, ">> $prefix.unsharedreads.txt")) {
+						&errorMessage(__LINE__, "Cannot write \"$prefix.unsharedreads.txt\".");
 					}
 					print($filehandleoutput1 $member . "\n");
 					close($filehandleoutput1);
@@ -670,26 +789,27 @@ sub runNoiseDetection {
 }
 
 sub deleteNoisySequences {
-	# delete chimeric and/or noisy sequences
+	# delete noisy and/or unshared sequences
 	if ($replicatelist && %replicate) {
-		print(STDERR "Deleting noisy and/or chimeric sequences...\n");
+		print(STDERR "Deleting noisy and/or unshared sequences...\n");
 	}
 	else {
 		print(STDERR "Deleting noisy sequences...\n");
 	}
 	# save parameter
-	{
+	unless ($exactmode) {
 		unless (open($filehandleoutput1, "> parameter.txt")) {
 			&errorMessage(__LINE__, "Cannot write \"parameter.txt\".");
 		}
 		print($filehandleoutput1 "minimum clean cluster size: $mincleanclustersize\n");
 		close($filehandleoutput1);
 	}
-	# get noisy/chimeric/notclean information
-	my %chimeric;
+	# get noisy/unshared/notclean information
+	my %unshared;
 	my %noisy;
 	my %notclean;
 	foreach my $inputfile (@inputfiles) {
+		print(STDERR "$inputfile...\n");
 		# read the results of noisy reads detection
 		if (-e "$inputfile.noisyreads.txt") {
 			unless (open($filehandleinput1, "< $inputfile.noisyreads.txt")) {
@@ -703,13 +823,25 @@ sub deleteNoisySequences {
 			}
 			close($filehandleinput1);
 		}
-		if ($replicatelist && %replicate && -e "$inputfile.chimericreads.txt") {
-			unless (open($filehandleinput1, "< $inputfile.chimericreads.txt")) {
-				&errorMessage(__LINE__, "Cannot read \"$inputfile.chimericreads.txt\".");
+		if (-e "$inputfile.isolatedreads.txt") {
+			unless (open($filehandleinput1, "< $inputfile.isolatedreads.txt")) {
+				&errorMessage(__LINE__, "Cannot read \"$inputfile.isolatedreads.txt\".");
 			}
 			while (<$filehandleinput1>) {
 				if (/^(\S+)/) {
-					$chimeric{$1} = 1;
+					$noisy{$1} = 1;
+					$notclean{$1} = 1;
+				}
+			}
+			close($filehandleinput1);
+		}
+		if ($replicatelist && %replicate && -e "$inputfile.unsharedreads.txt") {
+			unless (open($filehandleinput1, "< $inputfile.unsharedreads.txt")) {
+				&errorMessage(__LINE__, "Cannot read \"$inputfile.unsharedreads.txt\".");
+			}
+			while (<$filehandleinput1>) {
+				if (/^(\S+)/) {
+					$unshared{$1} = 1;
 					$notclean{$1} = 1;
 				}
 			}
@@ -720,7 +852,7 @@ sub deleteNoisySequences {
 				}
 				while (<$filehandleinput1>) {
 					if (/^(\S+)/) {
-						$chimeric{$1} = 1;
+						$unshared{$1} = 1;
 						$notclean{$1} = 1;
 					}
 				}
@@ -734,11 +866,11 @@ sub deleteNoisySequences {
 		my ($exactotumembers, $exactsingletons) = &getOTUMembers("$prefix.otu.gz");
 		# output filtered primarycluster FASTA
 		if ($replicatelist && %replicate) {
-			$filehandleoutput1 = &writeFile("$prefix.chimeraremoved.fasta.gz");
+			$filehandleoutput1 = &writeFile("$prefix.shared.fasta.gz");
 			$filehandleoutput3 = &writeFile("$prefix.cleaned.fasta.gz");
 		}
 		$filehandleoutput2 = &writeFile("$prefix.denoised.fasta.gz");
-		my $chimeric = 0;
+		my $unshared = 0;
 		my $noisy = 0;
 		my $notclean = 0;
 		# otus
@@ -750,15 +882,15 @@ sub deleteNoisySequences {
 				s/\r?\n?$//;
 				s/;size=\d+;?//g;
 				if (/^>(.+)/) {
-					$chimeric = 0;
+					$unshared = 0;
 					$noisy = 0;
 					$notclean = 0;
 					my $otuname = $1;
 					if ($exactotumembers->{$otuname}) {
 						my $ab = scalar(@{$exactotumembers->{$otuname}});
 						foreach my $member (@{$exactotumembers->{$otuname}}) {
-							if ($chimeric{$member}) {
-								$chimeric = 1;
+							if ($unshared{$member}) {
+								$unshared = 1;
 							}
 							if ($noisy{$member}) {
 								$noisy = 1;
@@ -767,7 +899,7 @@ sub deleteNoisySequences {
 								$notclean = 1;
 							}
 						}
-						if (!$chimeric && $filehandleoutput1) {
+						if (!$unshared && $filehandleoutput1) {
 							print($filehandleoutput1 ">$otuname;size=$ab;\n");
 						}
 						if (!$noisy && $filehandleoutput2) {
@@ -778,8 +910,8 @@ sub deleteNoisySequences {
 						}
 					}
 					elsif ($exactsingletons->{$otuname}) {
-						if ($chimeric{$otuname}) {
-							$chimeric = 1;
+						if ($unshared{$otuname}) {
+							$unshared = 1;
 						}
 						if ($noisy{$otuname}) {
 							$noisy = 1;
@@ -787,7 +919,7 @@ sub deleteNoisySequences {
 						if ($notclean{$otuname}) {
 							$notclean = 1;
 						}
-						if (!$chimeric && $filehandleoutput1) {
+						if (!$unshared && $filehandleoutput1) {
 							print($filehandleoutput1 ">$otuname;size=1;\n");
 						}
 						if (!$noisy && $filehandleoutput2) {
@@ -802,7 +934,7 @@ sub deleteNoisySequences {
 					}
 				}
 				else {
-					if (!$chimeric && $filehandleoutput1) {
+					if (!$unshared && $filehandleoutput1) {
 						print($filehandleoutput1 $_ . "\n");
 					}
 					if (!$noisy && $filehandleoutput2) {
@@ -826,7 +958,7 @@ sub deleteNoisySequences {
 		}
 		# output filtered OTUMembers
 		if ($replicatelist && %replicate) {
-			$filehandleoutput1 = &writeFile("$prefix.chimeraremoved.otu.gz");
+			$filehandleoutput1 = &writeFile("$prefix.shared.otu.gz");
 			$filehandleoutput3 = &writeFile("$prefix.cleaned.otu.gz");
 		}
 		$filehandleoutput2 = &writeFile("$prefix.denoised.otu.gz");
@@ -836,14 +968,14 @@ sub deleteNoisySequences {
 			while (<$filehandleinput1>) {
 				s/\r?\n?$//;
 				if (/^>(.+)/) {
-					$chimeric = 0;
+					$unshared = 0;
 					$noisy = 0;
 					$notclean = 0;
 					my $otuname = $1;
 					if ($exactotumembers->{$otuname}) {
 						foreach my $member (@{$exactotumembers->{$otuname}}) {
-							if ($chimeric{$member}) {
-								$chimeric = 1;
+							if ($unshared{$member}) {
+								$unshared = 1;
 							}
 							if ($noisy{$member}) {
 								$noisy = 1;
@@ -852,7 +984,7 @@ sub deleteNoisySequences {
 								$notclean = 1;
 							}
 						}
-						if (!$chimeric && $filehandleoutput1) {
+						if (!$unshared && $filehandleoutput1) {
 							print($filehandleoutput1 ">$otuname\n");
 						}
 						if (!$noisy && $filehandleoutput2) {
@@ -863,8 +995,8 @@ sub deleteNoisySequences {
 						}
 					}
 					elsif ($exactsingletons->{$otuname}) {
-						if ($chimeric{$otuname}) {
-							$chimeric = 1;
+						if ($unshared{$otuname}) {
+							$unshared = 1;
 						}
 						if ($noisy{$otuname}) {
 							$noisy = 1;
@@ -872,7 +1004,7 @@ sub deleteNoisySequences {
 						if ($notclean{$otuname}) {
 							$notclean = 1;
 						}
-						if (!$chimeric && $filehandleoutput1) {
+						if (!$unshared && $filehandleoutput1) {
 							print($filehandleoutput1 ">$otuname\n");
 						}
 						if (!$noisy && $filehandleoutput2) {
@@ -887,7 +1019,7 @@ sub deleteNoisySequences {
 					}
 				}
 				else {
-					if (!$chimeric && $filehandleoutput1) {
+					if (!$unshared && $filehandleoutput1) {
 						print($filehandleoutput1 $_ . "\n");
 					}
 					if (!$noisy && $filehandleoutput2) {
@@ -1251,6 +1383,9 @@ clcleanseqv options inputfiles outputfolder
 
 Command line options
 ====================
+--mode=NORMAL|EXACT
+  Specify processing mode. (default: NORMAL)
+
 --derepmode=FULL|PREFIX
   Specify dereplication mode for VSEARCH. (default: PREFIX)
 
@@ -1269,6 +1404,9 @@ Command line options
   Specify minimum size of clean cluster. 0 means automatically
 determined (but this will take a while). (default: 0)
 
+--minsizeratio=DECIMAL
+  Specify the minimum size ratio threshold for exact mode. (default: 2.0)
+
 --pnoisycluster=DECIMAL
   Specify the percentage of noisy cluster. (default: 0.5)
 
@@ -1277,19 +1415,19 @@ determined (but this will take a while). (default: 0)
 
 --minnreplicate=INTEGER
   Specify the minimum number of \"presense\" replicates required for clean
-and nonchimeric OTUs. (default: 2)
+and shared OTUs. (default: 2)
 
 --minpreplicate=DECIMAL
   Specify the minimum percentage of \"presense\" replicates per sample
-required for clean and nonchimeric OTUs. (default: 1)
+required for clean and shared OTUs. (default: 1)
 
 --minnpositive=INTEGER
   The OTU that consists of this number of reads will be treated as true
-positive in noise/chimera detection. (default: 1)
+positive in noisy/unshared sequence detection. (default: 1)
 
 --minppositive=DECIMAL
   The OTU that consists of this proportion of reads will be treated as true
-positive in noise/chimera detection. (default: 0)
+positive in noisy/unshared sequence detection. (default: 0)
 
 --minovllen=INTEGER
   Specify minimum overlap length. 0 means automatic. (default: 0)

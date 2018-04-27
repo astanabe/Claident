@@ -446,7 +446,7 @@ sub readListFiles {
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			my @temp = split(/\t/, $_);
-			for (my $i = 1; $i < scalar(@temp); $i ++) {
+			for (my $i = 0; $i < scalar(@temp); $i ++) {
 				push(@{$replicate{$temp[0]}}, $temp[$i]);
 			}
 		}
