@@ -17,9 +17,12 @@ my $vsearch3option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 
 # vsearch option for secondary clustering
 my $vsearch4option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --qmask none --fulldp --wordlength 12 --cluster_size';
 # swarm option for secondary clustering
-my $swarmoption = ' --no-otu-breaking --usearch-abundance --differences 3';
+my $swarmoption = ' --no-otu-breaking --usearch-abundance';
 my $exactmode = 0;
-my $minsizeratio = 2.0;
+my $minsizeratio = 2;
+my $minsize = 3;
+my $distance = 3;
+my $warnsize = 100;
 my $mincleanclustersize = 0;
 my $pnoisycluster = 0.5;
 my $runname;
@@ -560,8 +563,8 @@ sub runNoiseDetection {
 		&errorMessage(__LINE__, "\"primarycluster.otu.gz\" is invalid.");
 	}
 	if ($exactmode) {
-		if (system("$swarm$swarmoption --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --threads $numthreads primarycluster.fasta 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$swarm$swarmoption --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --threads $numthreads primarycluster.fasta\".");
+		if (system("$swarm$swarmoption --differences $distance --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --threads $numthreads primarycluster.fasta 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$swarm$swarmoption --differences $distance --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --threads $numthreads primarycluster.fasta\".");
 		}
 		&convertUCtoOTUMembers("secondarycluster.uc", "secondarycluster.otu.gz");
 		my ($secondaryotumembers, $secondarysingletons) = &getOTUMembers("secondarycluster.otu.gz");
@@ -569,21 +572,35 @@ sub runNoiseDetection {
 			foreach my $secondaryotu (sort({$a cmp $b} keys(%{$secondaryotumembers}))) {
 				my @tempclustersize;
 				foreach my $primaryotu (@{$secondaryotumembers->{$secondaryotu}}) {
-					if ($primaryclustersize{$primaryotu} && $primaryclustersize{$primaryotu} > 2) {
+					if ($primaryclustersize{$primaryotu}) {
 						push(@tempclustersize, $primaryclustersize{$primaryotu});
+					}
+					else {
+						push(@tempclustersize, 1);
 					}
 				}
 				@tempclustersize = sort({$a <=> $b} @tempclustersize);
 				# determine threshold
 				my $tempcleansize;
-				for (my $i = 0; $i < scalar(@tempclustersize); $i ++) {
-					if ($tempclustersize[($i + 1)] - $tempclustersize[$i] < 3) {
-						next;
+				if ($tempclustersize[-1] < $minsize) {
+					$tempcleansize = $minsize;
+				}
+				else {
+					for (my $i = 0; $i < (scalar(@tempclustersize) - 1); $i ++) {
+						if ($tempclustersize[($i + 1)] < $minsize) {
+							next;
+						}
+						if ($tempclustersize[($i + 1)] / $tempclustersize[$i] >= $minsizeratio) {
+							$tempcleansize = $tempclustersize[$i] + 1;
+							last;
+						}
 					}
-					elsif ($tempclustersize[($i + 1)] / $tempclustersize[$i] >= $minsizeratio) {
-						$tempcleansize = $tempclustersize[$i] + 1;
-						last;
-					}
+				}
+				if (!$tempcleansize) {
+					$tempcleansize = $tempclustersize[-1] + 1;
+				}
+				elsif ($tempcleansize < $minsize) {
+					$tempcleansize = $minsize;
 				}
 				# save sequence names for elimination
 				foreach my $primaryotu (@{$secondaryotumembers->{$secondaryotu}}) {
@@ -595,6 +612,13 @@ sub runNoiseDetection {
 								&errorMessage(__LINE__, "Cannot write \"$prefix.noisyreads.txt\".");
 							}
 							print($filehandleoutput1 $member . "\n");
+							close($filehandleoutput1);
+						}
+						if ($primaryclustersize{$primaryotu} >= $warnsize) {
+							unless (open($filehandleoutput1, ">> largenoisycluster.txt")) {
+								&errorMessage(__LINE__, "Cannot write \"largenoisycluster.txt\".");
+							}
+							print($filehandleoutput1 "$primaryotu : $primaryclustersize{$primaryotu}\n");
 							close($filehandleoutput1);
 						}
 					}
@@ -617,6 +641,13 @@ sub runNoiseDetection {
 							&errorMessage(__LINE__, "Cannot write \"$prefix.noisyreads.txt\".");
 						}
 						print($filehandleoutput1 $member . "\n");
+						close($filehandleoutput1);
+					}
+					if ($primaryclustersize{$primaryotu} >= $warnsize) {
+						unless (open($filehandleoutput1, ">> largenoisycluster.txt")) {
+							&errorMessage(__LINE__, "Cannot write \"largenoisycluster.txt\".");
+						}
+						print($filehandleoutput1 "$primaryotu : $primaryclustersize{$primaryotu}\n");
 						close($filehandleoutput1);
 					}
 				}
@@ -1406,6 +1437,13 @@ determined (but this will take a while). (default: 0)
 
 --minsizeratio=DECIMAL
   Specify the minimum size ratio threshold for exact mode. (default: 2.0)
+
+--minsize=INTEGER
+  Specify the minimum size for exact mode. (default: 10)
+
+--distance=INTEGER
+  Specify the distance threshold of single-linkage clustering for exact mode.
+(default: 3)
 
 --pnoisycluster=DECIMAL
   Specify the percentage of noisy cluster. (default: 0.5)
