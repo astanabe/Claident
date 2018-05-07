@@ -8,10 +8,10 @@ my $devnull = File::Spec->devnull();
 
 # options
 my $folder = 0;
-my $maxnmismatch = 20;
-my $maxpmismatch = 1.0;
-my $minovllen = 20;
-my $minlen = 50;
+my $maxnmismatch = 99999;
+my $maxpmismatch = 0.5;
+my $minovllen = 10;
+my $minlen = 0;
 my $minqual = 0;
 my $compress = 'gz';
 my $mode = 'ovl';
@@ -24,7 +24,7 @@ my $output;
 my @inputfiles;
 
 # commands
-my $vsearch;
+my $vsearch5d;
 
 # file handles
 my $filehandleinput1;
@@ -219,7 +219,7 @@ sub checkVariables {
 			&errorMessage(__LINE__, "Input is not a directory.");
 		}
 	}
-	# search vsearch
+	# search vsearch5d
 	{
 		my $pathto;
 		if ($ENV{'CLAIDENTHOME'}) {
@@ -258,10 +258,10 @@ sub checkVariables {
 			if (!-e $pathto) {
 				&errorMessage(__LINE__, "Cannot find \"$pathto\".");
 			}
-			$vsearch = "\"$pathto/vsearch\"";
+			$vsearch5d = "\"$pathto/vsearch5d\"";
 		}
 		else {
-			$vsearch = 'vsearch';
+			$vsearch5d = 'vsearch5d';
 		}
 	}
 }
@@ -270,9 +270,9 @@ sub concatenateSequences {
 	print(STDERR "\nProcessing sequences...\n");
 	if ($mode eq 'ovl') {
 		if (scalar(@inputfiles) == 2 && !$folder) {
-			print(STDERR "Concatenating $inputfiles[0] and $inputfiles[1] using VSEARCH...\n");
-			if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_qmax 99 --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_qmax 99 --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads\".");
+			print(STDERR "Concatenating $inputfiles[0] and $inputfiles[1] using VSEARCH5D...\n");
+			if (system("$vsearch5d --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_qmax 99 --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch5d --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_qmax 99 --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads\".");
 			}
 			&compressFileByName($output);
 		}
@@ -288,9 +288,9 @@ sub concatenateSequences {
 					$prefix =~ s/^.+\///;
 				}
 				$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
-				print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . " using VSEARCH...\n");
-				if (system("$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_qmax 99 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads 1> $devnull")) {
-					&errorMessage(__LINE__, "Cannot run \"$vsearch --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_qmax 99 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads\".");
+				print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . " using VSEARCH5D...\n");
+				if (system("$vsearch5d --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_qmax 99 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"$vsearch5d --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --fastq_qmax 99 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads\".");
 				}
 				push(@outputfastq, "$output/$prefix.fastq");
 			}
@@ -677,19 +677,19 @@ Command line options
   Specify the concatenation mode. (default: OVL)
 
 --maxnmismatch=INTEGER
-  Specify the maximum number of mismatches. (default: 20)
+  Specify the maximum number of mismatches. (default: 9999)
 
 --maxpmismatch=DECIMAL
-  Specify the maximum percentage of mismatches. (default: 1.0)
+  Specify the maximum percentage of mismatches. (default: 0.5)
 
 --minqual=INTEGER
   Specify the minimum quality value for 3'-tail trimming. (default: 0)
 
 --minlen=INTEGER
-  Specify the minimum length after trimming. (default: 50)
+  Specify the minimum length after trimming. (default: 0)
 
 --minovllen=INTEGER
-  Specify the minimum length of overlap. (default: 20)
+  Specify the minimum length of overlap. (default: 10)
 
 -p, --padding=SEQUENCE
   Specify the padding sequence for non-overlapped paired-end mode.
