@@ -146,6 +146,18 @@ sub getOptions {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+min(?:imum)?size=(\d+)$/i) {
+			$minsize = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+min(?:imum)?n(?:um)?sizeratio=(\d+)$/i) {
+			$minsizeratio = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+dist(?:ance)?=(\d+)$/i) {
+			$distance = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+warnsize=(\d+)$/i) {
+			$warnsize = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+(?:derep|dereplication)mode=(.+)$/i) {
 			if ($1 =~ /^(?:full|fulllen|fulllength)$/i) {
 				$derepmode = 'full';
@@ -615,8 +627,8 @@ sub runNoiseDetection {
 							close($filehandleoutput1);
 						}
 						if ($primaryclustersize{$primaryotu} >= $warnsize) {
-							unless (open($filehandleoutput1, ">> largenoisycluster.txt")) {
-								&errorMessage(__LINE__, "Cannot write \"largenoisycluster.txt\".");
+							unless (open($filehandleoutput1, ">> largenoisycluster_tail.txt")) {
+								&errorMessage(__LINE__, "Cannot write \"largenoisycluster_tail.txt\".");
 							}
 							print($filehandleoutput1 "$primaryotu : $primaryclustersize{$primaryotu}\n");
 							close($filehandleoutput1);
@@ -644,8 +656,8 @@ sub runNoiseDetection {
 						close($filehandleoutput1);
 					}
 					if ($primaryclustersize{$primaryotu} >= $warnsize) {
-						unless (open($filehandleoutput1, ">> largenoisycluster.txt")) {
-							&errorMessage(__LINE__, "Cannot write \"largenoisycluster.txt\".");
+						unless (open($filehandleoutput1, ">> largenoisycluster_isolated.txt")) {
+							&errorMessage(__LINE__, "Cannot write \"largenoisycluster_isolated.txt\".");
 						}
 						print($filehandleoutput1 "$primaryotu : $primaryclustersize{$primaryotu}\n");
 						close($filehandleoutput1);
@@ -1439,11 +1451,15 @@ determined (but this will take a while). (default: 0)
   Specify the minimum size ratio threshold for exact mode. (default: 2.0)
 
 --minsize=INTEGER
-  Specify the minimum size for exact mode. (default: 10)
+  Specify the minimum size for exact mode. (default: 3)
 
 --distance=INTEGER
   Specify the distance threshold of single-linkage clustering for exact mode.
 (default: 3)
+
+--warnsize=INTEGER
+  Specify the minimum size threshold for warning in exact mode.
+(default: 100)
 
 --pnoisycluster=DECIMAL
   Specify the percentage of noisy cluster. (default: 0.5)
