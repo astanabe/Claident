@@ -12,22 +12,17 @@ extractfeat -type misc_feature -tag note -calue "*control*region*" mitochondrion
 wait
 cat D-loop_temp1.fasta D-loop_temp2.fasta > D-loop.fasta
 
-vsearch --id 0.99 --qmask none --strand both --threads 8 --notrunclabels --cluster_fast COX1.fasta --centroids COX1nr99.fasta
-vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp COX1nr99.fasta --fastaout COX1nr99rc.fasta
-cat COX1nr99.fasta COX1nr99rc.fasta > cducox1.fasta
+vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp COX1.fasta --fastaout COX1rc.fasta
+cat COX1.fasta COX1rc.fasta > cducox1.fasta
 
-vsearch --id 0.99 --qmask none --strand both --threads 8 --notrunclabels --cluster_fast CytB.fasta --centroids CytBnr99.fasta
-vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp CytBnr99.fasta --fastaout CytBnr99rc.fasta
-cat CytBnr99.fasta CytBnr99rc.fasta > cducytb.fasta
+vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp CytB.fasta --fastaout CytBrc.fasta
+cat CytB.fasta CytBrc.fasta > cducytb.fasta
 
-vsearch --id 0.99 --qmask none --strand both --threads 8 --notrunclabels --cluster_fast 12S.fasta --centroids 12Snr99.fasta
-vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp 12Snr99.fasta --fastaout 12Snr99rc.fasta
-cat 12Snr99.fasta 12Snr99rc.fasta > cdu12s.fasta
+vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp 12S.fasta --fastaout 12Src.fasta
+cat 12S.fasta 12Src.fasta > cdu12s.fasta
 
-vsearch --id 0.99 --qmask none --strand both --threads 8 --notrunclabels --cluster_fast 16S.fasta --centroids 16Snr99.fasta
-vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp 16Snr99.fasta --fastaout 16Snr99rc.fasta
-cat 16Snr99.fasta 16Snr99rc.fasta > cdu16s.fasta
+vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp 16S.fasta --fastaout 16Src.fasta
+cat 16S.fasta 16Src.fasta > cdu16s.fasta
 
-vsearch --id 0.99 --qmask none --strand both --threads 8 --notrunclabels --cluster_fast D-loop.fasta --centroids D-loopnr99.fasta
-vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp D-loopnr99.fasta --fastaout D-loopnr99rc.fasta
-cat D-loopnr99.fasta D-loopnr99rc.fasta > cdudloop.fasta
+vsearch --threads 8 --notrunclabels --label_suffix revcomp --fastx_revcomp D-loop.fasta --fastaout D-looprc.fasta
+cat D-loop.fasta D-looprc.fasta > cdudloop.fasta
