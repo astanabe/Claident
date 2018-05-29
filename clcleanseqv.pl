@@ -545,14 +545,21 @@ sub runNoiseDetection {
 		else {
 			$tempminovllen = $minovllen;
 		}
-		if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --cons_truncate --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --cons_truncate --uc primarycluster.uc --mincols $tempminovllen\".");
+		if ($primarymaxnmismatch == 0) {
+			if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen\".");
+			}
 		}
-		if (system("perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta\".");
-		}
-		unless ($nodel) {
-			unlink("primarycluster.fasta.bak");
+		else {
+			if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen\".");
+			}
+			if (system("perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta\".");
+			}
+			unless ($nodel) {
+				unlink("primarycluster.fasta.bak");
+			}
 		}
 		&convertUCtoOTUMembers("primarycluster.uc", "primarycluster.otu.gz", "temp2.otu.gz");
 	}

@@ -209,7 +209,7 @@ sub checkVariables {
 			}
 		}
 	}
-	if ($vsearchoption =~ /-(?:chimeras|db|nonchimeras|uchime_denovo|uchime_ref|uchimealns|uchimeout|uchimeout5|centroids|cluster_fast|cluster_size|cluster_smallmem|clusters|consout|cons_truncate|derep_fulllength|sortbylength|sortbysize|output|allpairs_global|shuffle) /) {
+	if ($vsearchoption =~ /-(?:chimeras|db|nonchimeras|uchime_denovo|uchime2_denovo|uchime3_denovo|uchime_ref|uchimealns|uchimeout|uchimeout5|centroids|cluster_fast|cluster_size|cluster_smallmem|clusters|consout|cons_truncate|derep_fulllength|sortbylength|sortbysize|output|allpairs_global|shuffle) /) {
 		&errorMessage(__LINE__, "The option for vsearch is invalid.");
 	}
 	if (($contigmembers || $otufile) && $vsearchoption =~ /-threads /) {
@@ -229,24 +229,6 @@ sub checkVariables {
 	}
 	if ($vsearchoption !~ /-notrunclabels/) {
 		$vsearchoption .= " --notrunclabels";
-	}
-	if ($vsearchoption !~ /-abskew /) {
-		$vsearchoption .= " --abskew 2.0";
-	}
-	if ($vsearchoption !~ /-dn /) {
-		$vsearchoption .= " --dn 1.4";
-	}
-	if ($vsearchoption !~ /-mindiffs /) {
-		$vsearchoption .= " --mindiffs 3";
-	}
-	if ($vsearchoption !~ /-mindiv /) {
-		$vsearchoption .= " --mindiv 0.1";
-	}
-	if ($vsearchoption !~ /-minh /) {
-		$vsearchoption .= " --minh 0.1";
-	}
-	if ($vsearchoption !~ /-xn /) {
-		$vsearchoption .= " --xn 8.0";
 	}
 	if ($vsearchoption !~ /-strand /) {
 		$vsearchoption .= " --strand plus";
@@ -365,7 +347,7 @@ sub runVSEARCH {
 		}
 		close($filehandleoutput1);
 		close($filehandleinput1);
-		if (system("$vsearch$vsearchoption --uchime_denovo $outputfolder/temp.fasta --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
+		if (system("$vsearch$vsearchoption --uchime2_denovo $outputfolder/temp.fasta --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
 			&errorMessage(__LINE__, "Cannot run vsearch correctly.");
 		}
 		if (system("perl -i.bak -npe 's/;+size=\\d+;*//' $outputfolder/chimeras.fasta")) {
@@ -384,7 +366,7 @@ sub runVSEARCH {
 		}
 	}
 	else {
-		if (system("$vsearch$vsearchoption --uchime_denovo $inputfile --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
+		if (system("$vsearch$vsearchoption --uchime2_denovo $inputfile --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
 			&errorMessage(__LINE__, "Cannot run vsearch correctly.");
 		}
 		if (system("perl -i.bak -npe 's/;+size=\\d+;*//' $outputfolder/chimeras.fasta")) {
@@ -443,7 +425,7 @@ Command line options
 ====================
 vsearch options end
   Specify commandline options for vsearch.
-(default: --minh 0.1 --mindiv 0.1)
+(default: none)
 
 --contigmembers=FILENAME
   Specify file path to contigmembers file. (default: none)
