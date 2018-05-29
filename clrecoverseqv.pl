@@ -274,9 +274,6 @@ sub checkInputFiles {
 					}
 					close($filehandleinput1);
 				}
-				else {
-					&erorrMessage(__LINE__, "The input file name \"$inputfile\" is invalid.");
-				}
 				exit;
 			}
 		}
