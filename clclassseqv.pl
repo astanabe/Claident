@@ -358,8 +358,8 @@ sub runVSEARCH {
 	&convertUCtoOTUMembers("clustered.uc", "clustered.otu.gz", "concatenated.otu.gz");
 	unlink("concatenated.fasta");
 	unlink("concatenated.otu.gz");
-	if (system("perl -i.bak -npe 's/;size=\\d+;?//' clustered.fasta")) {
-		&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/;size=\\d+;?//' clustered.fasta\".");
+	if (system("perl -i.bak -npe 's/;+size=\\d+;*//' clustered.fasta")) {
+		&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/;+size=\\d+;*//' clustered.fasta\".");
 	}
 	unlink("clustered.fasta.bak");
 	#if (system("gzip clustered.fasta")) {
@@ -378,7 +378,7 @@ sub convertUCtoOTUMembers {
 		my $centroid;
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			s/;size=\d+;?//g;
+			s/;+size=\d+;*//g;
 			if (/^>(.+)$/) {
 				$centroid = $1;
 			}
@@ -395,7 +395,7 @@ sub convertUCtoOTUMembers {
 	$filehandleinput1 = &readFile($ucfile);
 	while (<$filehandleinput1>) {
 		s/\r?\n?$//;
-		s/;size=\d+;?//g;
+		s/;+size=\d+;*//g;
 		my @row = split(/\t/, $_);
 		if ($row[0] eq 'S') {
 			push(@{$cluster{$row[8]}}, $row[8]);

@@ -186,7 +186,7 @@ sub readMembers {
 		my $otuname;
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			s/;size=\d+;?//g;
+			s/;+size=\d+;*//g;
 			if (/^>(.+)$/) {
 				$otuname = $1;
 				push(@otunames, $otuname);

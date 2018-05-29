@@ -923,7 +923,7 @@ sub deleteNoisySequences {
 			}
 			while (<$filehandleinput1>) {
 				s/\r?\n?$//;
-				s/;size=\d+;?//g;
+				s/;+size=\d+;*//g;
 				if (/^>(.+)/) {
 					$unshared = 0;
 					$noisy = 0;
@@ -1144,7 +1144,7 @@ sub getOTUMembers {
 			my $centroid;
 			while (<$filehandleinput1>) {
 				s/\r?\n?$//;
-				s/;size=\d+;?//g;
+				s/;+size=\d+;*//g;
 				if (/^>(.+)$/) {
 					$centroid = $1;
 					push(@{$cluster{$centroid}}, $1);
@@ -1184,7 +1184,7 @@ sub convertUCtoOTUMembers {
 		my $centroid;
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			s/;size=\d+;?//g;
+			s/;+size=\d+;*//g;
 			if (/^>(.+)$/) {
 				$centroid = $1;
 			}
@@ -1198,7 +1198,7 @@ sub convertUCtoOTUMembers {
 	$filehandleinput1 = &readFile($ucfile);
 	while (<$filehandleinput1>) {
 		s/\r?\n?$//;
-		s/;size=\d+;?//g;
+		s/;+size=\d+;*//g;
 		my @row = split(/\t/, $_);
 		if ($row[0] eq 'S') {
 			push(@{$cluster{$row[8]}}, $row[8]);

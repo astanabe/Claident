@@ -329,7 +329,7 @@ sub readMembers {
 		my $centroid;
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			s/;size=\d+;?//g;
+			s/;+size=\d+;*//g;
 			if (/^>(.+)$/) {
 				$centroid = $1;
 				$members{$centroid} = 1;
@@ -452,7 +452,7 @@ sub readMembers {
 		my $otuname;
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			s/;size=\d+;?//g;
+			s/;+size=\d+;*//g;
 			if (/^>(.+)$/) {
 				$otuname = $1;
 				push(@otunames, $otuname);
@@ -585,7 +585,7 @@ sub processSequences {
 			s/\r?\n?$//;
 			if ($tempnline % 4 == 1 && /^\@(\S+)/) {
 				$seqname = $1;
-				$seqname =~ s/;size=\d+;?//g;
+				$seqname =~ s/;+size=\d+;*//g;
 				if ($filehandleinput2) {
 					readline($filehandleinput2);
 				}
@@ -704,7 +704,7 @@ sub processSequences {
 		while (<$filehandleinput1>) {
 			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
 				$seqname = $1;
-				$seqname =~ s/;size=\d+;?//g;
+				$seqname =~ s/;+size=\d+;*//g;
 				$nucseq1 = uc($2);
 				$nucseq1 =~ s/[^A-Z]//g;
 				if ($filehandleinput2) {

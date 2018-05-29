@@ -323,7 +323,7 @@ sub readMembers {
 		my $centroid;
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			s/;size=\d+;?//g;
+			s/;+size=\d+;*//g;
 			if (/^>(.+)$/) {
 				$centroid = $1;
 				$members{$centroid} = 1;
@@ -349,8 +349,8 @@ sub runVSEARCH {
 		while (<$filehandleinput1>) {
 			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
 				my $seqname = $1;
-				$seqname =~ s/;size=\d+;?//g;
 				my $sequence = uc($2);
+				$seqname =~ s/;+size=\d+;*//g;
 				$sequence =~ s/[^A-Z]//sg;
 				if ($members{$seqname}) {
 					print($filehandleoutput1 ">$seqname;size=$members{$seqname};\n$sequence\n");
@@ -368,10 +368,10 @@ sub runVSEARCH {
 		if (system("$vsearch$vsearchoption --uchime_denovo $outputfolder/temp.fasta --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
 			&errorMessage(__LINE__, "Cannot run vsearch correctly.");
 		}
-		if (system("perl -i.bak -npe 's/;size=\\d+;?//' $outputfolder/chimeras.fasta")) {
+		if (system("perl -i.bak -npe 's/;+size=\\d+;*//' $outputfolder/chimeras.fasta")) {
 			&errorMessage(__LINE__, "Cannot modify \"$outputfolder/chimeras.fasta\".");
 		}
-		if (system("perl -i.bak -npe 's/;size=\\d+;?//' $outputfolder/nonchimeras.fasta")) {
+		if (system("perl -i.bak -npe 's/;+size=\\d+;*//' $outputfolder/nonchimeras.fasta")) {
 			&errorMessage(__LINE__, "Cannot modify \"$outputfolder/nonchimeras.fasta\".");
 		}
 		unlink("$outputfolder/chimeras.fasta.bak");
@@ -387,10 +387,10 @@ sub runVSEARCH {
 		if (system("$vsearch$vsearchoption --uchime_denovo $inputfile --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
 			&errorMessage(__LINE__, "Cannot run vsearch correctly.");
 		}
-		if (system("perl -i.bak -npe 's/;size=\\d+;?//' $outputfolder/chimeras.fasta")) {
+		if (system("perl -i.bak -npe 's/;+size=\\d+;*//' $outputfolder/chimeras.fasta")) {
 			&errorMessage(__LINE__, "Cannot modify \"$outputfolder/chimeras.fasta\".");
 		}
-		if (system("perl -i.bak -npe 's/;size=\\d+;?//' $outputfolder/nonchimeras.fasta")) {
+		if (system("perl -i.bak -npe 's/;+size=\\d+;*//' $outputfolder/nonchimeras.fasta")) {
 			&errorMessage(__LINE__, "Cannot modify \"$outputfolder/nonchimeras.fasta\".");
 		}
 		unlink("$outputfolder/chimeras.fasta.bak");

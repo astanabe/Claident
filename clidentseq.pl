@@ -425,7 +425,7 @@ sub searchNeighborhoods {
 				my $query = $1;
 				my $sequence = $2;
 				$query =~ s/\s+$//;
-				$query =~ s/;size=\d+;?//g;
+				$query =~ s/;+size=\d+;*//g;
 				$qnum ++;
 				$sequence =~ s/[> \r\n]//g;
 				push(@queries, $query);
