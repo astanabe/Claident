@@ -10,6 +10,7 @@ my $devnull = File::Spec->devnull();
 # options
 my $numthreads = 1;
 my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --qmask none --dbmask none --fulldp --usearch_global';
+my $vsearchoption2 = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --sortbysize';
 my $paddinglen = 0;
 my $minovllen = 0;
 my $nodel;
@@ -25,6 +26,7 @@ my $vsearch5d;
 
 # global variables
 my $root = getcwd();
+my %members;
 
 # file handles
 my $filehandleinput1;
@@ -380,6 +382,35 @@ sub runVSEARCH {
 		#	&errorMessage(__LINE__, "Cannot run \"gzip nohit.fasta\".");
 		#}
 	}
+	# sort by abundance
+	&readMembers("clustered.otu.gz");
+	{
+		$filehandleinput1 = &readFile("clustered.fasta");
+		$filehandleoutput1 = &writeFile("temp.fasta");
+		local $/ = "\n>";
+		while (<$filehandleinput1>) {
+			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+				my $seqname = $1;
+				my $sequence = uc($2);
+				$seqname =~ s/;+size=\d+;*//g;
+				$sequence =~ s/[^A-Z]//sg;
+				if ($members{$seqname}) {
+					print($filehandleoutput1 ">$seqname;size=$members{$seqname};\n$sequence\n");
+				}
+				else {
+					&errorMessage(__LINE__, "Invalid result.");
+				}
+			}
+		}
+		close($filehandleoutput1);
+		close($filehandleinput1);
+	}
+	if (system("$vsearch$vsearchoption2 temp.fasta --output clustered.fasta --threads $numthreads 1> $devnull")) {
+		&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption2 temp.fasta --output clustered.fasta --threads $numthreads\".");
+	}
+	unless ($nodel) {
+		unlink("temp.fasta");
+	}
 	#if (system("gzip clustered.fasta")) {
 	#	&errorMessage(__LINE__, "Cannot run \"gzip clustered.fasta\".");
 	#}
@@ -486,6 +517,27 @@ sub getMinimumLength {
 		$minlen = 10000;
 	}
 	return($minlen);
+}
+
+sub readMembers {
+	my $otufile = shift(@_);
+	$filehandleinput1 = &readFile($otufile);
+	my $centroid;
+	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
+		s/;+size=\d+;*//g;
+		if (/^>(.+)$/) {
+			$centroid = $1;
+			$members{$centroid} = 1;
+		}
+		elsif ($centroid && /^([^>].*)$/) {
+			$members{$centroid} ++;
+		}
+		else {
+			&errorMessage(__LINE__, "\"$otufile\" is invalid.");
+		}
+	}
+	close($filehandleinput1);
 }
 
 sub writeFile {

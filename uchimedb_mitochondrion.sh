@@ -1,6 +1,8 @@
 export PATH=/usr/local/share/claident/bin:$PATH
 
-clretrievegi --keywords='"ddbj embl genbank"[Filter] AND (mitochondrion[Filter] AND 13000:9999999[Sequence Length])' mitochondrion.txt || exit $?
+clretrievegi --keywords='"ddbj embl genbank"[Filter] AND (mitochondrion[Filter] AND 13000:9999999[Sequence Length] NOT txid9606[Organism:exp])' mitochondrion.txt || exit $?
+clretrievegi --keywords='"ddbj embl genbank"[Filter] AND (mitochondrion[Filter] AND 13000:9999999[Sequence Length] AND txid9606[Organism:exp])' mitochondrionHuman.txt || exit $?
+shuf -n 1000 mitochondrionHuman.txt >> mitochondrion.txt || exit $?
 pgretrieveseq --output=GenBank --database=nucleotide mitochondrion.txt mitochondrion.gb || exit $?
 
 extractfeat -type CDS -tag gene -value "COX1|COI" mitochondrion.gb COX1.fasta &

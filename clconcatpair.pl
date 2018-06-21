@@ -468,7 +468,7 @@ sub concatenateFiles {
 			}
 			else {
 				my @seqfiles = glob("$outputfile.*");
-				if (scalar(@seqfiles) == $numthreads * 2) {
+				if (scalar(@seqfiles) <= $numthreads * 2) {
 					if ($folder && $compress) {
 						$filehandleoutput1 = writeFile("$outputfile.$compress");
 					}
