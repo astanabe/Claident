@@ -12,7 +12,8 @@ my $referencedb;
 
 # options
 my $numthreads = 1;
-my $vsearchoption;
+my $uchimedenovo = 2;
+my $vsearchoption = " --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels";
 
 # the other global variables
 my $devnull = File::Spec->devnull();
@@ -92,6 +93,9 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ 'vsearch' || $ARGV[$i] =~ 'uchime') {
 			$vsearchmode = 1;
 		}
+		elsif ($ARGV[$i] =~ /^-+uchimedenovo=(\d+)$/i) {
+			$uchimedenovo = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+contigmembers?=(.+)$/i) {
 			$contigmembers = $1;
 		}
@@ -122,6 +126,12 @@ sub checkVariables {
 	}
 	if (-e $outputfolder) {
 		&errorMessage(__LINE__, "The output file already exists.");
+	}
+	if ($uchimedenovo < 1 || $uchimedenovo > 3) {
+		&errorMessage(__LINE__, "Invalid value for version of UCHIME de novo.");
+	}
+	if ($uchimedenovo == 1) {
+		$uchimedenovo = '';
 	}
 	if ($contigmembers && $referencedb) {
 		&errorMessage(__LINE__, "Both contigmembers and referencedb were specified.");
@@ -217,18 +227,6 @@ sub checkVariables {
 	}
 	if ($referencedb && $vsearchoption !~ /-threads /) {
 		$vsearchoption .= " --threads $numthreads";
-	}
-	if ($vsearchoption !~ /-fasta_width /) {
-		$vsearchoption .= " --fasta_width 999999";
-	}
-	if ($vsearchoption !~ /-maxseqlength /) {
-		$vsearchoption .= " --maxseqlength 50000";
-	}
-	if ($vsearchoption !~ /-minseqlength /) {
-		$vsearchoption .= " --minseqlength 32";
-	}
-	if ($vsearchoption !~ /-notrunclabels/) {
-		$vsearchoption .= " --notrunclabels";
 	}
 	if ($vsearchoption !~ /-strand /) {
 		$vsearchoption .= " --strand plus";
@@ -347,36 +345,20 @@ sub runVSEARCH {
 		}
 		close($filehandleoutput1);
 		close($filehandleinput1);
-		if (system("$vsearch$vsearchoption --uchime2_denovo $outputfolder/temp.fasta --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
+		if (system("$vsearch$vsearchoption --uchime$uchimedenovo\_denovo $outputfolder/temp.fasta --sizein --xsize --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --borderline $outputfolder/borderline.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
 			&errorMessage(__LINE__, "Cannot run vsearch correctly.");
 		}
-		if (system("perl -i.bak -npe 's/;+size=\\d+;*//' $outputfolder/chimeras.fasta")) {
-			&errorMessage(__LINE__, "Cannot modify \"$outputfolder/chimeras.fasta\".");
-		}
-		if (system("perl -i.bak -npe 's/;+size=\\d+;*//' $outputfolder/nonchimeras.fasta")) {
-			&errorMessage(__LINE__, "Cannot modify \"$outputfolder/nonchimeras.fasta\".");
-		}
-		unlink("$outputfolder/chimeras.fasta.bak");
-		unlink("$outputfolder/nonchimeras.fasta.bak");
 		unlink("$outputfolder/temp.fasta");
 	}
 	elsif ($referencedb) {
-		if (system("$vsearch$vsearchoption --uchime_ref $inputfile --db $referencedb --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
+		if (system("$vsearch$vsearchoption --uchime_ref $inputfile --db $referencedb --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --borderline $outputfolder/borderline.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
 			&errorMessage(__LINE__, "Cannot run vsearch correctly.");
 		}
 	}
 	else {
-		if (system("$vsearch$vsearchoption --uchime2_denovo $inputfile --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
+		if (system("$vsearch$vsearchoption --uchime$uchimedenovo\_denovo $inputfile --sizein --xsize --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --borderline $outputfolder/borderline.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
 			&errorMessage(__LINE__, "Cannot run vsearch correctly.");
 		}
-		if (system("perl -i.bak -npe 's/;+size=\\d+;*//' $outputfolder/chimeras.fasta")) {
-			&errorMessage(__LINE__, "Cannot modify \"$outputfolder/chimeras.fasta\".");
-		}
-		if (system("perl -i.bak -npe 's/;+size=\\d+;*//' $outputfolder/nonchimeras.fasta")) {
-			&errorMessage(__LINE__, "Cannot modify \"$outputfolder/nonchimeras.fasta\".");
-		}
-		unlink("$outputfolder/chimeras.fasta.bak");
-		unlink("$outputfolder/nonchimeras.fasta.bak");
 	}
 }
 
@@ -426,6 +408,9 @@ Command line options
 vsearch options end
   Specify commandline options for vsearch.
 (default: none)
+
+--uchimedenovo=1|2|3
+  Specify version of UCHIME de novo. (default: 2)
 
 --contigmembers=FILENAME
   Specify file path to contigmembers file. (default: none)
