@@ -345,7 +345,7 @@ sub runVSEARCH {
 		}
 		close($filehandleoutput1);
 		close($filehandleinput1);
-		if (system("$vsearch$vsearchoption --uchime$uchimedenovo\_denovo $outputfolder/temp.fasta --sizein --xsize --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --borderline $outputfolder/borderline.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
+		if (system("$vsearch$vsearchoption --uchime$uchimedenovo\_denovo $outputfolder/temp.fasta --sizein --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --borderline $outputfolder/borderline.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
 			&errorMessage(__LINE__, "Cannot run vsearch correctly.");
 		}
 		unlink("$outputfolder/temp.fasta");
@@ -356,7 +356,7 @@ sub runVSEARCH {
 		}
 	}
 	else {
-		if (system("$vsearch$vsearchoption --uchime$uchimedenovo\_denovo $inputfile --sizein --xsize --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --borderline $outputfolder/borderline.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
+		if (system("$vsearch$vsearchoption --uchime$uchimedenovo\_denovo $inputfile --sizein --chimeras $outputfolder/chimeras.fasta --nonchimeras $outputfolder/nonchimeras.fasta --borderline $outputfolder/borderline.fasta --uchimeout $outputfolder/uchimeout.txt --uchimealns $outputfolder/uchimealns.txt")) {
 			&errorMessage(__LINE__, "Cannot run vsearch correctly.");
 		}
 	}
