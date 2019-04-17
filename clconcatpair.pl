@@ -60,7 +60,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2018  Akifumi S. Tanabe
+Copyright (C) 2011-2019  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -468,7 +468,7 @@ sub concatenateFiles {
 			}
 			else {
 				my @seqfiles = glob("$outputfile.*");
-				if (scalar(@seqfiles) <= $numthreads * 2) {
+				#if (scalar(@seqfiles) <= $numthreads * 2) {
 					if ($folder && $compress) {
 						$filehandleoutput1 = writeFile("$outputfile.$compress");
 					}
@@ -486,10 +486,10 @@ sub concatenateFiles {
 						unlink($seqfile);
 					}
 					close($filehandleoutput1);
-				}
-				else {
-					&errorMessage(__LINE__, "Invalid results.");
-				}
+				#}
+				#else {
+				#	&errorMessage(__LINE__, "Invalid results.");
+				#}
 				exit;
 			}
 		}

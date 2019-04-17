@@ -108,7 +108,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2018  Akifumi S. Tanabe
+Copyright (C) 2011-2019  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -582,8 +582,8 @@ sub runNoiseDetection {
 		&errorMessage(__LINE__, "\"primarycluster.otu.gz\" is invalid.");
 	}
 	if ($exactmode) {
-		if (system("$swarm$swarmoption --differences $distance --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --threads $numthreads primarycluster.fasta 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$swarm$swarmoption --differences $distance --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --threads $numthreads primarycluster.fasta\".");
+		if (system("$swarm$swarmoption --differences $distance --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --statistics-file secondarycluster.stat --internal-structure secondarycluster.in --threads $numthreads primarycluster.fasta 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$swarm$swarmoption --differences $distance --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --statistics-file secondarycluster.stat --internal-structure secondarycluster.in --threads $numthreads primarycluster.fasta\".");
 		}
 		&convertUCtoOTUMembers("secondarycluster.uc", "secondarycluster.otu.gz");
 		my ($secondaryotumembers, $secondarysingletons) = &getOTUMembers("secondarycluster.otu.gz");

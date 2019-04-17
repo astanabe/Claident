@@ -16,11 +16,11 @@ clretrievegi --excludetaxid=12908,28384 --includetaxa=class,.+ --taxdb=overall_t
 wait
 # del duplicate
 clelimdupgi --workspace=disk prokaryota_all_species.txt prokaryota_all_genus.txt prokaryota_all_undergenus.txt &
-clelimdupgi --workspace=disk overall_species.txt overall_genus.txt overall_undergenus.txt || exit $?
+clelimdupgi --workspace=disk overall_species.txt overall_genus.txt overall_undergenus.txt &
+clelimdupgi --workspace=disk overall_species.txt overall_genus.txt overall_family.txt overall_underfamily.txt &
+clelimdupgi --workspace=disk overall_species.txt overall_genus.txt overall_family.txt overall_order.txt overall_underorder.txt &
+clelimdupgi --workspace=disk overall_species.txt overall_genus.txt overall_family.txt overall_order.txt overall_class.txt overall_underclass.txt &
 wait
-clelimdupgi --workspace=disk overall_undergenus.txt overall_family.txt overall_underfamily.txt || exit $?
-clelimdupgi --workspace=disk overall_underfamily.txt overall_order.txt overall_underorder.txt || exit $?
-clelimdupgi --workspace=disk overall_underorder.txt overall_class.txt overall_underclass.txt || exit $?
 cd blastdb || exit $?
 # make BLAST database
 # NT-independent
@@ -34,8 +34,9 @@ blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_undergenus
 blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_species.txt -out overall_species -title overall_species &
 wait
 #
-clblastdbcmd --blastdb=./prokaryota_all_genus --output=GI --numthreads=8 ../prokaryota_all_undergenus.txt prokaryota_all_undergenus.txt || exit $?
-clblastdbcmd --blastdb=./overall_class --output=GI --numthreads=8 ../overall_underclass.txt overall_underclass.txt || exit $?
+clblastdbcmd --blastdb=./prokaryota_all_genus --output=GI --numthreads=8 ../prokaryota_all_undergenus.txt prokaryota_all_undergenus.txt &
+clblastdbcmd --blastdb=./overall_class --output=GI --numthreads=8 ../overall_underclass.txt overall_underclass.txt &
+wait
 cd .. || exit $?
 # minimize taxdb
 clmaketaxdb --gilist=blastdb/prokaryota_all_undergenus.txt taxonomy prokaryota_all_genus.taxdb &
