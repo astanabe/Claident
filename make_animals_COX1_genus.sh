@@ -25,10 +25,12 @@ clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.' --gilist=
 # make BLAST database
 cd blastdb || exit $?
 # NT-independent, but overall_class-dependent
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../animals_COX1_genus.txt -out animals_COX1_genus -title animals_COX1_genus 2> /dev/null || exit $?
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../animals_COX1_species.txt -out animals_COX1_species -title animals_COX1_species 2> /dev/null || exit $?
-#
-clblastdbcmd --blastdb=./animals_COX1_genus --output=GI --numthreads=8 ../animals_COX1_genus.txt animals_COX1_genus.txt || exit $?
+clextractdupgi --workspace=disk overall_underclass.txt ../animals_COX1_genus.txt animals_COX1_genus.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../animals_COX1_species.txt animals_COX1_species.txt &
+wait
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist animals_COX1_genus.txt -out animals_COX1_genus -title animals_COX1_genus &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist animals_COX1_species.txt -out animals_COX1_species -title animals_COX1_species &
+wait
 cd .. || exit $?
 # minimize taxdb
 clmaketaxdb --gilist=blastdb/animals_COX1_genus.txt taxonomy animals_COX1_genus.taxdb || exit $?

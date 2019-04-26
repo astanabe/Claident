@@ -11,10 +11,12 @@ clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.' --gilist=
 # make BLAST database
 cd blastdb || exit $?
 # NT-independent, but prokaryota_all_genus-dependent
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_16S_genus.txt -out prokaryota_16S_genus -title prokaryota_16S_genus 2> /dev/null || exit $?
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_16S_species.txt -out prokaryota_16S_species -title prokaryota_16S_species 2> /dev/null || exit $?
-#
-clblastdbcmd --blastdb=./prokaryota_16S_genus --output=GI --numthreads=8 ../prokaryota_16S_genus.txt prokaryota_16S_genus.txt || exit $?
+clextractdupgi --workspace=disk overall_underclass.txt ../prokaryota_16S_genus.txt prokaryota_16S_genus.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../prokaryota_16S_species.txt prokaryota_16S_species.txt &
+wait
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist prokaryota_16S_genus.txt -out prokaryota_16S_genus -title prokaryota_16S_genus &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist prokaryota_16S_species.txt -out prokaryota_16S_species -title prokaryota_16S_species &
+wait
 cd .. || exit $?
 # minimize taxdb
 clmaketaxdb --gilist=blastdb/prokaryota_16S_genus.txt taxonomy prokaryota_16S_genus.taxdb

@@ -1,8 +1,8 @@
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 PERL := $(filter /%,$(shell /bin/sh -c 'type perl'))
-VERSION := 0.2.2019.04.17
-PROGRAM := classigntax clblastdbcmd clblastprimer clblastseq clclassclass clclassseq clclassseqv clcleanseq clcleanseqv clconcatpair clderepblastdb cldivseq clelimdupgi clfillassign clfilterseq clfiltersum clidentseq climportfastq climportillumina clmakeblastdb clmakecachedb clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clreclassclass clrecoverseqv clretrievegi clrunuchime clshrinkblastdb clsplitseq clsumclass
+VERSION := 0.2.2019.04.27
+PROGRAM := classigntax clblastdbcmd clblastprimer clblastseq clclassclass clclassseq clclassseqv clcleanseq clcleanseqv clconcatpair clderepblastdb cldivseq clelimdupgi clextractdupgi clfillassign clfilterseq clfiltersum clidentseq climportfastq climportillumina clmakeblastdb clmakecachedb clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clreclassclass clrecoverseqv clretrievegi clrunuchime clshrinkblastdb clsplitseq clsumclass
 
 all: $(PROGRAM)
 
@@ -55,6 +55,10 @@ cldivseq: cldivseq.pl
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clelimdupgi: clelimdupgi.pl
+	echo '#!'$(PERL) > $@
+	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+
+clextractdupgi: clextractdupgi.pl
 	echo '#!'$(PERL) > $@
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 

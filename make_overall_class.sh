@@ -26,16 +26,22 @@ cd blastdb || exit $?
 # NT-independent
 clblastdbcmd --blastdb=./nt --output=FASTA --numthreads=8 ../overall_underclass.txt overall_class.fasta.gz || exit $?
 gzip -dc overall_class.fasta.gz | makeblastdb -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 2G -in - -out overall_class -title overall_class || exit $?
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_all_undergenus.txt -out prokaryota_all_genus -title prokaryota_all_genus &
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../prokaryota_all_species.txt -out prokaryota_all_species -title prokaryota_all_species &
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_underorder.txt -out overall_order -title overall_order &
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_underfamily.txt -out overall_family -title overall_family &
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_undergenus.txt -out overall_genus -title overall_genus &
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../overall_species.txt -out overall_species -title overall_species &
+ls overall_class.??.nsq | grep -o -P '^.+\.\d\d' > overall_class.txt
+blastdb_aliastool -dbtype nucl -dblist_file overall_class.txt -out overall_class -title overall_class
+clblastdbcmd --blastdb=./overall_class --output=GI --numthreads=8 ../overall_underclass.txt overall_underclass.txt
+clextractdupgi --workspace=disk overall_underclass.txt ../overall_underorder.txt overall_underorder.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../overall_underfamily.txt overall_underfamily.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../overall_undergenus.txt overall_undergenus.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../overall_species.txt overall_species.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../prokaryota_all_undergenus.txt prokaryota_all_undergenus.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../prokaryota_all_species.txt prokaryota_all_species.txt &
 wait
-#
-clblastdbcmd --blastdb=./prokaryota_all_genus --output=GI --numthreads=8 ../prokaryota_all_undergenus.txt prokaryota_all_undergenus.txt &
-clblastdbcmd --blastdb=./overall_class --output=GI --numthreads=8 ../overall_underclass.txt overall_underclass.txt &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist overall_underorder.txt -out overall_order -title overall_order &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist overall_underfamily.txt -out overall_family -title overall_family &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist overall_undergenus.txt -out overall_genus -title overall_genus &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist overall_species.txt -out overall_species -title overall_species &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist prokaryota_all_undergenus.txt -out prokaryota_all_genus -title prokaryota_all_genus &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist prokaryota_all_species.txt -out prokaryota_all_species -title prokaryota_all_species &
 wait
 cd .. || exit $?
 # minimize taxdb

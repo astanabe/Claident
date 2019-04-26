@@ -11,10 +11,12 @@ clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.' --gilist=
 # make BLAST database
 cd blastdb || exit $?
 # NT-independent, but overall_class-dependent
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../eukaryota_LSU_genus.txt -out eukaryota_LSU_genus -title eukaryota_LSU_genus 2> /dev/null || exit $?
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../eukaryota_LSU_species.txt -out eukaryota_LSU_species -title eukaryota_LSU_species 2> /dev/null || exit $?
-#
-clblastdbcmd --blastdb=./eukaryota_LSU_genus --output=GI --numthreads=8 ../eukaryota_LSU_genus.txt eukaryota_LSU_genus.txt || exit $?
+clextractdupgi --workspace=disk overall_underclass.txt ../eukaryota_LSU_genus.txt eukaryota_LSU_genus.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../eukaryota_LSU_species.txt eukaryota_LSU_species.txt &
+wait
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist eukaryota_LSU_genus.txt -out eukaryota_LSU_genus -title eukaryota_LSU_genus &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist eukaryota_LSU_species.txt -out eukaryota_LSU_species -title eukaryota_LSU_species &
+wait
 cd .. || exit $?
 # minimize taxdb
 clmaketaxdb --gilist=blastdb/eukaryota_LSU_genus.txt taxonomy eukaryota_LSU_genus.taxdb || exit $?

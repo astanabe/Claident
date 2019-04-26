@@ -23,10 +23,12 @@ clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.' --gilist=
 # make BLAST database
 cd blastdb || exit $?
 # NT-independent, but overall_class-dependent
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../plants_rbcL_genus.txt -out plants_rbcL_genus -title plants_rbcL_genus 2> /dev/null || exit $?
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../plants_rbcL_species.txt -out plants_rbcL_species -title plants_rbcL_species 2> /dev/null || exit $?
-#
-clblastdbcmd --blastdb=./plants_rbcL_genus --output=GI --numthreads=8 ../plants_rbcL_genus.txt plants_rbcL_genus.txt || exit $?
+clextractdupgi --workspace=disk overall_underclass.txt ../plants_rbcL_genus.txt plants_rbcL_genus.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../plants_rbcL_species.txt plants_rbcL_species.txt &
+wait
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist plants_rbcL_genus.txt -out plants_rbcL_genus -title plants_rbcL_genus &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist plants_rbcL_species.txt -out plants_rbcL_species -title plants_rbcL_species &
+wait
 cd .. || exit $?
 # minimize taxdb
 clmaketaxdb --gilist=blastdb/plants_rbcL_genus.txt taxonomy plants_rbcL_genus.taxdb || exit $?

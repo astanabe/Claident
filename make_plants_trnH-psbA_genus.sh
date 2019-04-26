@@ -23,10 +23,12 @@ clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.' --gilist=
 # make BLAST database
 cd blastdb || exit $?
 # NT-independent, but overall_class-dependent
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../plants_trnH-psbA_genus.txt -out plants_trnH-psbA_genus -title plants_trnH-psbA_genus 2> /dev/null || exit $?
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../plants_trnH-psbA_species.txt -out plants_trnH-psbA_species -title plants_trnH-psbA_species 2> /dev/null || exit $?
-#
-clblastdbcmd --blastdb=./plants_trnH-psbA_genus --output=GI --numthreads=8 ../plants_trnH-psbA_genus.txt plants_trnH-psbA_genus.txt || exit $?
+clextractdupgi --workspace=disk overall_underclass.txt ../plants_trnH-psbA_genus.txt plants_trnH-psbA_genus.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../plants_trnH-psbA_species.txt plants_trnH-psbA_species.txt &
+wait
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist plants_trnH-psbA_genus.txt -out plants_trnH-psbA_genus -title plants_trnH-psbA_genus &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist plants_trnH-psbA_species.txt -out plants_trnH-psbA_species -title plants_trnH-psbA_species &
+wait
 cd .. || exit $?
 # minimize taxdb
 clmaketaxdb --gilist=blastdb/plants_trnH-psbA_genus.txt taxonomy plants_trnH-psbA_genus.taxdb || exit $?

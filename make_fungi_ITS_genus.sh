@@ -22,10 +22,12 @@ clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.' --gilist=
 # make BLAST database
 cd blastdb || exit $?
 # NT-independent, but overall_class-dependent
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../fungi_ITS_genus.txt -out fungi_ITS_genus -title fungi_ITS_genus 2> /dev/null || exit $?
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist ../fungi_ITS_species.txt -out fungi_ITS_species -title fungi_ITS_species 2> /dev/null || exit $?
-#
-clblastdbcmd --blastdb=./fungi_ITS_genus --output=GI --numthreads=8 ../fungi_ITS_genus.txt fungi_ITS_genus.txt || exit $?
+clextractdupgi --workspace=disk overall_underclass.txt ../fungi_ITS_genus.txt fungi_ITS_genus.txt &
+clextractdupgi --workspace=disk overall_underclass.txt ../fungi_ITS_species.txt fungi_ITS_species.txt &
+wait
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist fungi_ITS_genus.txt -out fungi_ITS_genus -title fungi_ITS_genus &
+blastdb_aliastool -dbtype nucl -db ./overall_class -gilist fungi_ITS_species.txt -out fungi_ITS_species -title fungi_ITS_species &
+wait
 cd .. || exit $?
 # minimize taxdb
 clmaketaxdb --gilist=blastdb/fungi_ITS_genus.txt taxonomy fungi_ITS_genus.taxdb || exit $?
