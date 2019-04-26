@@ -136,7 +136,7 @@ print(STDERR "done.\n\n");
 
 print(STDERR "Saving GIs...");
 {
-	unless ($statement = $tempdbhandle->prepare("SELECT gi FROM gis GROUP BY gi HAVING COUNT(*) == " . scalar(@inputfiles))) {
+	unless ($statement = $tempdbhandle->prepare("SELECT gi FROM gis GROUP BY gi HAVING COUNT(*) >= " . scalar(@inputfiles))) {
 		&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 	}
 	unless ($statement->execute) {
