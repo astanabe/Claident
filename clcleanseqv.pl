@@ -1,6 +1,7 @@
 use strict;
 use File::Spec;
 use File::Copy::Recursive ('fcopy', 'rcopy', 'dircopy');
+use Fcntl ':flock';
 use Cwd 'getcwd';
 
 my $buildno = '0.2.x';
@@ -72,12 +73,12 @@ sub main {
 	&checkVariables();
 	# read replicate list file
 	&readListFiles();
-	# check input file format
-	&checkInputFiles();
 	# make output directory
 	if (!-e $outputfolder && !mkdir($outputfolder)) {
 		&errorMessage(__LINE__, 'Cannot make output folder.');
 	}
+	# check input file format
+	&checkInputFiles();
 	# change working directory
 	unless (chdir($outputfolder)) {
 		&errorMessage(__LINE__, 'Cannot change working directory.');
@@ -419,6 +420,19 @@ sub checkInputFiles {
 						$lineno ++;
 					}
 					close($filehandleinput1);
+					if ($lineno < 3) {
+						unless (open($filehandleoutput1, ">> $outputfolder/invalidinputfiles.txt")) {
+							&errorMessage(__LINE__, "Cannot make \"$outputfolder/invalidinputfiles.txt\".");
+						}
+						unless (flock($filehandleoutput1, LOCK_EX)) {
+							&errorMessage(__LINE__, "Cannot lock \"$outputfolder/invalidinputfiles.txt\".");
+						}
+						unless (seek($filehandleoutput1, 0, 2)) {
+							&errorMessage(__LINE__, "Cannot seek \"$outputfolder/invalidinputfiles.txt\".");
+						}
+						print($filehandleoutput1 $inputfile . "\n");
+						close($filehandleoutput1);
+					}
 				}
 				else {
 					&erorrMessage(__LINE__, "The input file name \"$inputfile\" is invalid.");
@@ -433,8 +447,23 @@ sub checkInputFiles {
 sub runVSEARCHExactEach {
 	# run first vsearch in parallel
 	print(STDERR "Running dereplication by VSEARCH at each file...\n");
+	my %invalidfiles;
+	if (-e 'invalidinputfiles.txt' && !-z 'invalidinputfiles.txt') {
+		unless (open($filehandleinput1, "< invalidinputfiles.txt")) {
+			&errorMessage(__LINE__, "Cannot read \"invalidinputfiles.txt\".");
+		}
+		while (<$filehandleinput1>) {
+			if (/^(.+?)\r?\n?$/) {
+				$invalidfiles{$1} = 1;
+			}
+		}
+		close($filehandleinput1);
+	}
 	my @newinput;
 	foreach my $inputfile (@inputfiles) {
+		if ($invalidfiles{$inputfile}) {
+			next;
+		}
 		print(STDERR "Processing $inputfile...\n");
 		my $filename = $inputfile;
 		$filename =~ s/^.+(?:\/|\\)//;
