@@ -267,15 +267,6 @@ sub checkVariables {
 	if ($vsearchoption =~ /\-+input/) {
 		&errorMessage(__LINE__, "The option for vsearch is invalid.");
 	}
-	if ($vsearchoption !~ /-fasta_width /) {
-		$vsearchoption .= " --fasta_width 999999";
-	}
-	if ($vsearchoption !~ /-maxseqlength /) {
-		$vsearchoption .= " --maxseqlength 50000";
-	}
-	if ($vsearchoption !~ /-minseqlength /) {
-		$vsearchoption .= " --minseqlength 32";
-	}
 	if ($vsearchoption !~ /-notrunclabels/) {
 		$vsearchoption .= " --notrunclabels";
 	}
@@ -296,9 +287,6 @@ sub checkVariables {
 	}
 	if ($vsearchoption !~ /-xn /) {
 		$vsearchoption .= " --xn 8.0";
-	}
-	if ($vsearchoption !~ /-strand /) {
-		$vsearchoption .= " --strand plus";
 	}
 	if (!@inputfiles) {
 		&errorMessage(__LINE__, "No input file was specified.");

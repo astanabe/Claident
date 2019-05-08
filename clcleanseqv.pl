@@ -9,13 +9,13 @@ my $devnull = File::Spec->devnull();
 
 # options
 # vsearch option for within-sample dereplication
-my $vsearch1option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --sizeout --sizeorder';
+my $vsearch1option = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --sizeout';
 # vsearch option for among-sample dereplication
-my $vsearch2option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --sizein --sizeout --sizeorder';
+my $vsearch2option = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --strand plus --sizein --sizeout';
 # vsearch option for primary clustering
-my $vsearch3option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --sizeorder --qmask none --fulldp --wordlength 12 --cluster_size';
+my $vsearch3option = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --sizeorder --qmask none --fulldp --wordlength 12 --cluster_size';
 # vsearch option for secondary clustering
-my $vsearch4option = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --sizeorder --qmask none --fulldp --wordlength 12 --cluster_size';
+my $vsearch4option = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --sizeorder --qmask none --fulldp --wordlength 12 --cluster_size';
 # swarm option for secondary clustering
 my $swarmoption = ' --no-otu-breaking --usearch-abundance';
 my $exactmode = 0;

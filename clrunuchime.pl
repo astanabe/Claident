@@ -13,7 +13,7 @@ my $referencedb;
 # options
 my $numthreads = 1;
 my $uchimedenovo = 2;
-my $vsearchoption = " --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels";
+my $vsearchoption = " --fasta_width 0 --notrunclabels";
 
 # the other global variables
 my $devnull = File::Spec->devnull();
@@ -227,9 +227,6 @@ sub checkVariables {
 	}
 	if ($referencedb && $vsearchoption !~ /-threads /) {
 		$vsearchoption .= " --threads $numthreads";
-	}
-	if ($vsearchoption !~ /-strand /) {
-		$vsearchoption .= " --strand plus";
 	}
 	print(STDERR "Command line options for vsearch :$vsearchoption\n\n");
 	# search vsearch

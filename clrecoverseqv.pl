@@ -9,8 +9,8 @@ my $devnull = File::Spec->devnull();
 
 # options
 my $numthreads = 1;
-my $vsearchoption = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --qmask none --dbmask none --fulldp --usearch_global';
-my $vsearchoption2 = ' --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --sortbysize';
+my $vsearchoption = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --qmask none --dbmask none --fulldp --usearch_global';
+my $vsearchoption2 = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizeout --sortbysize';
 my $paddinglen = 0;
 my $minovllen = 0;
 my $nodel;

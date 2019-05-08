@@ -134,15 +134,6 @@ sub checkVariables {
 	if ($vsearchoption !~ /-threads /) {
 		$vsearchoption .= " --threads $numthreads";
 	}
-	if ($vsearchoption !~ /-fasta_width /) {
-		$vsearchoption .= " --fasta_width 999999";
-	}
-	if ($vsearchoption !~ /-maxseqlength /) {
-		$vsearchoption .= " --maxseqlength 50000";
-	}
-	if ($vsearchoption !~ /-minseqlength /) {
-		$vsearchoption .= " --minseqlength 32";
-	}
 	if ($vsearchoption !~ /-notrunclabels/) {
 		$vsearchoption .= " --notrunclabels";
 	}
