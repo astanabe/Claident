@@ -134,6 +134,9 @@ sub checkVariables {
 	if ($vsearchoption !~ /-threads /) {
 		$vsearchoption .= " --threads $numthreads";
 	}
+	if ($vsearchoption !~ /-fasta_width /) {
+		$vsearchoption .= " --fasta_width 0";
+	}
 	if ($vsearchoption !~ /-notrunclabels/) {
 		$vsearchoption .= " --notrunclabels";
 	}
