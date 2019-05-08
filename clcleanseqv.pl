@@ -92,7 +92,7 @@ sub main {
 	# compress text files
 	&compressTXTs();
 	# compress fasta files
-	&compressFASTAs();
+	#&compressFASTAs();
 	# change working directory
 	unless (chdir($root)) {
 		&errorMessage(__LINE__, 'Cannot change working directory.');
