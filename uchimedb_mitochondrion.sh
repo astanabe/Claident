@@ -14,17 +14,17 @@ extractfeat -type misc_feature -tag note -calue "*control*region*" mitochondrion
 wait
 cat D-loop_temp1.fasta D-loop_temp2.fasta > D-loop.fasta
 
-vsearch --threads 8 --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --label_suffix revcomp --fastx_revcomp COX1.fasta --fastaout COX1rc.fasta
+vsearch --threads 8 --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp COX1.fasta --fastaout COX1rc.fasta
 cat COX1.fasta COX1rc.fasta > cducox1.fasta
 
-vsearch --threads 8 --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --label_suffix revcomp --fastx_revcomp CytB.fasta --fastaout CytBrc.fasta
+vsearch --threads 8 --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp CytB.fasta --fastaout CytBrc.fasta
 cat CytB.fasta CytBrc.fasta > cducytb.fasta
 
-vsearch --threads 8 --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --label_suffix revcomp --fastx_revcomp 12S.fasta --fastaout 12Src.fasta
+vsearch --threads 8 --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp 12S.fasta --fastaout 12Src.fasta
 cat 12S.fasta 12Src.fasta > cdu12s.fasta
 
-vsearch --threads 8 --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --label_suffix revcomp --fastx_revcomp 16S.fasta --fastaout 16Src.fasta
+vsearch --threads 8 --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp 16S.fasta --fastaout 16Src.fasta
 cat 16S.fasta 16Src.fasta > cdu16s.fasta
 
-vsearch --threads 8 --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --label_suffix revcomp --fastx_revcomp D-loop.fasta --fastaout D-looprc.fasta
+vsearch --threads 8 --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp D-loop.fasta --fastaout D-looprc.fasta
 cat D-loop.fasta D-looprc.fasta > cdudloop.fasta

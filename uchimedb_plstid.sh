@@ -13,11 +13,11 @@ extractfeat -type CDS -tag product -value "ribulose*large*subunit" cyanobacteria
 wait
 cat rbcL_temp1.fasta rbcL_temp2.fasta rbcL_temp3.fasta > rbcL.fasta
 
-vsearch --threads 8 --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --label_suffix revcomp --fastx_revcomp trnH-psbA.fasta --fastaout trnH-psbArc.fasta
+vsearch --threads 8 --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp trnH-psbA.fasta --fastaout trnH-psbArc.fasta
 cat trnH-psbA.fasta trnH-psbArc.fasta > cdutrnhpsba.fasta
 
-vsearch --threads 8 --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --label_suffix revcomp --fastx_revcomp matK.fasta --fastaout matKrc.fasta
+vsearch --threads 8 --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp matK.fasta --fastaout matKrc.fasta
 cat matK.fasta matKrc.fasta > cdumatk.fasta
 
-vsearch --threads 8 --fasta_width 999999 --maxseqlength 50000 --minseqlength 32 --notrunclabels --label_suffix revcomp --fastx_revcomp rbcL.fasta --fastaout rbcLrc.fasta
+vsearch --threads 8 --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp rbcL.fasta --fastaout rbcLrc.fasta
 cat rbcL.fasta rbcLrc.fasta > cdurbcl.fasta
