@@ -271,8 +271,8 @@ sub concatenateSequences {
 	if ($mode eq 'ovl') {
 		if (scalar(@inputfiles) == 2 && !$folder) {
 			print(STDERR "Concatenating $inputfiles[0] and $inputfiles[1] using VSEARCH5D...\n");
-			if (system("$vsearch5d --fastq_qmax 99 --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch5d --fastq_qmax 99 --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads\".");
+			if (system("$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads\".");
 			}
 			&compressFileByName($output);
 		}
@@ -289,8 +289,8 @@ sub concatenateSequences {
 				}
 				$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
 				print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . " using VSEARCH5D...\n");
-				if (system("$vsearch5d --fastq_qmax 99 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads 1> $devnull")) {
-					&errorMessage(__LINE__, "Cannot run \"$vsearch5d --fastq_qmax 99 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads\".");
+				if (system("$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads\".");
 				}
 				push(@outputfastq, "$output/$prefix.fastq");
 			}
