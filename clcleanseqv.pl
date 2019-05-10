@@ -945,10 +945,10 @@ sub deleteNoisySequences {
 		my ($exactotumembers, $exactsingletons) = &getOTUMembers("$prefix.otu.gz");
 		# output filtered primarycluster FASTA
 		if ($replicatelist && %replicate) {
-			$filehandleoutput1 = &writeFile("$prefix.shared.fasta.gz");
-			$filehandleoutput3 = &writeFile("$prefix.cleaned.fasta.gz");
+			$filehandleoutput1 = &writeFile("$prefix.shared.fasta");
+			$filehandleoutput3 = &writeFile("$prefix.cleaned.fasta");
 		}
-		$filehandleoutput2 = &writeFile("$prefix.denoised.fasta.gz");
+		$filehandleoutput2 = &writeFile("$prefix.denoised.fasta");
 		my $unshared = 0;
 		my $noisy = 0;
 		my $notclean = 0;
