@@ -12,7 +12,7 @@ my $ovlen = 'truncate';
 my $minqual;
 my $maxqual;
 my $ovqual = 'cap';
-my $minquallen = 1;
+my $minquallen;
 my $minmeanqual;
 my $maxplowqual;
 my $replaceinternal;
@@ -1161,7 +1161,7 @@ nonmatched sequences will be saved. (default: off)
   Specify minimum quality length threshold. (default: 1)
 
 --minmeanqual=INTEGER
-  Specify minimum mean quality threshold. (default: minqual)
+  Specify minimum mean quality threshold. (default: none)
 
 --maxplowqual=DECIMAL
   Specify maximum percent threshold of low quality sequences. (default: 1)

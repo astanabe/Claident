@@ -17,10 +17,7 @@ my $reversetagfile;
 my $elimtag = 1;
 my $minlen = 1;
 my $maxlen;
-my $minqual;
-my $minquallen = 1;
 my $minqualtag;
-my $minmeanqual;
 my $replaceinternal;
 my $converse;
 my $maxpmismatch = 0.14;
@@ -218,17 +215,8 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+max(?:imum)?len(?:gth)?=(\d+)$/i) {
 			$maxlen = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+min(?:imum)?qual(?:ity)?=(\d+)$/i) {
-			$minqual = $1;
-		}
-		elsif ($ARGV[$i] =~ /^-+min(?:imum)?qual(?:ity)?len(?:gth)?=(\d+)$/i) {
-			$minquallen = $1;
-		}
 		elsif ($ARGV[$i] =~ /^-+min(?:imum)?qual(?:ity)?tag=(\d+)$/i) {
 			$minqualtag = $1;
-		}
-		elsif ($ARGV[$i] =~ /^-+min(?:imum)?meanqual(?:ity)?=(\d+)$/i) {
-			$minmeanqual = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+replaceinternal$/i) {
 			$replaceinternal = 1;
@@ -326,18 +314,10 @@ sub checkVariables {
 	if ($runname =~ /\s/) {
 		&errorMessage(__LINE__, "\"$runname\" is invalid name. Do not use spaces or tabs in run name.");
 	}
-	if ($minqual && !$minqualtag) {
-		$minqualtag = $minqual;
-	}
-	if ($minqual && !$minmeanqual) {
-		$minmeanqual = $minqual;
-	}
 	if ($minlen < 1) {
 		&errorMessage(__LINE__, "Minimum length must be equal to or more than 1.");
 	}
-	$minqual += 33;
 	$minqualtag += 33;
-	$minmeanqual += 33;
 }
 
 sub readPrimers {
