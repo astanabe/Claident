@@ -502,6 +502,7 @@ sub readList {
 	$filehandleinput1 = &readFile($listfile);
 	while (<$filehandleinput1>) {
 		s/\r?\n?$//;
+		s/;+size=\d+;*//g;
 		push(@list, $_);
 	}
 	close($filehandleinput1);
@@ -515,7 +516,9 @@ sub readSeq {
 	while (<$filehandleinput1>) {
 		s/\r?\n?$//;
 		if (/^> *(.+)/) {
-			push(@list, $1);
+			my $seqname = $1;
+			$seqname =~ s/;+size=\d+;*//g;
+			push(@list, $seqname);
 		}
 	}
 	close($filehandleinput1);
