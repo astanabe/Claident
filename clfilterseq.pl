@@ -100,13 +100,13 @@ sub getOptions {
 	$output = $ARGV[-1];
 	my %inputfiles;
 	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
-		if ($ARGV[$i] =~ /^-+(?:keyword|keywords|k)=(.+)$/i) {
+		if ($ARGV[$i] =~ /^-+(?:keyword|keywords)=(.+)$/i) {
 			my $keywords = $1;
 			foreach my $keyword (split(/,/, $keywords)) {
 				$keywords{$keyword} = 1;
 			}
 		}
-		elsif ($ARGV[$i] =~ /^-+(?:ngword|ngwords|n)=(.+)$/i) {
+		elsif ($ARGV[$i] =~ /^-+(?:ngword|ngwords)=(.+)$/i) {
 			my $ngwords = $1;
 			foreach my $ngword (split(/,/, $ngwords)) {
 				$ngwords{$ngword} = 1;
@@ -1128,12 +1128,12 @@ clfilterseq options inputfile outputfile
 
 Command line options
 ====================
--k, --keyword=REGEXP(,REGEXP..)
+--keyword=REGEXP(,REGEXP..)
   Specify regular expression(s) for sequence names. You can use regular
 expression but you cannot use comma. All keywords will be used as AND
 conditions. (default: none)
 
--n, --ngword=REGEXP(,REGEXP..)
+--ngword=REGEXP(,REGEXP..)
   Specify regular expression(s) for sequence names. You can use regular
 expression but you cannot use comma. All ngwords will be used as AND
 conditions. (default: none)
