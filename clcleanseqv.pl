@@ -109,7 +109,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2019  Akifumi S. Tanabe
+Copyright (C) 2011-2020  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -435,7 +435,7 @@ sub checkInputFiles {
 					}
 				}
 				else {
-					&erorrMessage(__LINE__, "The input file name \"$inputfile\" is invalid.");
+					&errorMessage(__LINE__, "The input file name \"$inputfile\" is invalid.");
 				}
 				exit;
 			}

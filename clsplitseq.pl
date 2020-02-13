@@ -87,7 +87,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2019  Akifumi S. Tanabe
+Copyright (C) 2011-2020  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -530,7 +530,7 @@ sub splitSequences {
 		# Processing FASTQ in parallel
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			if ($tempnline % 4 == 1 && /^\@(\S+)/) {
+			if ($tempnline % 4 == 1 && /^\@(.+)\r?\n?/) {
 				$seqname = $1;
 				if ($seqname =~ /__/) {
 					&errorMessage(__LINE__, "\"$seqname\" is invalid name. Do not use \"__\" in sequence name.\nFile: $inputfiles[0]\nLine: $tempnline");
@@ -1188,6 +1188,7 @@ sub saveToFile {
 		&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$suffix$suffix2/$child.fastq\".");
 	}
 	if ($sequencerenaming) {
+		$seqname =~ s/\s.+//;
 		print($filehandleoutput1 "\@$seqname\__$suffix\n$nucseq\n+\n$qualseq\n");
 	}
 	else {
@@ -1563,6 +1564,9 @@ clsplitseq options inputfile outputfolder
 
 Command line options
 ====================
+--sequencerenaming=ENABLE|DISABLE
+  Specify renaming sequence reads or not. (default: ENABLE)
+
 --runname=RUNNAME
   Specify run name. This is mandatory. (default: none)
 

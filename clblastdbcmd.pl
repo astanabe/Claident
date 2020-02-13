@@ -9,7 +9,7 @@ my $buildno = '0.2.x';
 
 my $devnull = File::Spec->devnull();
 
-my $blastdbcmdoption = ' -dbtype nucl -target_only -ctrl_a -long_seqids';
+my $blastdbcmdoption = ' -dbtype nucl -target_only -ctrl_a';
 
 # options
 my $blastdb;
@@ -64,7 +64,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2019  Akifumi S. Tanabe
+Copyright (C) 2011-2020  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -98,6 +98,9 @@ sub getOptions {
 			my $value = $1;
 			if ($value =~ /^FASTA$/i) {
 				$outputformat = 'FASTA';
+			}
+			elsif ($value =~ /^(?:GITAXID|GenBankIDTAXID|GITaxonomyID|GenBankIDTaxonomyID)$/i) {
+				$outputformat = 'GITAXID';
 			}
 			elsif ($value =~ /^(?:GI|GenBankID)$/i) {
 				$outputformat = 'GI';
@@ -156,7 +159,10 @@ sub checkVariables {
 		&errorMessage(__LINE__, "Input file does not exist.");
 	}
 	if ($outputformat eq 'FASTA') {
-		$outputformat = "'" . '%f' . "'";
+		$outputformat = "\">gi\|\%g\|gb\|\%a \%t\n\%s\"";
+	}
+	elsif ($outputformat eq 'GITAXID') {
+		$outputformat = "'" . '%g %T' . "'";
 	}
 	elsif ($outputformat eq 'GI') {
 		$outputformat = "'" . '%g' . "'";
@@ -469,7 +475,7 @@ Command line options
 --blastdb=BLASTDB
   Specify name of BLAST database. (default: none)
 
--o, --output=FASTA|GI|ACCESSION
+-o, --output=FASTA|GI|GITAXID|ACCESSION
   Specify output format. (default: FASTA)
 
 --negativegilist=FILENAME

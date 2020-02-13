@@ -69,7 +69,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2019  Akifumi S. Tanabe
+Copyright (C) 2011-2020  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -503,6 +503,7 @@ sub readList {
 	while (<$filehandleinput1>) {
 		s/\r?\n?$//;
 		s/;+size=\d+;*//g;
+		s/\t.+//;
 		push(@list, $_);
 	}
 	close($filehandleinput1);
