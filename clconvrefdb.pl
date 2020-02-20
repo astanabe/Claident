@@ -15,6 +15,7 @@ my $blastdb;
 my $taxdb;
 my $format;
 my $separator = ';';
+my $accprefix = 'ZZ';
 my $nodel;
 
 # input/output
@@ -105,6 +106,9 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+(?:separator|s)=(.+)$/i) {
 			$separator = $1;
 		}
+		elsif ($ARGV[$i] =~ /^-+accprefix=(.+)$/i) {
+			$accprefix = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+nodel$/i) {
 			$nodel = 1;
 		}
@@ -115,17 +119,17 @@ sub getOptions {
 }
 
 sub checkVariables {
+	if ($accprefix !~ /^[A-Z][A-Z]$/) {
+		&errorMessage(__LINE__, "Accession prefix must be 2 uppercase letters.");
+	}
 	if ($taxdb && !$blastdb) {
 		&errorMessage(__LINE__, "Taxonomy DB was given but BLAST DB was not given.");
 	}
 	elsif ($blastdb && !$taxdb) {
 		&errorMessage(__LINE__, "BLAST DB was given but taxonomy DB was not given.");
 	}
-	while (glob("$output.*.*")) {
-		if (/^$output\..+\.fasta$/) {
-			&errorMessage(__LINE__, "Temporary file already exists.");
-		}
-		elsif (/^$output\..+/) {
+	while (glob("$output.*")) {
+		if (/^$output\..+/) {
 			&errorMessage(__LINE__, "Output file already exists.");
 		}
 	}
@@ -349,7 +353,7 @@ sub readFASTAmakeTaxDB {
 				$sequence =~ s/[> \r\n]//g;
 				$tempgi ++;
 				$tempacc ++;
-				print($filehandleoutput1 ">gi|$tempgi|gb|ZZ" . &convGI2ACC($tempacc) . " $seqname\n$sequence\n");
+				print($filehandleoutput1 ">gi|$tempgi|gb|$accprefix" . &convGI2ACC($tempacc) . " $seqname\n$sequence\n");
 				if ($seqname !~ /${separator}/ && $seqname =~ /^ta?xid[:=](\d+)$/i) {
 					$gi2taxid{$tempgi} = $1;
 				}
@@ -685,7 +689,7 @@ sub convGI2ACC {
 #	while ($exist > 0) {
 #		my $gi;
 #		$tempacc ++;
-#		$acc = 'ZZ' . &convGI2ACC($tempacc);
+#		$acc = $accprefix . &convGI2ACC($tempacc);
 #		unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry $acc -out - -outfmt '%g' 2> $devnull |")) {
 #			&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry $acc -out - -outfmt '%g'\".");
 #		}
@@ -732,6 +736,9 @@ Command line options
 
 -s, --separator=SEPARATOR
   Specify defline separator. (default: ;)
+
+--accprefix=PREFIX
+  Specify prefix for fake accessions. (default: ZZ)
 
 Defline format
 ==============
