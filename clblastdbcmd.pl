@@ -9,7 +9,7 @@ my $buildno = '0.2.x';
 
 my $devnull = File::Spec->devnull();
 
-my $blastdbcmdoption = ' -dbtype nucl -target_only -ctrl_a';
+my $blastdbcmdoption = ' -dbtype nucl -target_only -ctrl_a -long_seqids';
 
 # options
 my $blastdb;

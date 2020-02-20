@@ -243,6 +243,8 @@ elsif (%includetaxa || %excludetaxa) {
 		# store entries
 		my $lineno = 1;
 		while (<$inputhandle>) {
+			s/\r?\n?$//;
+			s/\t?\|?$//;
 			my @columns = split(/\t\|\t/, lc($_));
 			foreach my $word (keys(%includetaxa)) {
 				if ($columns[1] =~ /$word/) {
@@ -281,6 +283,8 @@ if ($gilist) {
 		# store entries
 		my $lineno = 1;
 		while (<$inputhandle>) {
+			s/\r?\n?$//;
+			s/\t?\|?$//;
 			my @columns = split(/\t\|\t/, $_);
 			if ($parents{$columns[0]}) {
 				&errorMessage(__LINE__, "Parent of \"$columns[0]\" is doubly specified.");
@@ -317,6 +321,8 @@ elsif (%includetaxid || %excludetaxid) {
 		# store entries
 		my $lineno = 1;
 		while (<$inputhandle>) {
+			s/\r?\n?$//;
+			s/\t?\|?$//;
 			my @columns = split(/\t\|\t/, $_);
 			push(@{$daughters{$columns[1]}}, $columns[0]);
 			if ($lineno % 10000 == 0) {
@@ -344,6 +350,8 @@ elsif (%includetaxid || %excludetaxid) {
 		# store entries
 		my $lineno = 1;
 		while (<$inputhandle>) {
+			s/\r?\n?$//;
+			s/\t?\|?$//;
 			my @columns = split(/\t\|\t/, lc($_));
 			$includetaxid{$columns[0]} = 1;
 			if ($lineno % 10000 == 0) {
@@ -484,6 +492,8 @@ print(STDERR "Making table for names...");
 	my $lineno = 1;
 	my $nentries = 1;
 	while (<$inputhandle>) {
+		s/\r?\n?$//;
+		s/\t?\|?$//;
 		my @columns = split(/\t\|\t/, $_);
 		if ($includetaxid{$columns[0]} || !%includetaxid) {
 			unless ($statement->execute($columns[0], $columns[1], $columns[3])) {
@@ -536,6 +546,8 @@ print(STDERR "Making table for nodes...");
 	my $lineno = 1;
 	my $nentries = 1;
 	while (<$inputhandle>) {
+		s/\r?\n?$//;
+		s/\t?\|?$//;
 		my @columns = split(/\t\|\t/, $_);
 		if ($includetaxid{$columns[0]} || !%includetaxid) {
 			unless ($statement->execute($columns[0], $columns[1], $columns[2])) {

@@ -6,7 +6,7 @@ my $buildno = '0.2.x';
 
 my $devnull = File::Spec->devnull();
 
-my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 2G';
+my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqids -blastdb_version 4 -max_file_sz 2G';
 
 # options
 my $numthreads = 1;
