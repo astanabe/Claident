@@ -113,6 +113,14 @@ sub getOptions {
 				&errorMessage(__LINE__, "The minimum identity threshold is invalid.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+diff(?:erent)?min(?:imum)?ident(?:ity|ities)?=(enable|disable|yes|no|true|false|E|D|Y|N|T|F)$/i) {
+			if ($1 =~ /^(?:enable|yes|true|E|Y|T)$/i) {
+				$vsearchoption = " --maxaccepts 0 --maxrejects 0" . $vsearchoption;
+			}
+			else {
+				$vsearchoption = " --maxaccepts 1 --maxrejects 32" . $vsearchoption;
+			}
+		}
 		elsif ($ARGV[$i] =~ /^-+(?:strand|s)=(forward|plus|single|both|double)$/i) {
 			if ($1 =~ /^(?:forward|plus|single)$/i) {
 				$vsearchoption = ' --strand plus' . $vsearchoption;
@@ -170,6 +178,12 @@ sub checkVariables {
 	}
 	if ($vsearchoption !~ / -+id \d+/) {
 		$vsearchoption = " --id 0.97" . $vsearchoption;
+	}
+	if ($vsearchoption !~ /-+maxaccepts \d+/i) {
+		$vsearchoption = ' --maxaccepts 0' . $vsearchoption;
+	}
+	if ($vsearchoption !~ /-+maxrejects \d+/i) {
+		$vsearchoption = ' --maxrejects 0' . $vsearchoption;
 	}
 	if ($vsearchoption !~ /-+strand (plus|both)/i) {
 		$vsearchoption = ' --strand plus' . $vsearchoption;
@@ -633,6 +647,10 @@ Command line options
 ====================
 --minident=DECIMAL
   Specify the minimum identity threshold. (default: 0.97)
+
+--diffminident=ENABLE|DISABLE
+  Specify whether the minident is different from that of clclassseqv or not.
+(default: ENABLE)
 
 --strand=PLUS|BOTH
   Specify search strand option for VSEARCH. (default: PLUS)
