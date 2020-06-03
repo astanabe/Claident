@@ -3,14 +3,14 @@ export PATH=/usr/local/share/claident/bin:$PATH
 # make taxonomy database
 clmaketaxdb --includetaxid=131567 --excludetaxid=7742 taxonomy semiall_temp.taxdb || exit $?
 # extract species-level identified sequences
-clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.' --taxdb=semiall_temp.taxdb semiall_species.txt &
+clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.$' --taxdb=semiall_temp.taxdb semiall_species.txt &
 clretrievegi --includetaxa=genus,.+ --taxdb=semiall_temp.taxdb semiall_genus.txt &
 clretrievegi --includetaxa=family,.+ --taxdb=semiall_temp.taxdb semiall_family.txt &
 clretrievegi --includetaxa=order,.+ --taxdb=semiall_temp.taxdb semiall_order.txt &
 clretrievegi --includetaxa=class,.+ --taxdb=semiall_temp.taxdb semiall_class.txt &
 wait
 # del duplicate
-clelimdupgi --workspace=disk semiall_species.txt semiall_genus.txt semiall_undergenus.txt *
+clelimdupgi --workspace=disk semiall_species.txt semiall_genus.txt semiall_undergenus.txt &
 clelimdupgi --workspace=disk semiall_species.txt semiall_genus.txt semiall_family.txt semiall_underfamily.txt &
 clelimdupgi --workspace=disk semiall_species.txt semiall_genus.txt semiall_family.txt semiall_order.txt semiall_underorder.txt &
 clelimdupgi --workspace=disk semiall_species.txt semiall_genus.txt semiall_family.txt semiall_order.txt semiall_class.txt semiall_underclass.txt &

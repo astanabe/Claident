@@ -19,7 +19,7 @@ my $vsearch3option = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --
 my $vsearch4option = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --sizeorder --qmask none --fulldp --wordlength 12 --cluster_size';
 # swarm option for secondary clustering
 my $swarmoption = ' --no-otu-breaking --usearch-abundance';
-my $exactmode = 0;
+my $mode = 'normal';
 my $minsizeratio = 2;
 my $minsize = 3;
 my $distance = 3;
@@ -137,11 +137,14 @@ sub getOptions {
 	my %inputfiles;
 	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 		if ($ARGV[$i] =~ /^-+mode=(.+)$/i) {
-			if ($1 =~ /^(?:exact|ESV|ASV)$/i) {
-				$exactmode = 1;
+			if ($1 =~ /^exact$/i) {
+				$mode = 'exact';
+			}
+			elsif ($1 =~ /^unoise$/i) {
+				$mode = 'unoise';
 			}
 			elsif ($1 =~ /^(?:normal)$/i) {
-				$exactmode = 0;
+				$mode = 'normal';
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid.");
@@ -249,7 +252,7 @@ sub checkVariables {
 	if ($vsearch3option !~ /-+strand (plus|both)/i) {
 		$vsearch3option = ' --strand plus' . $vsearch3option;
 	}
-	if ($vsearch3option =~ /-+strand both/i && $exactmode) {
+	if ($vsearch3option =~ /-+strand both/i && $mode eq 'exact') {
 		&errorMessage(__LINE__, "Exact mode and both-strand search mode are incompatible.");
 	}
 	if ($vsearch4option !~ /-+strand (plus|both)/i) {
@@ -270,7 +273,7 @@ sub checkVariables {
 	if ($minppositive > 1) {
 		&errorMessage(__LINE__, "The minimum percentage of true positive for noisy/unshared OTU detection is invalid.");
 	}
-	if ($exactmode) {
+	if ($mode eq 'exact') {
 		print(STDERR "Exact mode is enabled. In this mode, dereplication mode will be switched to full-length mode.\n");
 		$derepmode = 'full';
 	}
@@ -282,7 +285,7 @@ sub checkVariables {
 		$vsearch1option .= ' --derep_fulllength';
 		$vsearch2option .= ' --derep_fulllength';
 	}
-	if ($exactmode) {
+	if ($mode eq 'exact') {
 		if ($primarymaxnmismatch > 0) {
 			&errorMessage(__LINE__, "In exact mode, maximum number of acceptable mismatches of primary clustering must be zero.");
 		}
@@ -558,7 +561,7 @@ sub runNoiseDetection {
 		}
 	}
 	# primary clustering and make consensus for canceling errors out
-	if ($exactmode) {
+	if ($mode eq 'exact') {
 		unless (fcopy("temp2.fasta", "primarycluster.fasta")) {
 			&errorMessage(__LINE__, "Cannot copy \"temp2.fasta\" to \"primarycluster.fasta\".");
 		}
@@ -610,7 +613,7 @@ sub runNoiseDetection {
 	else {
 		&errorMessage(__LINE__, "\"primarycluster.otu.gz\" is invalid.");
 	}
-	if ($exactmode) {
+	if ($mode eq 'exact') {
 		if (system("$swarm$swarmoption --differences $distance --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --statistics-file secondarycluster.stat --internal-structure secondarycluster.in --threads $numthreads primarycluster.fasta 1> $devnull")) {
 			&errorMessage(__LINE__, "Cannot run \"$swarm$swarmoption --differences $distance --seeds secondarycluster.fasta --uclust-file secondarycluster.uc --statistics-file secondarycluster.stat --internal-structure secondarycluster.in --threads $numthreads primarycluster.fasta\".");
 		}
@@ -876,7 +879,7 @@ sub deleteNoisySequences {
 		print(STDERR "Deleting noisy sequences...\n");
 	}
 	# save parameter
-	unless ($exactmode) {
+	if ($mode eq 'normal') {
 		unless (open($filehandleoutput1, "> parameter.txt")) {
 			&errorMessage(__LINE__, "Cannot write \"parameter.txt\".");
 		}

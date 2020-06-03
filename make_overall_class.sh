@@ -6,9 +6,9 @@ clmaketaxdb --includetaxid=2,2157 taxonomy prokaryota.taxdb &
 clmaketaxdb taxonomy overall_temp.taxdb &
 wait
 # extract xx-level identified sequences
-clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.' --taxdb=prokaryota.taxdb prokaryota_all_species.txt &
+clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.$' --taxdb=prokaryota.taxdb prokaryota_all_species.txt &
 clretrievegi --includetaxa=genus,.+ --taxdb=prokaryota.taxdb prokaryota_all_genus.txt &
-clretrievegi --excludetaxid=12908,28384 --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.' --taxdb=overall_temp.taxdb overall_species.txt &
+clretrievegi --excludetaxid=12908,28384 --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.$' --taxdb=overall_temp.taxdb overall_species.txt &
 clretrievegi --excludetaxid=12908,28384 --includetaxa=genus,.+ --taxdb=overall_temp.taxdb overall_genus.txt &
 clretrievegi --excludetaxid=12908,28384 --includetaxa=family,.+ --taxdb=overall_temp.taxdb overall_family.txt &
 clretrievegi --excludetaxid=12908,28384 --includetaxa=order,.+ --taxdb=overall_temp.taxdb overall_order.txt &
@@ -24,8 +24,8 @@ wait
 cd blastdb || exit $?
 # make BLAST database
 # NT-independent
-clblastdbcmd --blastdb=./nt --output=FASTA --numthreads=8 ../overall_underclass.txt overall_class.fasta.gz || exit $?
-gzip -dc overall_class.fasta.gz | makeblastdb -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 2G -in - -out overall_class -title overall_class || exit $?
+clblastdbcmd --blastdb=./nt --output=FASTA --numthreads=8 ../overall_underclass.txt overall_class.fasta.xz || exit $?
+xz -dc overall_class.fasta.xz | makeblastdb -blastdb_version 4 -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 2G -in - -out overall_class -title overall_class || exit $?
 ls overall_class.??.nsq | grep -o -P '^.+\.\d\d' > overall_class.txt
 blastdb_aliastool -dbtype nucl -dblist_file overall_class.txt -out overall_class -title overall_class
 clblastdbcmd --blastdb=./overall_class --output=GI --numthreads=8 ../overall_underclass.txt overall_underclass.txt
