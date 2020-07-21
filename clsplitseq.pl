@@ -387,6 +387,8 @@ sub readPrimers {
 }
 
 sub readTags {
+	my %temptags;
+	my %tempreversetags;
 	if ($tagfile || $reversetagfile) {
 		print(STDERR "Reading tag files...\n");
 	}
@@ -409,7 +411,13 @@ sub readTags {
 				if ($name =~ /__/) {
 					&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use \"__\" in tag name.");
 				}
+				elsif ($name =~ /^[ACGT]+$/ || $name =~ /^[ACGT]+\-[ACGT]+$/) {
+					&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use nucleotide sequence as tag name.");
+				}
 				$tag =~ s/[^A-Z]//sg;
+				if ($tag =~ /[^ACGT]/) {
+					&errorMessage(__LINE__, "\"$tag\" is invalid tag. Do not use degenerate character in tag.");
+				}
 				if ($taglength && $taglength != length($tag)) {
 					&errorMessage(__LINE__, "All tags must have same length.");
 				}
@@ -421,6 +429,9 @@ sub readTags {
 					if ($line =~ /^>?\s*(\S[^\r\n]*)\r?\n(.+)\r?\n?/s) {
 						my $reversetag = uc($2);
 						$reversetag =~ s/[^A-Z]//sg;
+						if ($reversetag =~ /[^ACGT]/) {
+							&errorMessage(__LINE__, "\"$reversetag\" is invalid tag. Do not use degenerate character in tag.");
+						}
 						if ($reversecomplement) {
 							$reversetag = &reversecomplement($reversetag);
 						}
@@ -430,11 +441,13 @@ sub readTags {
 						else {
 							$reversetaglength = length($reversetag);
 						}
+						$temptags{$tag} = 1;
+						$tempreversetags{$reversetag} = 1;
 						$tag .= '-' . $reversetag;
 					}
 				}
-				if (exists($tag{$name})) {
-					&errorMessage(__LINE__, "Tag \"$name\" is doubly used in \"$tagfile\".");
+				if (exists($tag{$tag})) {
+					&errorMessage(__LINE__, "Tag \"$tag ($name)\" is doubly used in \"$tagfile\".");
 				}
 				else {
 					$tag{$tag} = $name;
@@ -465,7 +478,13 @@ sub readTags {
 				if ($name =~ /__/) {
 					&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use \"__\" in tag name.");
 				}
+				elsif ($name =~ /^[ACGT]+$/ || $name =~ /^[ACGT]+\-[ACGT]+$/) {
+					&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use nucleotide sequence as tag name.");
+				}
 				$reversetag =~ s/[^A-Z]//sg;
+				if ($reversetag =~ /[^ACGT]/) {
+					&errorMessage(__LINE__, "\"$reversetag\" is invalid tag. Do not use degenerate character in tag.");
+				}
 				if ($reversecomplement) {
 					$reversetag = &reversecomplement($reversetag);
 				}
@@ -475,8 +494,8 @@ sub readTags {
 				else {
 					$reversetaglength = length($reversetag);
 				}
-				if (exists($reversetag{$name})) {
-					&errorMessage(__LINE__, "Tag \"$name\" is doubly used in \"$tagfile\".");
+				if (exists($reversetag{$reversetag})) {
+					&errorMessage(__LINE__, "Tag \"$reversetag ($name)\" is doubly used in \"$tagfile\".");
 				}
 				else {
 					$reversetag{$reversetag} = $name;
@@ -488,6 +507,24 @@ sub readTags {
 		print(STDERR "Reverse tag sequences\n");
 		foreach (@reversetag) {
 			print(STDERR $reversetag{$_} . " : " . $_ . "\n");
+		}
+	}
+	my @temptags = sort(keys(%temptags));
+	my @tempreversetags = sort(keys(%tempreversetags));
+	if (@temptags && @tempreversetags) {
+		print(STDERR "Possible jumped tag combinations\n");
+		my @jumpedtag;
+		foreach my $temptag (@temptags) {
+			foreach my $tempreversetag (@tempreversetags) {
+				my $tagseq = "$temptag-$tempreversetag";
+				if (!exists($tag{$tagseq})) {
+					$tag{$tagseq} = $tagseq;
+					push(@jumpedtag, $tagseq);
+				}
+			}
+		}
+		foreach (@jumpedtag) {
+			print(STDERR $tag{$_} . " : " . $_ . "\n");
 		}
 	}
 	if ($tagfile || $reversetagfile) {
