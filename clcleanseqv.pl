@@ -578,13 +578,13 @@ sub runNoiseDetection {
 			$tempminovllen = $minovllen;
 		}
 		if ($primarymaxnmismatch == 0) {
-			if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen\".");
+			if (system("$vsearch$vsearch3option temp2.fasta --clusterout_sort --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --clusterout_sort --threads $numthreads --centroids primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen\".");
 			}
 		}
 		else {
-			if (system("$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen\".");
+			if (system("$vsearch$vsearch3option temp2.fasta --clusterout_sort --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch3option temp2.fasta --clusterout_sort --threads $numthreads --consout primarycluster.fasta --uc primarycluster.uc --mincols $tempminovllen\".");
 			}
 			if (system("perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta 1> $devnull")) {
 				&errorMessage(__LINE__, "Cannot run \"perl -i.bak -npe 's/^>centroid=/>/;s/seqs=\\d+;//' primarycluster.fasta\".");
@@ -731,8 +731,8 @@ sub runNoiseDetection {
 			}
 			# cluster primarycluster to secondarycluster
 			if (-e 'primarycluster.otu.gz' && -e 'primarycluster.fasta') {
-				if (system("$vsearch$vsearch4option primarycluster.fasta --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc --mincols $tempminovllen 1> $devnull")) {
-					&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch4option primarycluster.fasta --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc --mincols $tempminovllen\".");
+				if (system("$vsearch$vsearch4option primarycluster.fasta --clusterout_sort --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc --mincols $tempminovllen 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearch4option primarycluster.fasta --clusterout_sort --threads $numthreads --centroids secondarycluster.fasta --uc secondarycluster.uc --mincols $tempminovllen\".");
 				}
 				&convertUCtoOTUMembers("secondarycluster.uc", "secondarycluster.otu.gz");
 			}

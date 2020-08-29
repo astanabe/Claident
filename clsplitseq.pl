@@ -5,13 +5,13 @@ use File::Spec;
 my $buildno = '0.2.x';
 
 # options
-my $sequencerenaming = 1;
 my $compress = 'gz';
 my $primerfile;
 my $reverseprimerfile;
 my $reversecomplement;
 my $elimprimer = 1;
 my $truncateN = 0;
+my $useNasUMI = 0;
 my $tagfile;
 my $reversetagfile;
 my $elimtag = 1;
@@ -185,13 +185,16 @@ sub getOptions {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 			}
 		}
-		elsif ($ARGV[$i] =~ /^-+(?:seq|sequence)(?:rename|renaming)=(.+)$/i) {
+		elsif ($ARGV[$i] =~ /^-+useNasUMI=(.+)$/i) {
 			my $value = $1;
 			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
-				$sequencerenaming = 1;
+				$useNasUMI = 999;
 			}
 			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
-				$sequencerenaming = 0;
+				$useNasUMI = 0;
+			}
+			elsif ($value =~ /^(\d+)$/i) {
+				$useNasUMI = $1;
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -706,7 +709,7 @@ sub splitSequences {
 
 sub processOneSequence {
 	my ($seqname, $nucseq1, $qualseq1, $nucseq2, $qualseq2, $nucseq3, $qualseq3, $nucseq4, $qualseq4, $child) = @_;
-	my $suffix = $runname;
+	my $suffix = "SampleName:$runname";
 	# check data
 	if (length($nucseq1) != length($qualseq1)) {
 		&errorMessage(__LINE__, "The first sequence of \"$seqname\" is unequal length to quality sequence.");
@@ -1086,8 +1089,9 @@ sub searchPrimers {
 	my ($fseq, $fqual, $rseq, $rqual, $ward, $seqname, $suffix, $child) = @_;
 	if ($rseq && $rqual) {
 		my $primername;
+		my $umiseq;
 		foreach my $tempname (@primer) {
-			my ($fstart, $fend, $fpmismatch, $fnmismatch) = &alignPrimer(substr($fseq, 0, length($primer{$tempname}) * 2), $primer{$tempname}, $ward);
+			my ($fstart, $fend, $fpmismatch, $fnmismatch, $fumi) = &alignPrimer(substr($fseq, 0, length($primer{$tempname}) * 2), $primer{$tempname}, $ward);
 			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch) {
 				next;
 			}
@@ -1101,7 +1105,7 @@ sub searchPrimers {
 				$tempsubstr1 = substr($fseq, 0, $fend + 1, '');
 			}
 			if ($reverseprimerfile) {
-				my ($rstart, $rend, $rpmismatch, $rnmismatch) = &alignPrimer(substr($rseq, 0, length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
+				my ($rstart, $rend, $rpmismatch, $rnmismatch, $rumi) = &alignPrimer(substr($rseq, 0, length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
 				if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 					next;
 				}
@@ -1118,16 +1122,28 @@ sub searchPrimers {
 			$fseq = lc($tempsubstr1) . $fseq;
 			$rseq = lc($tempsubstr2) . $rseq;
 			$primername = $tempname;
+			if ($fumi && $rumi) {
+				$umiseq = "$fumi-$rumi";
+			}
+			elsif ($fumi) {
+				$umiseq = "$fumi";
+			}
 			last;
 		}
 		if ($fseq && $fqual && $rseq && $rqual) {
 			if ($primername) {
 				$suffix .= '__' . $primername;
+				if ($umiseq) {
+					$suffix .= " UMI:$umiseq";
+				}
 				&saveToFile($fseq, $fqual, 1, $seqname, $suffix, $child);
 				&saveToFile($rseq, $rqual, 2, $seqname, $suffix, $child);
 			}
 			else {
 				$suffix .= '__undetermined';
+				if ($umiseq) {
+					$suffix .= " UMI:$umiseq";
+				}
 				&saveToFile($fseq, $fqual, 1, $seqname, $suffix, $child);
 				&saveToFile($rseq, $rqual, 2, $seqname, $suffix, $child);
 			}
@@ -1135,8 +1151,9 @@ sub searchPrimers {
 	}
 	else {
 		my $primername;
+		my $umiseq;
 		foreach my $tempname (@primer) {
-			my ($fstart, $fend, $fpmismatch, $fnmismatch) = &alignPrimer(substr($fseq, 0, length($primer{$tempname}) * 2), $primer{$tempname}, $ward);
+			my ($fstart, $fend, $fpmismatch, $fnmismatch, $fumi) = &alignPrimer(substr($fseq, 0, length($primer{$tempname}) * 2), $primer{$tempname}, $ward);
 			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch) {
 				next;
 			}
@@ -1150,7 +1167,7 @@ sub searchPrimers {
 				$tempsubstr1 = substr($fseq, 0, $fend + 1, '');
 			}
 			if ($reverseprimerfile && $ward == 1) {
-				my ($rstart, $rend, $rpmismatch, $rnmismatch) = &alignPrimer($fseq, $reverseprimer{$tempname}, $ward);
+				my ($rstart, $rend, $rpmismatch, $rnmismatch, $rumi) = &alignPrimer($fseq, $reverseprimer{$tempname}, $ward);
 				if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 					if ($needreverseprimer) {
 						next;
@@ -1167,7 +1184,7 @@ sub searchPrimers {
 				}
 			}
 			elsif ($reverseprimerfile && $ward == 2) {
-				my ($rstart, $rend, $rpmismatch, $rnmismatch) = &alignPrimer(substr($fseq, -1 * length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
+				my ($rstart, $rend, $rpmismatch, $rnmismatch, $rumi) = &alignPrimer(substr($fseq, -1 * length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
 				if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 					if ($needreverseprimer) {
 						next;
@@ -1188,15 +1205,27 @@ sub searchPrimers {
 			}
 			$fseq = lc($tempsubstr1) . $fseq . lc($tempsubstr2);
 			$primername = $tempname;
+			if ($fumi && $rumi) {
+				$umiseq = "$fumi-$rumi";
+			}
+			elsif ($fumi) {
+				$umiseq = "$fumi";
+			}
 			last;
 		}
 		if ($fseq && $fqual) {
 			if ($primername) {
 				$suffix .= '__' . $primername;
+				if ($umiseq) {
+					$suffix .= " UMI:$umiseq";
+				}
 				&saveToFile($fseq, $fqual, 0, $seqname, $suffix, $child);
 			}
 			else {
 				$suffix .= '__undetermined';
+				if ($umiseq) {
+					$suffix .= " UMI:$umiseq";
+				}
 				&saveToFile($fseq, $fqual, 0, $seqname, $suffix, $child);
 			}
 		}
@@ -1224,13 +1253,10 @@ sub saveToFile {
 	unless (seek($filehandleoutput1, 0, 2)) {
 		&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$suffix$suffix2/$child.fastq\".");
 	}
-	if ($sequencerenaming) {
-		$seqname =~ s/\s.+//;
-		print($filehandleoutput1 "\@$seqname\__$suffix\n$nucseq\n+\n$qualseq\n");
+	if ($suffix) {
+		$seqname .= " $suffix";
 	}
-	else {
-		print($filehandleoutput1 "\@$seqname\n$nucseq\n+\n$qualseq\n");
-	}
+	print($filehandleoutput1 "\@$seqname\n$nucseq\n+\n$qualseq\n");
 	close($filehandleoutput1);
 }
 
@@ -1310,9 +1336,13 @@ sub alignPrimer {
 	my $nmismatch = 0;
 	my $alnlength = 0;
 	my $head = 1;
+	my $umi;
 	for (my $i = 0; $i < $sublength; $i ++) {
 		my $qc = substr($subquery, $i, 1);
 		my $sc = substr($subsubject, $i, 1);
+		if ($head && $qc eq 'N' && $useNasUMI > length($umi)) {
+			$umi .= $sc;
+		}
 		if ($truncateN && $head && $qc eq 'N') {
 			next;
 		}
@@ -1343,7 +1373,7 @@ sub alignPrimer {
 	else {
 		$end = $start + length($subsubject) - 1;
 	}
-	return($start, $end, $pmismatch, $nmismatch);
+	return($start, $end, $pmismatch, $nmismatch, $umi);
 }
 
 sub alignTwoSequences {
@@ -1601,9 +1631,6 @@ clsplitseq options inputfile outputfolder
 
 Command line options
 ====================
---sequencerenaming=ENABLE|DISABLE
-  Specify renaming sequence reads or not. (default: ENABLE)
-
 --runname=RUNNAME
   Specify run name. This is mandatory. (default: none)
 
@@ -1651,6 +1678,11 @@ output. (default: off)
 
 --truncateN=ENABLE|DISABLE
   Specify truncate Ns of 5'-end of primer or not. (default: DISABLE)
+
+--useNasUMI=ENABLE|DISABLE|INTEGER
+  Specify whether Ns of 5'-end of primer are used as UMI or not.
+If you want to restrict length of UMI, give INTEGER instead of Boolean.
+(default: DISABLE)
 
 --elimprimer=ENABLE|DISABLE
   Specify eliminate primer or not. (default:ENABLE)

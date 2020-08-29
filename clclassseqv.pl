@@ -343,13 +343,13 @@ sub runVSEARCH {
 		$tempminovllen = $minovllen;
 	}
 	if ($paddinglen > 0) {
-		if (system("$vsearch5d$vsearchoption concatenated.fasta --idoffset $paddinglen --threads $numthreads --centroids clustered.fasta --uc clustered.uc --mincols $tempminovllen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --idoffset $paddinglen --threads $numthreads --centroids clustered.fasta --uc clustered.uc --mincols $tempminovllen\".");
+		if (system("$vsearch5d$vsearchoption concatenated.fasta --clusterout_sort --idoffset $paddinglen --threads $numthreads --centroids clustered.fasta --uc clustered.uc --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --clusterout_sort --idoffset $paddinglen --threads $numthreads --centroids clustered.fasta --uc clustered.uc --mincols $tempminovllen\".");
 		}
 	}
 	else {
-		if (system("$vsearch$vsearchoption concatenated.fasta --threads $numthreads --centroids clustered.fasta --uc clustered.uc --mincols $tempminovllen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --threads $numthreads --centroids clustered.fasta --uc clustered.uc --mincols $tempminovllen\".");
+		if (system("$vsearch$vsearchoption concatenated.fasta --clusterout_sort --threads $numthreads --centroids clustered.fasta --uc clustered.uc --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --clusterout_sort --threads $numthreads --centroids clustered.fasta --uc clustered.uc --mincols $tempminovllen\".");
 		}
 	}
 	&convertUCtoOTUMembers("clustered.uc", "clustered.otu.gz", "concatenated.otu.gz");
