@@ -10,6 +10,7 @@ my $primerfile;
 my $reverseprimerfile;
 my $reversecomplement;
 my $elimprimer = 1;
+my $seqnamestyle = 'illumina';
 my $truncateN = 0;
 my $useNasUMI = 0;
 my $tagfile;
@@ -126,6 +127,18 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
 				$compress = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:seq|sequence)namestyle=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:i|illumina)$/i) {
+				$seqnamestyle = 'illumina';
+			}
+			elsif ($value =~ /^(?:o|other)$/i) {
+				$seqnamestyle = 'other';
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -414,7 +427,7 @@ sub readTags {
 				if ($name =~ /__/) {
 					&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use \"__\" in tag name.");
 				}
-				elsif ($name =~ /^[ACGT]+$/ || $name =~ /^[ACGT]+\-[ACGT]+$/) {
+				elsif ($name =~ /^[ACGT]+$/ || $name =~ /^[ACGT]+[\-\+][ACGT]+$/) {
 					&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use nucleotide sequence as tag name.");
 				}
 				$tag =~ s/[^A-Z]//sg;
@@ -446,7 +459,7 @@ sub readTags {
 						}
 						$temptags{$tag} = 1;
 						$tempreversetags{$reversetag} = 1;
-						$tag .= '-' . $reversetag;
+						$tag .= '+' . $reversetag;
 					}
 				}
 				if (exists($tag{$tag})) {
@@ -481,7 +494,7 @@ sub readTags {
 				if ($name =~ /__/) {
 					&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use \"__\" in tag name.");
 				}
-				elsif ($name =~ /^[ACGT]+$/ || $name =~ /^[ACGT]+\-[ACGT]+$/) {
+				elsif ($name =~ /^[ACGT]+$/ || $name =~ /^[ACGT]+[\-\+][ACGT]+$/) {
 					&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use nucleotide sequence as tag name.");
 				}
 				$reversetag =~ s/[^A-Z]//sg;
@@ -519,7 +532,7 @@ sub readTags {
 		my @jumpedtag;
 		foreach my $temptag (@temptags) {
 			foreach my $tempreversetag (@tempreversetags) {
-				my $tagseq = "$temptag-$tempreversetag";
+				my $tagseq = "$temptag+$tempreversetag";
 				if (!exists($tag{$tagseq})) {
 					$tag{$tagseq} = $tagseq;
 					push(@jumpedtag, $tagseq);
@@ -570,7 +583,7 @@ sub splitSequences {
 		# Processing FASTQ in parallel
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			if ($tempnline % 4 == 1 && /^\@(.+)\r?\n?/) {
+			if ($tempnline % 4 == 1 && /^\@(\S+)\r?\n?/) {
 				$seqname = $1;
 				if ($seqname =~ /__/) {
 					&errorMessage(__LINE__, "\"$seqname\" is invalid name. Do not use \"__\" in sequence name.\nFile: $inputfiles[0]\nLine: $tempnline");
@@ -709,7 +722,7 @@ sub splitSequences {
 
 sub processOneSequence {
 	my ($seqname, $nucseq1, $qualseq1, $nucseq2, $qualseq2, $nucseq3, $qualseq3, $nucseq4, $qualseq4, $child) = @_;
-	my $suffix = "SampleName:$runname";
+	my %options;
 	# check data
 	if (length($nucseq1) != length($qualseq1)) {
 		&errorMessage(__LINE__, "The first sequence of \"$seqname\" is unequal length to quality sequence.");
@@ -742,96 +755,106 @@ sub processOneSequence {
 	if ($tagfile && $reversetagfile) {
 		# if nucseq1, nucseq2, nucseq3, nucseq4 are forward read, index1, index2, reverse read, respectively,
 		if ($nucseq1 && $taglength == length($nucseq2) && $reversetaglength == length($nucseq3) && $nucseq4) {
-			my $tagseq = "$nucseq2-$nucseq3";
+			my $tagseq = "$nucseq2+$nucseq3";
 			my $tagqual = "$qualseq2$qualseq3";
 			if ($tag{$tagseq} && &checkTagQualities($tagqual)) {
-				$suffix .= '__' . $tag{$tagseq};
+				$options{'tagname'} = $tag{$tagseq};
+				$options{'tagseq'} = $tagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, $nucseq4, $qualseq4, 0, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq4, $qualseq4, 2, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, $nucseq4, $qualseq4, 0, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq4, $qualseq4, 2, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+					&saveToFile($nucseq4, $qualseq4, 2, $seqname, \%options, $child);
 				}
 			}
 			else {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-				&saveToFile($nucseq4, $qualseq4, 2, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+				&saveToFile($nucseq4, $qualseq4, 2, $seqname, \%options, $child);
 			}
 		}
 		# if nucseq1, nucseq2, nucseq3 are forward read, index1, index2, respectively,
 		elsif ($nucseq1 && $taglength == length($nucseq2) && $reversetaglength == length($nucseq3) && !$nucseq4) {
-			my $tagseq = "$nucseq2-$nucseq3";
+			my $tagseq = "$nucseq2+$nucseq3";
 			my $tagqual = "$qualseq2$qualseq3";
 			if ($tag{$tagseq} && &checkTagQualities($tagqual)) {
-				$suffix .= '__' . $tag{$tagseq};
+				$options{'tagname'} = $tag{$tagseq};
+				$options{'tagseq'} = $tagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, '', '', 1, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, '', '', 1, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 				}
 			}
 			else {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 			}
 		}
 		# if nucseq1, nucseq2 are index1+forward read, index2+reverse read, respectively,
 		elsif ($nucseq1 && $nucseq2 && !$nucseq3 && !$nucseq4) {
-			my $tagseq = substr($nucseq1, 0, $taglength, '') . '-' . substr($nucseq2, 0, $reversetaglength, '');
+			my $tagseq = substr($nucseq1, 0, $taglength, '') . '+' . substr($nucseq2, 0, $reversetaglength, '');
 			my $tagqual = substr($qualseq1, 0, $taglength, '') . substr($qualseq2, 0, $reversetaglength, '');
 			if ($tag{$tagseq} && &checkTagQualities($tagqual) && $nucseq1 && $nucseq2) {
-				$suffix .= '__' . $tag{$tagseq};
+				$options{'tagname'} = $tag{$tagseq};
+				$options{'tagseq'} = $tagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+					&saveToFile($nucseq2, $qualseq2, 2, $seqname, \%options, $child);
 				}
 			}
 			elsif ($nucseq1 && $nucseq2) {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-				&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+				&saveToFile($nucseq2, $qualseq2, 2, $seqname, \%options, $child);
 			}
 		}
 		# if nucseq1 is index1+forward+index2 read,
 		elsif ($nucseq1 && !$nucseq2 && !$nucseq3 && !$nucseq4) {
-			my $tagseq = substr($nucseq1, 0, $taglength, '') . '-' . substr($nucseq1, (-1 * $reversetaglength), $reversetaglength, '');
+			my $tagseq = substr($nucseq1, 0, $taglength, '') . '+' . substr($nucseq1, (-1 * $reversetaglength), $reversetaglength, '');
 			my $tagqual = substr($qualseq1, 0, $taglength, '') . substr($qualseq1, (-1 * $reversetaglength), $reversetaglength, '');
 			if ($tag{$tagseq} && &checkTagQualities($tagqual) && $nucseq1) {
-				$suffix .= '__' . $tag{$tagseq};
+				$options{'tagname'} = $tag{$tagseq};
+				$options{'tagseq'} = $tagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, '', '', 2, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, '', '', 2, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 				}
 			}
 			elsif ($nucseq1) {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 			}
 		}
 		else {
@@ -844,24 +867,26 @@ sub processOneSequence {
 			my $tagseq = $nucseq2;
 			my $tagqual = $qualseq2;
 			if ($tag{$tagseq} && &checkTagQualities($tagqual)) {
-				$suffix .= '__' . $tag{$tagseq};
+				$options{'tagname'} = $tag{$tagseq};
+				$options{'tagseq'} = $tagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, $nucseq3, $qualseq3, 0, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq3, $qualseq3, 2, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, $nucseq3, $qualseq3, 0, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq3, $qualseq3, 2, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+					&saveToFile($nucseq3, $qualseq3, 2, $seqname, \%options, $child);
 				}
 			}
 			else {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-				&saveToFile($nucseq3, $qualseq3, 2, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+				&saveToFile($nucseq3, $qualseq3, 2, $seqname, \%options, $child);
 			}
 		}
 		# if nucseq1, nucseq2 are forward read, index1, respectively,
@@ -869,21 +894,24 @@ sub processOneSequence {
 			my $tagseq = $nucseq2;
 			my $tagqual = $qualseq2;
 			if ($tag{$tagseq} && &checkTagQualities($tagqual)) {
-				$suffix .= '__' . $tag{$tagseq};
+				$options{'tagname'} = $tag{$tagseq};
+				$options{'tagseq'} = $tagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, '', '', 1, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, '', '', 1, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 				}
 			}
 			else {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 			}
 		}
 		# if nucseq1, nucseq2 are index1+forward read, reverse read, respectively,
@@ -891,24 +919,26 @@ sub processOneSequence {
 			my $tagseq = substr($nucseq1, 0, $taglength, '');
 			my $tagqual = substr($qualseq1, 0, $taglength, '');
 			if ($tag{$tagseq} && &checkTagQualities($tagqual) && $nucseq1) {
-				$suffix .= '__' . $tag{$tagseq};
+				$options{'tagname'} = $tag{$tagseq};
+				$options{'tagseq'} = $tagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+					&saveToFile($nucseq2, $qualseq2, 2, $seqname, \%options, $child);
 				}
 			}
 			elsif ($nucseq1) {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-				&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+				&saveToFile($nucseq2, $qualseq2, 2, $seqname, \%options, $child);
 			}
 		}
 		# if nucseq1 is index1+forward read,
@@ -916,21 +946,24 @@ sub processOneSequence {
 			my $tagseq = substr($nucseq1, 0, $taglength, '');
 			my $tagqual = substr($qualseq1, 0, $taglength, '');
 			if ($tag{$tagseq} && &checkTagQualities($tagqual) && $nucseq1) {
-				$suffix .= '__' . $tag{$tagseq};
+				$options{'tagname'} = $tag{$tagseq};
+				$options{'tagseq'} = $tagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, '', '', 1, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, '', '', 1, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 				}
 			}
 			elsif ($nucseq1) {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 			}
 		}
 		else {
@@ -943,24 +976,26 @@ sub processOneSequence {
 			my $reversetagseq = $nucseq2;
 			my $reversetagqual = $qualseq2;
 			if ($reversetag{$reversetagseq} && &checkTagQualities($reversetagqual)) {
-				$suffix .= '__' . $reversetag{$reversetagseq};
+				$options{'tagname'} = $reversetag{$reversetagseq};
+				$options{'tagseq'} = $reversetagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, $nucseq3, $qualseq3, 0, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq3, $qualseq3, 2, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, $nucseq3, $qualseq3, 0, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq3, $qualseq3, 2, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+					&saveToFile($nucseq3, $qualseq3, 2, $seqname, \%options, $child);
 				}
 			}
 			else {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-				&saveToFile($nucseq3, $qualseq3, 2, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+				&saveToFile($nucseq3, $qualseq3, 2, $seqname, \%options, $child);
 			}
 		}
 		# if nucseq1, nucseq2 are forward read, index2, respectively,
@@ -968,21 +1003,24 @@ sub processOneSequence {
 			my $reversetagseq = $nucseq2;
 			my $reversetagqual = $qualseq2;
 			if ($reversetag{$reversetagseq} && &checkTagQualities($reversetagqual)) {
-				$suffix .= '__' . $reversetag{$reversetagseq};
+				$options{'tagname'} = $reversetag{$reversetagseq};
+				$options{'tagseq'} = $reversetagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, '', '', 2, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, '', '', 2, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 				}
 			}
 			else {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 			}
 		}
 		# if nucseq1, nucseq2 are forward read, index2+reverse read, respectively,
@@ -990,24 +1028,26 @@ sub processOneSequence {
 			my $reversetagseq = substr($nucseq2, 0, $reversetaglength, '');
 			my $reversetagqual = substr($qualseq2, 0, $reversetaglength, '');
 			if ($reversetag{$reversetagseq} && &checkTagQualities($reversetagqual) && $nucseq2) {
-				$suffix .= '__' . $reversetag{$reversetagseq};
+				$options{'tagname'} = $reversetag{$reversetagseq};
+				$options{'tagseq'} = $reversetagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-					&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+					&saveToFile($nucseq2, $qualseq2, 2, $seqname, \%options, $child);
 				}
 			}
 			elsif ($nucseq2) {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-				&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+				&saveToFile($nucseq2, $qualseq2, 2, $seqname, \%options, $child);
 			}
 		}
 		# if nucseq1 is forward+index2 read,
@@ -1015,21 +1055,24 @@ sub processOneSequence {
 			my $reversetagseq = substr($nucseq1, (-1 * $reversetaglength), $reversetaglength, '');
 			my $reversetagqual = substr($qualseq1, (-1 * $reversetaglength), $reversetaglength, '');
 			if ($reversetag{$reversetagseq} && &checkTagQualities($reversetagqual) && $nucseq1) {
-				$suffix .= '__' . $reversetag{$reversetagseq};
+				$options{'tagname'} = $reversetag{$reversetagseq};
+				$options{'tagseq'} = $reversetagseq;
 				if ($primerfile) {
-					&searchPrimers($nucseq1, $qualseq1, '', '', 2, $seqname, $suffix, $child);
-				}
-				elsif ($commonprimername) {
-					$suffix .= '__' . $commonprimername;
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					&searchPrimers($nucseq1, $qualseq1, '', '', 2, $seqname, \%options, $child);
 				}
 				else {
-					&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+					if ($commonprimername) {
+						$options{'primername'} = $commonprimername;
+					}
+					&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 				}
 			}
 			elsif ($nucseq1) {
-				$suffix .= '__undetermined';
-				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+				$options{'tagname'} = 'undetermined';
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 			}
 		}
 		else {
@@ -1039,32 +1082,32 @@ sub processOneSequence {
 	# if there is no tags,
 	else {
 		if ($commontagname) {
-			$suffix .= '__' . $commontagname;
+			$options{'tagname'} = $commontagname;
+		}
+		else {
+			$options{'tagname'} = 'undetermined';
 		}
 		if ($nucseq1 && $nucseq2) {
 			if ($primerfile) {
-				&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, $suffix, $child);
-			}
-			elsif ($commonprimername) {
-				$suffix .= '__' . $commonprimername;
-				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-				&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+				&searchPrimers($nucseq1, $qualseq1, $nucseq2, $qualseq2, 0, $seqname, \%options, $child);
 			}
 			else {
-				&saveToFile($nucseq1, $qualseq1, 1, $seqname, $suffix, $child);
-				&saveToFile($nucseq2, $qualseq2, 2, $seqname, $suffix, $child);
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 1, $seqname, \%options, $child);
+				&saveToFile($nucseq2, $qualseq2, 2, $seqname, \%options, $child);
 			}
 		}
 		elsif ($nucseq1) {
 			if ($primerfile) {
-				&searchPrimers($nucseq1, $qualseq1, '', '', 1, $seqname, $suffix, $child);
-			}
-			elsif ($commonprimername) {
-				$suffix .= '__' . $commonprimername;
-				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+				&searchPrimers($nucseq1, $qualseq1, '', '', 1, $seqname, \%options, $child);
 			}
 			else {
-				&saveToFile($nucseq1, $qualseq1, 0, $seqname, $suffix, $child);
+				if ($commonprimername) {
+					$options{'primername'} = $commonprimername;
+				}
+				&saveToFile($nucseq1, $qualseq1, 0, $seqname, \%options, $child);
 			}
 		}
 		else {
@@ -1086,7 +1129,7 @@ sub checkTagQualities {
 }
 
 sub searchPrimers {
-	my ($fseq, $fqual, $rseq, $rqual, $ward, $seqname, $suffix, $child) = @_;
+	my ($fseq, $fqual, $rseq, $rqual, $ward, $seqname, $options, $child) = @_;
 	if ($rseq && $rqual) {
 		my $primername;
 		my $umiseq;
@@ -1123,7 +1166,7 @@ sub searchPrimers {
 			$rseq = lc($tempsubstr2) . $rseq;
 			$primername = $tempname;
 			if ($fumi && $rumi) {
-				$umiseq = "$fumi-$rumi";
+				$umiseq = "$fumi+$rumi";
 			}
 			elsif ($fumi) {
 				$umiseq = "$fumi";
@@ -1131,21 +1174,18 @@ sub searchPrimers {
 			last;
 		}
 		if ($fseq && $fqual && $rseq && $rqual) {
+			if ($umiseq) {
+				$options->{'umiseq'} = $umiseq;
+			}
 			if ($primername) {
-				$suffix .= '__' . $primername;
-				if ($umiseq) {
-					$suffix .= " UMI:$umiseq";
-				}
-				&saveToFile($fseq, $fqual, 1, $seqname, $suffix, $child);
-				&saveToFile($rseq, $rqual, 2, $seqname, $suffix, $child);
+				$options->{'primername'} = $primername;
+				&saveToFile($fseq, $fqual, 1, $seqname, $options, $child);
+				&saveToFile($rseq, $rqual, 2, $seqname, $options, $child);
 			}
 			else {
-				$suffix .= '__undetermined';
-				if ($umiseq) {
-					$suffix .= " UMI:$umiseq";
-				}
-				&saveToFile($fseq, $fqual, 1, $seqname, $suffix, $child);
-				&saveToFile($rseq, $rqual, 2, $seqname, $suffix, $child);
+				$options->{'primername'} = 'undetermined';
+				&saveToFile($fseq, $fqual, 1, $seqname, $options, $child);
+				&saveToFile($rseq, $rqual, 2, $seqname, $options, $child);
 			}
 		}
 	}
@@ -1206,7 +1246,7 @@ sub searchPrimers {
 			$fseq = lc($tempsubstr1) . $fseq . lc($tempsubstr2);
 			$primername = $tempname;
 			if ($fumi && $rumi) {
-				$umiseq = "$fumi-$rumi";
+				$umiseq = "$fumi+$rumi";
 			}
 			elsif ($fumi) {
 				$umiseq = "$fumi";
@@ -1214,48 +1254,68 @@ sub searchPrimers {
 			last;
 		}
 		if ($fseq && $fqual) {
+			if ($umiseq) {
+				$options->{'umiseq'} = $umiseq;
+			}
 			if ($primername) {
-				$suffix .= '__' . $primername;
-				if ($umiseq) {
-					$suffix .= " UMI:$umiseq";
-				}
-				&saveToFile($fseq, $fqual, 0, $seqname, $suffix, $child);
+				$options->{'primername'} = $primername;
+				&saveToFile($fseq, $fqual, 0, $seqname, $options, $child);
 			}
 			else {
-				$suffix .= '__undetermined';
-				if ($umiseq) {
-					$suffix .= " UMI:$umiseq";
-				}
-				&saveToFile($fseq, $fqual, 0, $seqname, $suffix, $child);
+				$options->{'primername'} = 'undetermined';
+				&saveToFile($fseq, $fqual, 0, $seqname, $options, $child);
 			}
 		}
 	}
 }
 
 sub saveToFile {
-	my ($nucseq, $qualseq, $strand, $seqname, $suffix, $child) = @_;
-	my $suffix2;
+	my ($nucseq, $qualseq, $strand, $seqname, $options, $child) = @_;
+	my $samplename = $runname;
+	if ($options->{'tagname'}) {
+		$samplename .= '__' . $options->{'tagname'};
+	}
+	if ($options->{'primername'}) {
+		$samplename .= '__' . $options->{'primername'};
+	}
+	my $filenamesuffix;
+	my $seqnamesuffix;
 	if ($strand == 1) {
-		$suffix2 = ".forward";
+		$filenamesuffix = ".forward";
+		$seqnamesuffix = '1:N:0:';
 	}
 	elsif ($strand == 2) {
-		$suffix2 = ".reverse";
+		$filenamesuffix = ".reverse";
+		$seqnamesuffix = '2:N:0:';
 	}
-	if (!-e "$outputfolder/$suffix$suffix2") {
-		mkdir("$outputfolder/$suffix$suffix2");
+	else {
+		$seqnamesuffix = '1:N:0:';
 	}
-	unless (open($filehandleoutput1, ">> $outputfolder/$suffix$suffix2/$child.fastq")) {
-		&errorMessage(__LINE__, "Cannot write \"$outputfolder/$suffix$suffix2/$child.fastq\".");
+	if ($options->{'tagseq'}) {
+		$seqnamesuffix .= $options->{'tagseq'};
+	}
+	else {
+		$seqnamesuffix .= '1';
+	}
+	if (!-e "$outputfolder/$samplename$filenamesuffix") {
+		mkdir("$outputfolder/$samplename$filenamesuffix");
+	}
+	unless (open($filehandleoutput1, ">> $outputfolder/$samplename$filenamesuffix/$child.fastq")) {
+		&errorMessage(__LINE__, "Cannot write \"$outputfolder/$samplename$filenamesuffix/$child.fastq\".");
 	}
 	unless (flock($filehandleoutput1, LOCK_EX)) {
-		&errorMessage(__LINE__, "Cannot lock \"$outputfolder/$suffix$suffix2/$child.fastq\".");
+		&errorMessage(__LINE__, "Cannot lock \"$outputfolder/$samplename$filenamesuffix/$child.fastq\".");
 	}
 	unless (seek($filehandleoutput1, 0, 2)) {
-		&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$suffix$suffix2/$child.fastq\".");
+		&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$samplename$filenamesuffix/$child.fastq\".");
 	}
-	if ($suffix) {
-		$seqname .= " $suffix";
+	if ($options->{'umiseq'}) {
+		$seqname .= ':' . $options->{'umiseq'};
 	}
+	if ($seqnamestyle eq 'illumina') {
+		$seqname .= " $seqnamesuffix";
+	}
+	$seqname .= " SampleName:$samplename";
 	print($filehandleoutput1 "\@$seqname\n$nucseq\n+\n$qualseq\n");
 	close($filehandleoutput1);
 }
@@ -1633,6 +1693,9 @@ Command line options
 ====================
 --runname=RUNNAME
   Specify run name. This is mandatory. (default: none)
+
+--seqnamestyle=ILLUMINA|OTHER
+  Specify sequence name style. (default:ILLUMINA)
 
 --primername=PRIMERNAME
   Specify primer name. (default: none)
