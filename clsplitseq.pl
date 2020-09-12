@@ -583,7 +583,7 @@ sub splitSequences {
 		# Processing FASTQ in parallel
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			if ($tempnline % 4 == 1 && /^\@(\S+)\r?\n?/) {
+			if ($tempnline % 4 == 1 && /^\@(.+)\r?\n?/) {
 				$seqname = $1;
 				if ($seqname =~ /__/) {
 					&errorMessage(__LINE__, "\"$seqname\" is invalid name. Do not use \"__\" in sequence name.\nFile: $inputfiles[0]\nLine: $tempnline");
@@ -1309,13 +1309,21 @@ sub saveToFile {
 	unless (seek($filehandleoutput1, 0, 2)) {
 		&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$samplename$filenamesuffix/$child.fastq\".");
 	}
-	if ($options->{'umiseq'}) {
-		$seqname .= ':' . $options->{'umiseq'};
-	}
 	if ($seqnamestyle eq 'illumina') {
+		if ($options->{'umiseq'}) {
+			$seqname .= ':' . $options->{'umiseq'};
+		}
 		$seqname .= " $seqnamesuffix";
 	}
-	$seqname .= " SampleName:$samplename";
+	else {
+		if ($options->{'umiseq'}) {
+			$seqname .= ' UMI:' . $options->{'umiseq'};
+		}
+		if ($options->{'tagseq'}) {
+			$seqname .= ' MID:' . $options->{'tagseq'};
+		}
+	}
+	$seqname .= " SN:$samplename";
 	print($filehandleoutput1 "\@$seqname\n$nucseq\n+\n$qualseq\n");
 	close($filehandleoutput1);
 }

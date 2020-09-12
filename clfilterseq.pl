@@ -570,9 +570,10 @@ sub processSequences {
 	}
 	if ($format eq 'FASTQ') {
 		my $tempnline = 1;
-		my $seqname;
+		my $seqname1;
 		my $nucseq1;
 		my $qualseq1;
+		my $seqname2;
 		my $nucseq2;
 		my $qualseq2;
 		my %child;
@@ -583,11 +584,14 @@ sub processSequences {
 		# Processing FASTQ in parallel
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			if ($tempnline % 4 == 1 && /^\@(\S+)/) {
-				$seqname = $1;
-				$seqname =~ s/;+size=\d+;*//g;
+			if ($tempnline % 4 == 1 && /^\@(.+)/) {
+				$seqname1 = $1;
+				$seqname1 =~ s/;+size=\d+;*//g;
 				if ($filehandleinput2) {
-					readline($filehandleinput2);
+					$seqname2 = readline($filehandleinput2);
+					$seqname2 =~ s/^\@//;
+					$seqname2 =~ s/^\s*\r?\n?$//;
+					$seqname2 =~ s/;+size=\d+;*//g;
 				}
 			}
 			elsif ($tempnline % 4 == 2) {
@@ -607,7 +611,7 @@ sub processSequences {
 				}
 				next;
 			}
-			elsif ($tempnline % 4 == 0 && $seqname) {
+			elsif ($tempnline % 4 == 0 && $seqname1) {
 				s/\s//g;
 				$qualseq1 = $_;
 				if ($filehandleinput2) {
@@ -640,38 +644,39 @@ sub processSequences {
 					if ($?) {
 						&errorMessage(__LINE__);
 					}
-					undef($seqname);
+					undef($seqname1);
 					undef($nucseq1);
 					undef($qualseq1);
+					undef($seqname2);
 					undef($nucseq2);
 					undef($qualseq2);
 					$tempnline ++;
 					next;
 				}
 				else {
-					if (!$eliminate{$seqname}) {
+					if (!$eliminate{$seqname1}) {
 						if (scalar(@inputfiles) == 2 && $nucseq1 && $qualseq1 && $nucseq2 && $qualseq2) {
-							($nucseq1, $qualseq1) = &processOneSequence($seqname, $nucseq1, $qualseq1);
-							($nucseq2, $qualseq2) = &processOneSequence($seqname, $nucseq2, $qualseq2);
+							($nucseq1, $qualseq1) = &processOneSequence($seqname1, $nucseq1, $qualseq1);
+							($nucseq2, $qualseq2) = &processOneSequence($seqname2, $nucseq2, $qualseq2);
 							if ($nucseq1 && $qualseq1 && $nucseq2 && $qualseq2) {
 								{
 									my $filename = $inputfiles[0];
 									$filename =~ s/^.+[\\\/]//;
-									&saveToFile($nucseq1, $qualseq1, $seqname, $filename, $child);
+									&saveToFile($nucseq1, $qualseq1, $seqname1, $filename, $child);
 								}
 								{
 									my $filename = $inputfiles[1];
 									$filename =~ s/^.+[\\\/]//;
-									&saveToFile($nucseq2, $qualseq2, $seqname, $filename, $child);
+									&saveToFile($nucseq2, $qualseq2, $seqname2, $filename, $child);
 								}
 							}
 						}
 						elsif (scalar(@inputfiles) == 1 && $nucseq1 && $qualseq1 && !$nucseq2 && !$qualseq2) {
-							($nucseq1, $qualseq1) = &processOneSequence($seqname, $nucseq1, $qualseq1);
+							($nucseq1, $qualseq1) = &processOneSequence($seqname1, $nucseq1, $qualseq1);
 							if ($nucseq1 && $qualseq1) {
 								my $filename = $inputfiles[0];
 								$filename =~ s/^.+[\\\/]//;
-								&saveToFile($nucseq1, $qualseq1, $seqname, $filename, $child);
+								&saveToFile($nucseq1, $qualseq1, $seqname1, $filename, $child);
 							}
 						}
 					}
@@ -691,8 +696,9 @@ sub processSequences {
 		}
 	}
 	elsif ($format eq 'FASTA') {
-		my $seqname;
+		my $seqname1;
 		my $nucseq1;
+		my $seqname2;
 		my $nucseq2;
 		my $temp;
 		my %child;
@@ -703,14 +709,16 @@ sub processSequences {
 		local $/ = "\n>";
 		while (<$filehandleinput1>) {
 			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
-				$seqname = $1;
+				$seqname1 = $1;
 				$nucseq1 = uc($2);
-				$seqname =~ s/;+size=\d+;*//g;
+				$seqname1 =~ s/;+size=\d+;*//g;
 				$nucseq1 =~ s/[^A-Z]//g;
 				if ($filehandleinput2) {
 					$temp = readline($filehandleinput2);
-					$temp =~ /^>?\s*\S[^\r\n]*\r?\n(.+)\r?\n?/s;
-					$nucseq2 = uc($1);
+					$temp =~ /^>?\s*(\S[^\r\n]*)\r?\n(.+)\r?\n?/s;
+					$seqname2 = $1;
+					$nucseq2 = uc($2);
+					$seqname2 =~ s/;+size=\d+;*//g;
 					$nucseq2 =~ s/[^A-Z]//g;
 				}
 				if (my $pid = fork()) {
@@ -737,35 +745,36 @@ sub processSequences {
 					if ($?) {
 						&errorMessage(__LINE__);
 					}
-					undef($seqname);
+					undef($seqname1);
 					undef($nucseq1);
+					undef($seqname2);
 					undef($nucseq2);
 					next;
 				}
 				else {
-					if (!$eliminate{$seqname}) {
+					if (!$eliminate{$seqname1}) {
 						if (scalar(@inputfiles) == 2 && $nucseq1 && $nucseq2) {
-							$nucseq1 = &processOneSequence($seqname, $nucseq1);
-							$nucseq2 = &processOneSequence($seqname, $nucseq2);
+							$nucseq1 = &processOneSequence($seqname1, $nucseq1);
+							$nucseq2 = &processOneSequence($seqname2, $nucseq2);
 							if ($nucseq1 && $nucseq2) {
 								{
 									my $filename = $inputfiles[0];
 									$filename =~ s/^.+[\\\/]//;
-									&saveToFile($nucseq1, '', $seqname, $filename, $child);
+									&saveToFile($nucseq1, '', $seqname1, $filename, $child);
 								}
 								{
 									my $filename = $inputfiles[1];
 									$filename =~ s/^.+[\\\/]//;
-									&saveToFile($nucseq2, '', $seqname, $filename, $child);
+									&saveToFile($nucseq2, '', $seqname2, $filename, $child);
 								}
 							}
 						}
 						elsif (scalar(@inputfiles) == 1 && $nucseq1) {
-							$nucseq1 = &processOneSequence($seqname, $nucseq1);
+							$nucseq1 = &processOneSequence($seqname1, $nucseq1);
 							if ($nucseq1) {
 								my $filename = $inputfiles[0];
 								$filename =~ s/^.+[\\\/]//;
-								&saveToFile($nucseq1, '', $seqname, $filename, $child);
+								&saveToFile($nucseq1, '', $seqname1, $filename, $child);
 							}
 						}
 					}
