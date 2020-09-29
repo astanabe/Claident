@@ -583,11 +583,8 @@ sub splitSequences {
 		# Processing FASTQ in parallel
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			if ($tempnline % 4 == 1 && /^\@(.+)\r?\n?/) {
+			if ($tempnline % 4 == 1 && /^\@(.+)/) {
 				$seqname = $1;
-				if ($seqname =~ /__/) {
-					&errorMessage(__LINE__, "\"$seqname\" is invalid name. Do not use \"__\" in sequence name.\nFile: $inputfiles[0]\nLine: $tempnline");
-				}
 				if ($filehandleinput2) {
 					readline($filehandleinput2);
 				}
@@ -1147,8 +1144,13 @@ sub searchPrimers {
 			else {
 				$tempsubstr1 = substr($fseq, 0, $fend + 1, '');
 			}
+			my $rumi;
 			if ($reverseprimerfile) {
-				my ($rstart, $rend, $rpmismatch, $rnmismatch, $rumi) = &alignPrimer(substr($rseq, 0, length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
+				my $rstart;
+				my $rend;
+				my $rpmismatch;
+				my $rnmismatch;
+				($rstart, $rend, $rpmismatch, $rnmismatch, $rumi) = &alignPrimer(substr($rseq, 0, length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
 				if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 					next;
 				}
@@ -1206,8 +1208,13 @@ sub searchPrimers {
 			else {
 				$tempsubstr1 = substr($fseq, 0, $fend + 1, '');
 			}
+			my $rumi;
 			if ($reverseprimerfile && $ward == 1) {
-				my ($rstart, $rend, $rpmismatch, $rnmismatch, $rumi) = &alignPrimer($fseq, $reverseprimer{$tempname}, $ward);
+				my $rstart;
+				my $rend;
+				my $rpmismatch;
+				my $rnmismatch;
+				($rstart, $rend, $rpmismatch, $rnmismatch, $rumi) = &alignPrimer($fseq, $reverseprimer{$tempname}, $ward);
 				if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 					if ($needreverseprimer) {
 						next;
@@ -1224,7 +1231,11 @@ sub searchPrimers {
 				}
 			}
 			elsif ($reverseprimerfile && $ward == 2) {
-				my ($rstart, $rend, $rpmismatch, $rnmismatch, $rumi) = &alignPrimer(substr($fseq, -1 * length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
+				my $rstart;
+				my $rend;
+				my $rpmismatch;
+				my $rnmismatch;
+				($rstart, $rend, $rpmismatch, $rnmismatch, $rumi) = &alignPrimer(substr($fseq, -1 * length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
 				if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 					if ($needreverseprimer) {
 						next;

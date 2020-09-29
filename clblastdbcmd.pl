@@ -15,10 +15,8 @@ my $blastdbcmdoption = ' -dbtype nucl -target_only -ctrl_a -long_seqids';
 my $blastdb;
 my $outputformat = 'FASTA';
 my $numthreads = 1;
-my $ngilist;
-my $nseqidlist;
-my %ngilist;
-my %nseqidlist;
+my $nacclist;
+my %nacclist;
 my $minlen;
 my $maxlen;
 
@@ -48,8 +46,8 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
-	# read negative seqids list file
-	&readNegativeSeqIDList();
+	# read negative accession list file
+	&readNegativeAccessionList();
 	# split input file and run blastdbcmd
 	&splitInputFile();
 	exit(0);
@@ -99,33 +97,22 @@ sub getOptions {
 			if ($value =~ /^FASTA$/i) {
 				$outputformat = 'FASTA';
 			}
-			elsif ($value =~ /^(?:GITAXID|GenBankIDTAXID|GITaxonomyID|GenBankIDTaxonomyID)$/i) {
-				$outputformat = 'GITAXID';
+			elsif ($value =~ /^(?:ACCTAXID|AccessionTAXID|AccessionTaxonomyID)$/i) {
+				$outputformat = 'ACCTAXID';
 			}
-			elsif ($value =~ /^(?:GI|GenBankID)$/i) {
-				$outputformat = 'GI';
-			}
-			elsif ($value =~ /^(?:ACCESSION|ACC)$/i) {
-				$outputformat = 'ACCESSION';
+			elsif ($value =~ /^(?:ACC|Accession)$/i) {
+				$outputformat = 'ACC';
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 			}
 		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?gilist=(.+)$/i) {
-			$ngilist = $1;
+		elsif ($ARGV[$i] =~ /^-+n(?:egative)?acclist=(.+)$/i) {
+			$nacclist = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?seqidlist=(.+)$/i) {
-			$nseqidlist = $1;
-		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?gis?=(.+)$/i) {
-			foreach my $ngi (split(/,/, $1)) {
-				$ngilist{$ngi} = 1;
-			}
-		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?seqids?=(.+)$/i) {
-			foreach my $nseqid (split(/,/, $1)) {
-				$nseqidlist{$nseqid} = 1;
+		elsif ($ARGV[$i] =~ /^-+n(?:egative)?(?:acc|accession|seqid)s?=(.+)$/i) {
+			foreach my $nacc (split(/,/, $1)) {
+				$nacclist{$nacc} = 1;
 			}
 		}
 		elsif ($ARGV[$i] =~ /^-+min(?:imum)?len(?:gth)?=(\d+)$/i) {
@@ -159,15 +146,12 @@ sub checkVariables {
 		&errorMessage(__LINE__, "Input file does not exist.");
 	}
 	if ($outputformat eq 'FASTA') {
-		$outputformat = "\">gi\|\%g\|gb\|\%a \%t\n\%s\"";
+		$outputformat = "\">gb\|\%a \%t\n\%s\"";
 	}
-	elsif ($outputformat eq 'GITAXID') {
-		$outputformat = "'" . '%g %T' . "'";
+	elsif ($outputformat eq 'ACCTAXID') {
+		$outputformat = "'" . '%a %T' . "'";
 	}
-	elsif ($outputformat eq 'GI') {
-		$outputformat = "'" . '%g' . "'";
-	}
-	elsif ($outputformat eq 'ACCESSION') {
+	elsif ($outputformat eq 'ACC') {
 		$outputformat = "'" . '%a' . "'";
 	}
 	# search blastn
@@ -253,21 +237,12 @@ sub checkVariables {
 	}
 }
 
-sub readNegativeSeqIDList {
-	if ($ngilist) {
-		$filehandleinput1 = &readFile($ngilist);
+sub readNegativeAccessionList {
+	if ($nacclist) {
+		$filehandleinput1 = &readFile($nacclist);
 		while (<$filehandleinput1>) {
-			if (/^\s*(\d+)/) {
-				$ngilist{$1} = 1;
-			}
-		}
-		close($filehandleinput1);
-	}
-	elsif ($nseqidlist) {
-		$filehandleinput1 = &readFile($nseqidlist);
-		while (<$filehandleinput1>) {
-			if (/^\s*(\d+)/) {
-				$nseqidlist{$1} = 1;
+			if (/^\s*([A-Za-z0-9]+)/) {
+				$nacclist{$1} = 1;
 			}
 		}
 		close($filehandleinput1);
@@ -286,7 +261,7 @@ sub splitInputFile {
 		my $tempseqs;
 		$filehandleinput1 = &readFile($inputfile);
 		while (<$filehandleinput1>) {
-			if (/^\s*(\S+)\s*\r?\n?$/ && !exists($nseqidlist{$1}) && !exists($ngilist{$1})) {
+			if (/^\s*(\S+)\s*\r?\n?$/ && !exists($nacclist{$1})) {
 				$tempseqs .= $1 . "\n";
 				$tempnseq ++;
 				if ($tempnseq == $minnseq) {
@@ -354,16 +329,17 @@ sub runBlastdbcmd {
 	print($filehandleoutput1 "$tempseqs");
 	close($filehandleoutput1);
 	if ($minlen || $maxlen) {
-		my $newseqids;
+		my $newaccs;
 		unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry_batch $outputfile.$tempnfile.list -out - -outfmt '%a %l' 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry_batch $outputfile.$tempnfile.list -out - -outfmt '%a %l'\".");
 		}
 		while (<$pipehandleinput1>) {
 			if (/\s*(\S+)\s+(\d+)/) {
-				my $seqid = $1;
+				my $acc = $1;
 				my $length = $2;
 				if ($minlen && $maxlen && $length >= $minlen && $length <= $maxlen || $minlen && $length >= $minlen || $maxlen && $length <= $maxlen) {
-					$newseqids .= $seqid . "\n";
+					$acc =~ s/\.\d+$//;
+					$newaccs .= $acc . "\n";
 				}
 			}
 		}
@@ -371,7 +347,7 @@ sub runBlastdbcmd {
 		unless (open($filehandleoutput1, "> $outputfile.$tempnfile.list")) {
 			&errorMessage(__LINE__, "Cannot write \"$outputfile.$tempnfile.list\".");
 		}
-		print($filehandleoutput1 "$newseqids\n");
+		print($filehandleoutput1 "$newaccs\n");
 		close($filehandleoutput1);
 	}
 	if (-e "$outputfile.$tempnfile.list" && !-z "$outputfile.$tempnfile.list") {
@@ -475,20 +451,14 @@ Command line options
 --blastdb=BLASTDB
   Specify name of BLAST database. (default: none)
 
--o, --output=FASTA|GI|GITAXID|ACCESSION
+-o, --output=FASTA|ACCTAXID|ACCESSION
   Specify output format. (default: FASTA)
 
---negativegilist=FILENAME
-  Specify file name of negative GI list. (default: none)
+--negativeacclist=FILENAME
+  Specify file name of negative accession list. (default: none)
 
---negativegi=GI(,GI..)
-  Specify negative GIs.
-
---negativeseqidlist=FILENAME
-  Specify file name of negative SeqID list. (default: none)
-
---negativeseqid=SeqID(,SeqID..)
-  Specify negative SeqIDs.
+--negativeacc=accession(,accession..)
+  Specify negative accessions.
 
 --minlen=INTEGER
   Specify minimum length of sequence. (default: none)

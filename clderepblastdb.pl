@@ -167,12 +167,12 @@ sub constructSeqDB {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	# make table
-	unless ($seqdbhandle->do("CREATE TABLE seq (gi INTEGER NOT NULL PRIMARY KEY, seq TEXT NOT NULL, seqname TEXT);")) {
+	unless ($seqdbhandle->do("CREATE TABLE seq (acc TEXT NOT NULL PRIMARY KEY, seq TEXT NOT NULL, seqname TEXT);")) {
 		&errorMessage(__LINE__, "Cannot make table.");
 	}
 	# prepare SQL statement
 	my $statement;
-	unless ($statement = $seqdbhandle->prepare("INSERT INTO seq (gi, seq, seqname) VALUES (?, ?, ?);")) {
+	unless ($statement = $seqdbhandle->prepare("INSERT INTO seq (acc, seq, seqname) VALUES (?, ?, ?);")) {
 		&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 	}
 	# begin SQL transaction
@@ -188,12 +188,12 @@ sub constructSeqDB {
 			my $seqname = $1;
 			my $seq = uc($2);
 			$seq =~ s/[> \r\n]//g;
-			$seqname =~ /\|*gi\|(\d+)[\| ]/;
-			my $gi = $1;
+			$seqname =~ /\|*(?:gb|emb|dbj)\|([A-Za-z0-9]+)[\| ]/;
+			my $acc = $1;
 			my $seqlen = length($seq);
 			if ($seqlen >= $minlen && $seqlen <= $maxlen) {
-				unless ($statement->execute($gi, $seq, $seqname)) {
-					&errorMessage(__LINE__, "Cannot insert \"$gi, $seq, $seqname\".");
+				unless ($statement->execute($acc, $seq, $seqname)) {
+					&errorMessage(__LINE__, "Cannot insert \"$acc, $seq, $seqname\".");
 				}
 				if ($nentries % 100000 == 0) {
 					# commit SQL transaction
@@ -233,7 +233,7 @@ sub clusterSequences {
 	{
 		$filehandleoutput1 = &writeFile("$outputfile.temp.fasta.gz");
 		my $statement;
-		unless ($statement = $seqdbhandle->prepare('SELECT gi, seq FROM seq')) {
+		unless ($statement = $seqdbhandle->prepare('SELECT acc, seq FROM seq')) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		unless ($statement->execute) {
@@ -266,7 +266,7 @@ sub clusterSequences {
 		my @seqname;
 		my $sequence;
 		my $statement;
-		unless ($statement = $seqdbhandle->prepare('SELECT gi, seqname, seq FROM seq WHERE gi IN (' . join(', ', @{$cluster}) . ')')) {
+		unless ($statement = $seqdbhandle->prepare('SELECT acc, seqname, seq FROM seq WHERE acc IN (' . join(', ', @{$cluster}) . ')')) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		unless ($statement->execute) {

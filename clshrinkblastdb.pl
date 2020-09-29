@@ -229,12 +229,12 @@ sub constructSeqDB {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	# make table
-	unless ($seqdbhandle->do("CREATE TABLE seq (gi INTEGER NOT NULL PRIMARY KEY, seq TEXT NOT NULL, seqname TEXT);")) {
+	unless ($seqdbhandle->do("CREATE TABLE seq (acc TEXT NOT NULL PRIMARY KEY, seq TEXT NOT NULL, seqname TEXT);")) {
 		&errorMessage(__LINE__, "Cannot make table.");
 	}
 	# prepare SQL statement
 	my $statement;
-	unless ($statement = $seqdbhandle->prepare("INSERT INTO seq (gi, seq, seqname) VALUES (?, ?, ?);")) {
+	unless ($statement = $seqdbhandle->prepare("INSERT INTO seq (acc, seq, seqname) VALUES (?, ?, ?);")) {
 		&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 	}
 	# begin SQL transaction
@@ -250,12 +250,12 @@ sub constructSeqDB {
 			my $seqname = $1;
 			my $seq = uc($2);
 			$seq =~ s/[> \r\n]//g;
-			$seqname =~ /\|*gi\|(\d+)[\| ]/;
-			my $gi = $1;
+			$seqname =~ /\|*(?:gb|emb|dbj)\|([A-Za-z0-9]+)[\| ]/;
+			my $acc = $1;
 			my $seqlen = length($seq);
 			if ($seqlen >= $minlen && $seqlen <= $maxlen) {
-				unless ($statement->execute($gi, $seq, $seqname)) {
-					&errorMessage(__LINE__, "Cannot insert \"$gi, $seq, $seqname\".");
+				unless ($statement->execute($acc, $seq, $seqname)) {
+					&errorMessage(__LINE__, "Cannot insert \"$acc, $seq, $seqname\".");
 				}
 				if ($nentries % 100000 == 0) {
 					# commit SQL transaction
@@ -336,17 +336,17 @@ sub clusterSequences {
 		&getDaughters($taxon);
 		my $statement1;
 		my $statement2;
-		unless ($statement1 = $taxdbhandle->prepare("SELECT DISTINCT gi FROM gi_taxid_nucl WHERE taxid IN (" . join(', ', keys(%includetaxid)) . ")")) {
+		unless ($statement1 = $taxdbhandle->prepare("SELECT DISTINCT acc FROM acc_taxid WHERE taxid IN (" . join(', ', keys(%includetaxid)) . ")")) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		unless ($statement1->execute) {
 			&errorMessage(__LINE__, "Cannot execute SELECT.");
 		}
-		my @gi;
+		my @acc;
 		while (my @row1 = $statement1->fetchrow_array) {
-			push(@gi, $row1[0]);
-			if (scalar(@gi) >= $threshold) {
-				unless ($statement2 = $seqdbhandle->prepare('SELECT gi, seq FROM seq WHERE gi IN (' . join(', ', @gi) . ')')) {
+			push(@acc, $row1[0]);
+			if (scalar(@acc) >= $threshold) {
+				unless ($statement2 = $seqdbhandle->prepare('SELECT acc, seq FROM seq WHERE acc IN (' . join(', ', @acc) . ')')) {
 					&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 				}
 				unless ($statement2->execute) {
@@ -356,7 +356,7 @@ sub clusterSequences {
 					print($filehandleoutput1 ">$row2[0]\n$row2[1]\n");
 					$nentries ++;
 				}
-				undef(@gi);
+				undef(@acc);
 			}
 		}
 		undef(%includetaxid);
@@ -402,17 +402,17 @@ sub clusterSequences {
 		}
 		my $statement1;
 		my $statement2;
-		unless ($statement1 = $taxdbhandle->prepare("SELECT DISTINCT gi FROM gi_taxid_nucl WHERE taxid NOT IN (" . join(', ', keys(%includetaxid)) . ")")) {
+		unless ($statement1 = $taxdbhandle->prepare("SELECT DISTINCT acc FROM acc_taxid WHERE taxid NOT IN (" . join(', ', keys(%includetaxid)) . ")")) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		unless ($statement1->execute) {
 			&errorMessage(__LINE__, "Cannot execute SELECT.");
 		}
-		my @gi;
+		my @acc;
 		while (my @row1 = $statement1->fetchrow_array) {
-			push(@gi, $row1[0]);
-			if (scalar(@gi) >= $threshold) {
-				unless ($statement2 = $seqdbhandle->prepare('SELECT gi, seq FROM seq WHERE gi IN (' . join(', ', @gi) . ')')) {
+			push(@acc, $row1[0]);
+			if (scalar(@acc) >= $threshold) {
+				unless ($statement2 = $seqdbhandle->prepare('SELECT acc, seq FROM seq WHERE acc IN (' . join(', ', @acc) . ')')) {
 					&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 				}
 				unless ($statement2->execute) {
@@ -422,7 +422,7 @@ sub clusterSequences {
 					print($filehandleoutput1 ">$row2[0]\n$row2[1]\n");
 					$nentries ++;
 				}
-				undef(@gi);
+				undef(@acc);
 			}
 		}
 		# disconnect
@@ -515,7 +515,7 @@ sub outputResults {
 	foreach my $cluster (@cluster) {
 		my %subcluster;
 		my $statement;
-		unless ($statement = $taxdbhandle->prepare('SELECT gi, taxid FROM gi_taxid_nucl WHERE gi IN (' . join(', ', keys(%{$cluster})) . ')')) {
+		unless ($statement = $taxdbhandle->prepare('SELECT acc, taxid FROM acc_taxid WHERE acc IN (' . join(', ', keys(%{$cluster})) . ')')) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		unless ($statement->execute) {
@@ -526,13 +526,13 @@ sub outputResults {
 		}
 		foreach my $taxid (keys(%subcluster)) {
 			my $centroid;
-			foreach my $gi (sort({$cluster->{$b} <=> $cluster->{$a}} @{$subcluster{$taxid}})) {
-				$centroid = $gi;
+			foreach my $acc (sort({$cluster->{$b} <=> $cluster->{$a}} @{$subcluster{$taxid}})) {
+				$centroid = $acc;
 				last;
 			}
 			my @seqname;
 			my $sequence;
-			unless ($statement = $seqdbhandle->prepare('SELECT gi, seqname, seq FROM seq WHERE gi IN (' . join(', ', @{$subcluster{$taxid}}) . ')')) {
+			unless ($statement = $seqdbhandle->prepare('SELECT acc, seqname, seq FROM seq WHERE acc IN (' . join(', ', @{$subcluster{$taxid}}) . ')')) {
 				&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 			}
 			unless ($statement->execute) {

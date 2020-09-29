@@ -8,7 +8,7 @@ my $buildno = '0.2.x';
 
 my $devnull = File::Spec->devnull();
 
-my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqids -blastdb_version 4 -max_file_sz 2G';
+my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 2G';
 
 # options
 my $blastdb;
@@ -31,7 +31,7 @@ my $root = getcwd();
 my @format;
 my $prefix;
 my $blastdbpath;
-my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'superclass', 'class', 'subclass', 'infraclass', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma');
+my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'subphylum', 'superclass', 'class', 'subclass', 'infraclass', 'cohort', 'subcohort', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'section', 'subsection', 'series', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma', 'forma specialis', 'strain', 'isolate');
 my %taxrank;
 for (my $i = 0; $i < scalar(@taxrank); $i ++) {
 	$taxrank{$taxrank[$i]} = $i;
@@ -288,7 +288,6 @@ sub checkVariables {
 }
 
 sub readFASTAmakeTaxDB {
-	my $tempgi = 9999999999;
 	my $temptaxid = 9999999;
 	my $tempacc = 0;
 	if ($taxdb) {
@@ -302,7 +301,7 @@ sub readFASTAmakeTaxDB {
 		}
 		{
 			my $statement;
-			unless ($statement = $dbhandle->prepare('SELECT gi, taxid FROM gi_taxid_nucl')) {
+			unless ($statement = $dbhandle->prepare('SELECT taxid FROM acc_taxid')) {
 				&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 			}
 			unless ($statement->execute) {
@@ -310,11 +309,8 @@ sub readFASTAmakeTaxDB {
 			}
 			my $lineno = 1;
 			while (my @row = $statement->fetchrow_array) {
-				if ($row[0] > $tempgi) {
-					$tempgi = $row[0];
-				}
-				if ($row[1] > $temptaxid) {
-					$temptaxid = $row[1];
+				if ($row[0] > $temptaxid) {
+					$temptaxid = $row[0];
 				}
 				if ($lineno % 10000 == 0) {
 					print(STDERR '.');
@@ -327,13 +323,12 @@ sub readFASTAmakeTaxDB {
 		print(STDERR "done.\n\n");
 	}
 	else {
-		$tempgi = 0;
 		$temptaxid = 1;
 	}
 	# read input FASTA file
 	print(STDERR "Reading input file...");
 	my %taxon2taxid;
-	my %gi2taxid;
+	my %acc2taxid;
 	unless (open($filehandleoutput1, "> $output.fasta")) {
 		&errorMessage(__LINE__, "Cannot write \"$output.fasta\".");
 	}
@@ -351,19 +346,19 @@ sub readFASTAmakeTaxDB {
 				my $sequence = $2;
 				$seqname =~ s/${separator}?\s*$//;
 				$sequence =~ s/[> \r\n]//g;
-				$tempgi ++;
 				$tempacc ++;
-				print($filehandleoutput1 ">gi|$tempgi|gb|$accprefix" . &convGI2ACC($tempacc) . " $seqname\n$sequence\n");
+				my $acc = $accprefix . &convNumber2Accession($tempacc);
+				print($filehandleoutput1 ">gb|$acc $seqname\n$sequence\n");
 				if ($seqname !~ /${separator}/ && $seqname =~ /^ta?xid[:=](\d+)$/i) {
-					$gi2taxid{$tempgi} = $1;
+					$acc2taxid{$acc} = $1;
 				}
 				elsif ($taxon2taxid{$seqname}) {
-					$gi2taxid{$tempgi} = $taxon2taxid{$seqname};
+					$acc2taxid{$acc} = $taxon2taxid{$seqname};
 				}
 				else {
 					$temptaxid ++;
 					$taxon2taxid{$seqname} = $temptaxid;
-					$gi2taxid{$tempgi} = $temptaxid;
+					$acc2taxid{$acc} = $temptaxid;
 				}
 			}
 			if ($lineno % 10000 == 0) {
@@ -451,17 +446,17 @@ sub readFASTAmakeTaxDB {
 	unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$output.taxdb", '', '')) {
 		&errorMessage(__LINE__, "Cannot make database.");
 	}
-	print(STDERR "Making table for gi_taxid_nucl...");
+	print(STDERR "Making table for acc_taxid...");
 	# make table
 	unless ($taxdb) {
-		unless ($dbhandle->do("CREATE TABLE gi_taxid_nucl (gi INTEGER NOT NULL PRIMARY KEY, taxid INTEGER NOT NULL);")) {
+		unless ($dbhandle->do("CREATE TABLE acc_taxid (acc TEXT NOT NULL PRIMARY KEY, taxid INTEGER NOT NULL);")) {
 			&errorMessage(__LINE__, "Cannot make table.");
 		}
 	}
 	{
 		# prepare SQL statement
 		my $statement;
-		unless ($statement = $dbhandle->prepare("INSERT INTO gi_taxid_nucl (gi, taxid) VALUES (?, ?);")) {
+		unless ($statement = $dbhandle->prepare("INSERT INTO acc_taxid (acc, taxid) VALUES (?, ?);")) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		# begin SQL transaction
@@ -470,9 +465,9 @@ sub readFASTAmakeTaxDB {
 		{
 			my $lineno = 1;
 			my $nentries = 1;
-			foreach my $gi (sort({$a <=> $b} keys(%gi2taxid))) {
-				unless ($statement->execute($gi, $gi2taxid{$gi})) {
-					&errorMessage(__LINE__, "Cannot insert \"$gi, $gi2taxid{$gi}\".");
+			foreach my $acc (sort(keys(%acc2taxid))) {
+				unless ($statement->execute($acc, $acc2taxid{$acc})) {
+					&errorMessage(__LINE__, "Cannot insert \"$acc, $acc2taxid{$acc}\".");
 				}
 				if ($nentries % 1000000 == 0) {
 					# commit SQL transaction
@@ -634,22 +629,22 @@ sub makeBLASTDB {
 	}
 }
 
-sub convGI2ACC {
-	my $gi = shift(@_);
+sub convNumber2Accession {
+	my $num = shift(@_);
 	my $acc;
-	if ($gi < 100000000) {
-		$acc = 'AA' . sprintf("%08d", $gi) . '.1';
+	if ($num < 100000000) {
+		$acc = 'AA' . sprintf("%08d", $num);
 	}
 	else {
-		my $prefix = int($gi / 99999999);
+		my $prefix = int($num / 99999999);
 		if ($prefix < 26) {
-			$acc = 'A' . pack('C', ($prefix + 65)) . sprintf("%08d", ($gi % 99999999)) . '.1';
+			$acc = 'A' . pack('C', ($prefix + 65)) . sprintf("%08d", ($num % 99999999));
 		}
 		else {
 			my $prefix2 = int($prefix / 26);
 			if ($prefix2 < 26) {
 				$prefix = $prefix % 26;
-				$acc = pack('C', ($prefix2 + 65)) . pack('C', ($prefix + 65)) . sprintf("%08d", ($gi % 99999999)) . '.1';
+				$acc = pack('C', ($prefix2 + 65)) . pack('C', ($prefix + 65)) . sprintf("%08d", ($num % 99999999));
 			}
 			else {
 				&errorMessage(__LINE__, "Too many sequence.");
@@ -658,56 +653,6 @@ sub convGI2ACC {
 	}
 	return($acc);
 }
-
-#sub provideNewGI {
-#	my $exist = 1;
-#	while ($exist > 0) {
-#		my $seqid;
-#		$tempgi ++;
-#		unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry $tempgi -out - -outfmt '%a' 2> $devnull |")) {
-#			&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry $tempgi -out - -outfmt '%a'\".");
-#		}
-#		while (<$pipehandleinput1>) {
-#			if (/\s*(\S+)/) {
-#				$seqid = $1;
-#			}
-#		}
-#		close($pipehandleinput1);
-#		if ($seqid) {
-#			$exist ++;
-#		}
-#		else {
-#			$exist = 0;
-#		}
-#	}
-#	return($tempgi);
-#}
-#
-#sub provideNewACC {
-#	my $exist = 1;
-#	my $acc;
-#	while ($exist > 0) {
-#		my $gi;
-#		$tempacc ++;
-#		$acc = $accprefix . &convGI2ACC($tempacc);
-#		unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry $acc -out - -outfmt '%g' 2> $devnull |")) {
-#			&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry $acc -out - -outfmt '%g'\".");
-#		}
-#		while (<$pipehandleinput1>) {
-#			if (/\s*(\S+)/) {
-#				$gi = $1;
-#			}
-#		}
-#		close($pipehandleinput1);
-#		if ($gi) {
-#			$exist ++;
-#		}
-#		else {
-#			$exist = 0;
-#		}
-#	}
-#	return($acc);
-#}
 
 sub errorMessage {
 	my $lineno = shift(@_);

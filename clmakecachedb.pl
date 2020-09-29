@@ -7,11 +7,9 @@ my $buildno = '0.2.x';
 my $devnull = File::Spec->devnull();
 
 # options
-my %ngilist;
-my %nseqidlist;
+my %nacclist;
 my $blastdb;
-my $ngilist;
-my $nseqidlist;
+my $nacclist;
 my $nodel;
 my $blastoption;
 my $numthreads = 1;
@@ -46,8 +44,8 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
-	# read replicate list file
-	&readNegativeSeqIDList();
+	# read negative accession list file
+	&readNegativeAccessionList();
 	# make output directory
 	if (!-e $outputfolder && !mkdir($outputfolder)) {
 		&errorMessage(__LINE__, 'Cannot make output folder.');
@@ -108,20 +106,12 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+(?:blastdb|bdb)=(.+)$/i) {
 			$blastdb = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?gilist=(.+)$/i) {
-			$ngilist = $1;
+		elsif ($ARGV[$i] =~ /^-+n(?:egative)?(?:acc|accession|seqid)list=(.+)$/i) {
+			$nacclist = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?seqidlist=(.+)$/i) {
-			$nseqidlist = $1;
-		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?gis?=(.+)$/i) {
-			foreach my $ngi (split(/,/, $1)) {
-				$ngilist{$ngi} = 1;
-			}
-		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?seqids?=(.+)$/i) {
-			foreach my $nseqid (split(/,/, $1)) {
-				$nseqidlist{$nseqid} = 1;
+		elsif ($ARGV[$i] =~ /^-+n(?:egative)?(?:acc|accession|seqid)s?=(.+)$/i) {
+			foreach my $nacc (split(/,/, $1)) {
+				$nacclist{$nacc} = 1;
 			}
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
@@ -167,7 +157,7 @@ sub checkVariables {
 	if ($minnseq < 1) {
 		&errorMessage(__LINE__, "The minimum number of sequences is too small.");
 	}
-	if ($blastoption =~ /\-(?:db|evalue|searchsp|gilist|negative_gilist|seqidlist|entrez_query|query|out|outfmt|num_descriptions|num_alignments|num_threads|subject|subject_loc|max_hsps) /) {
+	if ($blastoption =~ /\-(?:db|evalue|searchsp|gilist|negative_gilist|seqidlist|negative_seqidlist|taxids|negative_taxids|taxidlist|negative_taxidlist|entrez_query|query|out|outfmt|num_descriptions|num_alignments|num_threads|subject|subject_loc|max_hsps) /) {
 		&errorMessage(__LINE__, "The options for blastn is invalid.");
 	}
 	else {
@@ -267,48 +257,27 @@ sub checkVariables {
 	}
 }
 
-sub readNegativeSeqIDList {
-	if ($ngilist) {
-		unless (open($filehandleinput1, "< $ngilist")) {
-			&errorMessage(__LINE__, "Cannot open \"$ngilist\".");
+sub readNegativeAccessionList {
+	if ($nacclist) {
+		unless (open($filehandleinput1, "< $nacclist")) {
+			&errorMessage(__LINE__, "Cannot open \"$nacclist\".");
 		}
 		while (<$filehandleinput1>) {
-			if (/^\s*(\d+)/) {
-				$ngilist{$1} = 1;
+			if (/^\s*([A-Za-z0-9]+)/) {
+				$nacclist{$1} = 1;
 			}
 		}
 		close($filehandleinput1);
 	}
-	elsif ($nseqidlist) {
-		unless (open($filehandleinput1, "< $nseqidlist")) {
-			&errorMessage(__LINE__, "Cannot open \"$nseqidlist\".");
+	if (%nacclist) {
+		unless (open($filehandleoutput1, "> $outputfolder/nacclist.txt")) {
+			&errorMessage(__LINE__, "Cannot make \"$outputfolder/nacclist.txt\".");
 		}
-		while (<$filehandleinput1>) {
-			if (/^\s*(\d+)/) {
-				$nseqidlist{$1} = 1;
-			}
-		}
-		close($filehandleinput1);
-	}
-	if (%ngilist) {
-		unless (open($filehandleoutput1, "> $outputfolder/ngilist.txt")) {
-			&errorMessage(__LINE__, "Cannot make \"$outputfolder/ngilist.txt\".");
-		}
-		foreach my $ngi (sort({$a <=> $b} keys(%ngilist))) {
-			print($filehandleoutput1 "$ngi\n");
+		foreach my $nacc (sort(keys(%nacclist))) {
+			print($filehandleoutput1 "$nacc\n");
 		}
 		close($filehandleoutput1);
-		$ngilist = " -negative_gilist $outputfolder/ngilist.txt";
-	}
-	elsif (%nseqidlist) {
-		unless (open($filehandleoutput1, "> $outputfolder/nseqidlist.txt")) {
-			&errorMessage(__LINE__, "Cannot make \"$outputfolder/nseqidlist.txt\".");
-		}
-		foreach my $nseqid (keys(%nseqidlist)) {
-			print($filehandleoutput1 "$nseqid\n");
-		}
-		close($filehandleoutput1);
-		$nseqidlist = " -negative_seqidlist $outputfolder/nseqidlist.txt";
+		$nacclist = " -negative_seqidlist $outputfolder/nacclist.txt";
 	}
 }
 
@@ -380,26 +349,26 @@ sub retrieveSimilarSequences {
 sub runBLAST {
 	my $tempnseq = shift(@_);
 	print(STDERR "Searching similar sequences of $tempnseq sequences...\n");
-	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp sseq\" -show_gis -num_threads $numthreads -searchsp 9223372036854775807 |")) {
-		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp sseq\" -show_gis -num_threads $numthreads -searchsp 9223372036854775807\".");
+	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq\" -num_threads $numthreads -searchsp 9223372036854775807 |")) {
+		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq\" -num_threads $numthreads -searchsp 9223372036854775807\".");
 	}
 	local $/ = "\n";
 	while (<$pipehandleinput1>) {
-		if (/^\s*(\S+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\S+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
+		if (/^\s*(\S+)\s+([A-Za-z0-9]+)\s+(\d+)\s+(\S+)\s+(\S+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
 			my $prefix = $1;
-			my $gi = $2;
+			my $acc = $2;
 			my $seq = $5;
 			$seq =~ s/\-//g;
 			unless (open($filehandleoutput1, ">> $outputfolder/$prefix.fasta")) {
 				&errorMessage(__LINE__, "Cannot write \"$outputfolder/$prefix.fasta\".");
 			}
-			print($filehandleoutput1 ">gi|$gi\n$seq\n");
+			print($filehandleoutput1 ">gb|$acc\n$seq\n");
 			close($filehandleoutput1);
 		}
 	}
 	close($pipehandleinput1);
 	#if ($?) {
-	#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$ngilist$nseqidlist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sgi length qcovhsp sseq\" -show_gis -num_threads $numthreads -searchsp 9223372036854775807\".");
+	#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq\" -num_threads $numthreads -searchsp 9223372036854775807\".");
 	#}
 	unlink("$outputfolder/tempquery.fasta");
 }
@@ -433,8 +402,8 @@ sub makeBLASTDB {
 				$tempfasta =~ /(query\d+)\.fasta/;
 				my $prefix = $1;
 				print(STDERR "Constructing cache database for $prefix...\n");
-				if (system("BLASTDB=\"$blastdbpath\" $makeblastdb -in $tempfasta -input_type fasta -dbtype nucl -parse_seqids -hash_index -blastdb_version 4 -out $prefix -title $prefix 1> $devnull")) {
-					&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $makeblastdb -in $tempfasta -input_type fasta -dbtype nucl -parse_seqids -hash_index -blastdb_version 4 -out $prefix -title $prefix\".");
+				if (system("BLASTDB=\"$blastdbpath\" $makeblastdb -in $tempfasta -input_type fasta -dbtype nucl -parse_seqids -hash_index -out $prefix -title $prefix 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $makeblastdb -in $tempfasta -input_type fasta -dbtype nucl -parse_seqids -hash_index -out $prefix -title $prefix\".");
 				}
 				unless ($nodel) {
 					unlink($tempfasta);
@@ -480,17 +449,11 @@ blastn options end
 --bdb, --blastdb=BLASTDB(,BLASTDB)
   Specify name of BLAST database. (default: none)
 
---negativegilist=FILENAME
-  Specify file name of negative GI list. (default: none)
+--negativeacclist=FILENAME
+  Specify file name of negative accession list. (default: none)
 
---negativegi=GI(,GI..)
-  Specify negative GIs.
-
---negativeseqidlist=FILENAME
-  Specify file name of negative SeqID list. (default: none)
-
---negativeseqid=SeqID(,SeqID..)
-  Specify negative SeqIDs.
+--negativeacc=accession(,accession..)
+  Specify negative accessions.
 
 --minlen=INTEGER
   Specify minimum length of query sequence. (default: 50)

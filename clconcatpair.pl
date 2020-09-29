@@ -349,7 +349,7 @@ sub concatenateNonoverlappedPair {
 		# Processing FASTQ in parallel
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			if ($tempnline % 4 == 1 && /^\@(\S+)/) {
+			if ($tempnline % 4 == 1 && /^\@(.+)/) {
 				$seqname = $1;
 				readline($filehandleinput2);
 			}

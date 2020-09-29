@@ -6,14 +6,12 @@ my $buildno = '0.2.x';
 
 my $devnull = File::Spec->devnull();
 
-my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqids -blastdb_version 4 -max_file_sz 2G';
+my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 2G';
 
 # options
 my $numthreads = 1;
-my $ngilist;
-my $nseqidlist;
-my %ngilist;
-my %nseqidlist;
+my $nacclist;
+my %nacclist;
 my $minlen = 0;
 my $maxlen = 5000000000;
 
@@ -44,7 +42,7 @@ sub main {
 	# check variable consistency
 	&checkVariables();
 	# read negative seqids list file
-	&readNegativeSeqIDList();
+	&readNegativeAccessionList();
 	# split input file and run makeblastdb
 	&splitInputFile();
 	# make nal
@@ -88,20 +86,12 @@ sub getOptions {
 	$inputfile = $ARGV[-2];
 	$output = $ARGV[-1];
 	for (my $i = 0; $i < scalar(@ARGV) - 2; $i ++) {
-		if ($ARGV[$i] =~ /^-+n(?:egative)?gilist=(.+)$/i) {
-			$ngilist = $1;
+		if ($ARGV[$i] =~ /^-+n(?:egative)?(?:acc|accession|seqid)list=(.+)$/i) {
+			$nacclist = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?seqidlist=(.+)$/i) {
-			$nseqidlist = $1;
-		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?gis?=(.+)$/i) {
-			foreach my $ngi (split(/,/, $1)) {
-				$ngilist{$ngi} = 1;
-			}
-		}
-		elsif ($ARGV[$i] =~ /^-+n(?:egative)?seqids?=(.+)$/i) {
-			foreach my $nseqid (split(/,/, $1)) {
-				$nseqidlist{$nseqid} = 1;
+		elsif ($ARGV[$i] =~ /^-+n(?:egative)?(?:acc|accession|seqid)s?=(.+)$/i) {
+			foreach my $nacc (split(/,/, $1)) {
+				$nacclist{$nacc} = 1;
 			}
 		}
 		elsif ($ARGV[$i] =~ /^-+min(?:imum)?len(?:gth)?=(\d+)$/i) {
@@ -193,21 +183,12 @@ sub checkVariables {
 	}
 }
 
-sub readNegativeSeqIDList {
-	if ($ngilist) {
-		$filehandleinput1 = &readFile($ngilist);
+sub readNegativeAccessionList {
+	if ($nacclist) {
+		$filehandleinput1 = &readFile($nacclist);
 		while (<$filehandleinput1>) {
 			if (/^\s*(\d+)/) {
-				$ngilist{$1} = 1;
-			}
-		}
-		close($filehandleinput1);
-	}
-	elsif ($nseqidlist) {
-		$filehandleinput1 = &readFile($nseqidlist);
-		while (<$filehandleinput1>) {
-			if (/^\s*(\d+)/) {
-				$nseqidlist{$1} = 1;
+				$nacclist{$1} = 1;
 			}
 		}
 		close($filehandleinput1);
@@ -233,7 +214,7 @@ sub splitInputFile {
 			$line ++;
 			if (/^>\s*(\S+)\s*/) {
 				my $seqid = $1;
-				if (exists($nseqidlist{$seqid}) || $seqid =~ /gi\|(\d+)/ && (exists($ngilist{$1}) || exists($nseqidlist{$1})) || $seqid =~ /(?:gb|emb|dbj|ref|lcl)\|([^\|]+)/ && exists($nseqidlist{$1})) {
+				if (exists($nacclist{$seqid}) || $seqid =~ /(?:gb|emb|dbj)\|([A-Za-z0-9]+)/ && (exists($nacclist{$1}))) {
 					$switch = 0;
 					next;
 				}
@@ -442,11 +423,11 @@ clmakeblastdb options inputfile outputBLASTDB
 
 Command line options
 ====================
---negativegilist=FILENAME
-  Specify file name of negative GI list. (default: none)
+--negativeacclist=FILENAME
+  Specify file name of negative accession list. (default: none)
 
---negativegi=GI(,GI..)
-  Specify negative GIs.
+--negativeacc=accession(,accession..)
+  Specify negative accessions.
 
 --negativeseqidlist=FILENAME
   Specify file name of negative SeqID list. (default: none)

@@ -173,11 +173,8 @@ sub processFASTQ {
 			# Processing FASTQ in parallel
 			while (<$filehandleinput1>) {
 				s/\r?\n?$//;
-				if ($tempnline % 4 == 1 && /^\@(\S+)/) {
+				if ($tempnline % 4 == 1 && /^\@(.+)/) {
 					$seqname = $1;
-					if ($seqname =~ /__/) {
-						&errorMessage(__LINE__, "\"$seqname\" is invalid name. Do not use \"__\" in sequence name.\nFile: $inputfiles[0]\nLine: $tempnline");
-					}
 				}
 				elsif ($tempnline % 4 == 2) {
 					s/[^a-zA-Z]//g;
@@ -234,7 +231,7 @@ sub processFASTQ {
 						unless (seek($filehandleoutput1, 0, 2)) {
 							&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$in2out{$tempin}/$child.fastq\".");
 						}
-						print($filehandleoutput1 "\@$seqname\__$in2out{$tempin}\n$nucseq\n+\n$qualseq\n");
+						print($filehandleoutput1 "\@$seqname SN:$in2out{$tempin}\n$nucseq\n+\n$qualseq\n");
 						close($filehandleoutput1);
 						exit;
 					}

@@ -45,8 +45,8 @@ if (!-e "$inputfolder/names.dmp") {
 if (!-e "$inputfolder/nodes.dmp") {
 	&errorMessage(__LINE__, "\"$inputfolder/nodes.dmp\" does not exist.");
 }
-if (!-e "$inputfolder/gi_taxid_nucl.dmp") {
-	&errorMessage(__LINE__, "\"$inputfolder/gi_taxid_nucl.dmp\" does not exist.");
+if (!-e "$inputfolder/acc_taxid.dmp") {
+	&errorMessage(__LINE__, "\"$inputfolder/acc_taxid.dmp\" does not exist.");
 }
 
 # get output file name
@@ -60,7 +60,7 @@ my %includetaxa;
 my %excludetaxa;
 my %includetaxid;
 my %excludetaxid;
-my $gilist;
+my $acclist;
 my $workspace = 'MEMORY';
 # get other arguments
 for (my $i = 0; $i < scalar(@ARGV) - 2; $i ++) {
@@ -84,8 +84,8 @@ for (my $i = 0; $i < scalar(@ARGV) - 2; $i ++) {
 			$excludetaxid{$taxid} = 1;
 		}
 	}
-	elsif ($ARGV[$i] =~ /^-+gilist=(.+)$/i) {
-		$gilist = $1;
+	elsif ($ARGV[$i] =~ /^-+(?:acc|accession|seqid)list=(.+)$/i) {
+		$acclist = $1;
 	}
 	elsif ($ARGV[$i] =~ /^\-+workspace=(.+)$/i) {
 		if ($1 =~ /^(?:memory|ram)$/i) {
@@ -104,14 +104,14 @@ for (my $i = 0; $i < scalar(@ARGV) - 2; $i ++) {
 }
 
 # check variables
-if ($gilist && !-e $gilist) {
-	&errorMessage(__LINE__, "\"$gilist\" does not exist.");
+if ($acclist && !-e $acclist) {
+	&errorMessage(__LINE__, "\"$acclist\" does not exist.");
 }
-#if (!%includetaxa && !%excludetaxa && !%includetaxid && !%excludetaxid && !$gilist) {
-#	&errorMessage(__LINE__, "Taxa, taxid, and GI list were not given.");
+#if (!%includetaxa && !%excludetaxa && !%includetaxid && !%excludetaxid && !$acclist) {
+#	&errorMessage(__LINE__, "Taxa, taxid, and accession list were not given.");
 #} els
-if ((%includetaxa || %excludetaxa || %includetaxid || %excludetaxid) && $gilist) {
-	&errorMessage(__LINE__, "Taxa/taxid and GI list options are incompatible.");
+if ((%includetaxa || %excludetaxa || %includetaxid || %excludetaxid) && $acclist) {
+	&errorMessage(__LINE__, "Taxa/taxid and accession list options are incompatible.");
 }
 
 # make new database and connect
@@ -120,91 +120,92 @@ unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '')) {
 	&errorMessage(__LINE__, "Cannot make database.");
 }
 
-if ($gilist) {
-	my $gisdbhandle;
+if ($acclist) {
+	my $accsdbhandle;
 	# make new temporary database and connect
-	if (-e "$outputfile.gisdb") {
-		&errorMessage(__LINE__, "\"$outputfile.gisdb\" already exists.");
+	if (-e "$outputfile.accsdb") {
+		&errorMessage(__LINE__, "\"$outputfile.accsdb\" already exists.");
 	}
 	if ($workspace eq 'MEMORY') {
-		unless ($gisdbhandle = DBI->connect("dbi:SQLite:dbname=:memory:", '', '')) {
+		unless ($accsdbhandle = DBI->connect("dbi:SQLite:dbname=:memory:", '', '')) {
 			&errorMessage(__LINE__, "Cannot make database.");
 		}
 	}
 	else {
-		unless ($gisdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.gisdb", '', '')) {
+		unless ($accsdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.accsdb", '', '')) {
 			&errorMessage(__LINE__, "Cannot make database.");
 		}
 	}
 	# make table
-	unless ($gisdbhandle->do("CREATE TABLE gis (gi INTEGER NOT NULL PRIMARY KEY);")) {
+	unless ($accsdbhandle->do("CREATE TABLE accs (acc TEXT NOT NULL PRIMARY KEY);")) {
 		&errorMessage(__LINE__, "Cannot make table.");
 	}
-	# read GI list
-	print(STDERR "Reading gilist file...");
+	# read accession list
+	print(STDERR "Reading accession list file...");
 	{
 	# prepare SQL statement
 		my $statement;
-		unless ($statement = $gisdbhandle->prepare("REPLACE INTO gis (gi) VALUES (?);")) {
+		unless ($statement = $accsdbhandle->prepare("REPLACE INTO accs (acc) VALUES (?);")) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		# begin SQL transaction
-		$gisdbhandle->do('BEGIN;');
+		$accsdbhandle->do('BEGIN;');
 		my $lineno = 1;
 		my $inputhandle;
-		unless (open($inputhandle, "< $gilist")) {
-			&errorMessage(__LINE__, "Cannot read \"$gilist\".");
+		unless (open($inputhandle, "< $acclist")) {
+			&errorMessage(__LINE__, "Cannot read \"$acclist\".");
 		}
 		while (<$inputhandle>) {
-			if (/^\d+/) {
+			if (/^[A-Za-z0-9]+/) {
 				unless ($statement->execute($&)) {
 					&errorMessage(__LINE__, "Cannot insert \"$&\".");
 				}
 				if ($lineno % 1000000 == 0) {
 					print(STDERR '.');
 					# commit SQL transaction
-					$gisdbhandle->do('COMMIT;');
+					$accsdbhandle->do('COMMIT;');
 					# begin SQL transaction
-					$gisdbhandle->do('BEGIN;');
+					$accsdbhandle->do('BEGIN;');
 				}
 				$lineno ++;
 			}
 		}
 		close($inputhandle);
 		# commit SQL transaction
-		$gisdbhandle->do('COMMIT;');
+		$accsdbhandle->do('COMMIT;');
 	}
 	print(STDERR "done.\n\n");
-	# make gi_taxid_nucl
-	print(STDERR "Reading gi_taxid_nucl and making table for gi_taxid_nucl...");
+	# make acc_taxid
+	print(STDERR "Reading acc_taxid and making table for acc_taxid...");
 	# make table
-	unless ($dbhandle->do("CREATE TABLE gi_taxid_nucl (gi INTEGER NOT NULL PRIMARY KEY, taxid INTEGER NOT NULL);")) {
+	unless ($dbhandle->do("CREATE TABLE acc_taxid (acc TEXT NOT NULL PRIMARY KEY, taxid INTEGER NOT NULL);")) {
 		&errorMessage(__LINE__, "Cannot make table.");
 	}
 	# prepare SQL statement
 	my $statement;
-	unless ($statement = $dbhandle->prepare("INSERT INTO gi_taxid_nucl (gi, taxid) VALUES (?, ?);")) {
+	unless ($statement = $dbhandle->prepare("INSERT INTO acc_taxid (acc, taxid) VALUES (?, ?);")) {
 		&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 	}
 	{
 		# prepare SQL statement
-		my $gisstatement;
-		unless ($gisstatement = $gisdbhandle->prepare("SELECT gi FROM gis WHERE gi IN (?);")) {
+		my $accsstatement;
+		unless ($accsstatement = $accsdbhandle->prepare("SELECT acc FROM accs WHERE acc IN (?);")) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		my $inputhandle;
-		unless (open($inputhandle, "< $inputfolder/gi_taxid_nucl.dmp")) {
-			&errorMessage(__LINE__, "Cannot read \"$inputfolder/gi_taxid_nucl.dmp\".");
+		unless (open($inputhandle, "< $inputfolder/acc_taxid.dmp")) {
+			&errorMessage(__LINE__, "Cannot read \"$inputfolder/acc_taxid.dmp\".");
 		}
 		# begin SQL transaction
 		$dbhandle->do('BEGIN;');
 		my $lineno = 1;
 		while (<$inputhandle>) {
 			my @columns = split(/\s+/, $_);
-			unless ($gisstatement->execute($columns[0])) {
+			$columns[0] =~ s/\.\d+$//;
+			unless ($accsstatement->execute($columns[0])) {
 				&errorMessage(__LINE__, "Cannot execute SELECT.");
 			}
-			while (my @row = $gisstatement->fetchrow_array) {
+			while (my @row = $accsstatement->fetchrow_array) {
 				if ($row[0] == $columns[0]) {
 					$includetaxid{$columns[1]} = 1;
 					unless ($statement->execute($columns[0], $columns[1])) {
@@ -227,9 +228,9 @@ if ($gilist) {
 		$dbhandle->do('COMMIT;');
 	}
 	print(STDERR "done.\n\n");
-	# disconnect and delete gisdb
-	$gisdbhandle->disconnect;
-	unlink("$outputfile.gisdb");
+	# disconnect and delete accsdb
+	$accsdbhandle->disconnect;
+	unlink("$outputfile.accsdb");
 }
 elsif (%includetaxa || %excludetaxa) {
 	# read names
@@ -271,7 +272,7 @@ elsif (%includetaxa || %excludetaxa) {
 
 my %daughters;
 my %parents;
-if ($gilist) {
+if ($acclist) {
 	# read nodes
 	print(STDERR "Reading nodes file...");
 	{
@@ -373,69 +374,20 @@ elsif (%includetaxid || %excludetaxid) {
 	undef(%daughters);
 }
 
-# make table for gi_taxid_nucl and add entries
-# if ($gilist) {
-# 	# make table
-# 	unless ($dbhandle->do("CREATE TABLE gi_taxid_nucl (gi INTEGER NOT NULL PRIMARY KEY, taxid INTEGER NOT NULL);")) {
-# 		&errorMessage(__LINE__, "Cannot make table.");
-# 	}
-# 	# prepare SQL statement
-# 	my $statement;
-# 	unless ($statement = $dbhandle->prepare("INSERT INTO gi_taxid_nucl (gi, taxid) VALUES (?, ?);")) {
-# 		&errorMessage(__LINE__, "Cannot prepare SQL statement.");
-# 	}
-# 	# prepare SQL statement
-# 	my $includetaxidstatement;
-# 	unless ($includetaxidstatement = $includetaxiddbhandle->prepare("SELECT gi FROM includetaxid WHERE taxid IN (?);")) {
-# 		&errorMessage(__LINE__, "Cannot prepare SQL statement.");
-# 	}
-# 	# begin SQL transaction
-# 	$dbhandle->do('BEGIN;');
-# 	# insert entry
-# 	my $lineno = 1;
-# 	my $nentries = 1;
-# 	foreach my $includetaxid (keys(%includetaxid)) {
-# 		unless ($includetaxidstatement->execute($includetaxid)) {
-# 			&errorMessage(__LINE__, "Cannot execute SELECT.");
-# 		}
-# 		while (my @row = $includetaxidstatement->fetchrow_array) {
-# 			unless ($statement->execute($row[0], $includetaxid)) {
-# 				&errorMessage(__LINE__, "Cannot insert \"$row[0], $includetaxid\".");
-# 			}
-# 			if ($nentries % 1000000 == 0) {
-# 				# commit SQL transaction
-# 				$dbhandle->do('COMMIT;');
-# 				# begin SQL transaction
-# 				$dbhandle->do('BEGIN;');
-# 			}
-# 			$nentries ++;
-# 		}
-# 		if ($lineno % 1000000 == 0) {
-# 			print(STDERR '.');
-# 		}
-# 		$lineno ++;
-# 	}
-# 	# commit SQL transaction
-# 	$dbhandle->do('COMMIT;');
-# 	# disconnect and delete includetaxiddb
-# 	$includetaxiddbhandle->disconnect;
-# 	unlink("$outputfile.includetaxiddb");
-# 	print(STDERR '...');
-# }
-if (!$gilist) {
-	print(STDERR "Making table for gi_taxid_nucl...");
+if (!$acclist) {
+	print(STDERR "Making table for acc_taxid...");
 	# make table
-	unless ($dbhandle->do("CREATE TABLE gi_taxid_nucl (gi INTEGER NOT NULL PRIMARY KEY, taxid INTEGER NOT NULL);")) {
+	unless ($dbhandle->do("CREATE TABLE acc_taxid (acc TEXT NOT NULL PRIMARY KEY, taxid INTEGER NOT NULL);")) {
 		&errorMessage(__LINE__, "Cannot make table.");
 	}
 	# open input file
 	my $inputhandle;
-	unless (open($inputhandle, "< $inputfolder/gi_taxid_nucl.dmp")) {
-		&errorMessage(__LINE__, "Cannot read \"$inputfolder/gi_taxid_nucl.dmp\".");
+	unless (open($inputhandle, "< $inputfolder/acc_taxid.dmp")) {
+		&errorMessage(__LINE__, "Cannot read \"$inputfolder/acc_taxid.dmp\".");
 	}
 	# prepare SQL statement
 	my $statement;
-	unless ($statement = $dbhandle->prepare("INSERT INTO gi_taxid_nucl (gi, taxid) VALUES (?, ?);")) {
+	unless ($statement = $dbhandle->prepare("INSERT INTO acc_taxid (acc, taxid) VALUES (?, ?);")) {
 		&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 	}
 	# begin SQL transaction
@@ -550,6 +502,9 @@ print(STDERR "Making table for nodes...");
 		s/\t?\|?$//;
 		my @columns = split(/\t\|\t/, $_);
 		if ($includetaxid{$columns[0]} || !%includetaxid) {
+			$columns[2] =~ s/^(?:morph|subvariety||pathogroup|serogroup)$/subspecies/;
+			$columns[2] =~ s/^(?:biotype|genotype|serotype)$/varietas/;
+			$columns[2] =~ s/^clade$/no rank/;
 			unless ($statement->execute($columns[0], $columns[1], $columns[2])) {
 				&errorMessage(__LINE__, "Cannot insert \"$columns[0], $columns[1], $columns[2]\".");
 			}
@@ -637,8 +592,8 @@ Command line options
 --excludetaxid=ID(,ID..)
   Specify exclude taxa by NCBI taxonomy ID. (default: none)
 
---gilist=FILENAME
-  Specify file name of GI list. (default: none)
+--acclist=FILENAME
+  Specify file name of accession list. (default: none)
 _END
 	exit;
 }

@@ -58,7 +58,7 @@ my %treatasunidentlower;
 my %treatasunidentlowerrestriction;
 my %treatasunidentupper;
 my %treatasunidentupperrestriction;
-my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'superclass', 'class', 'subclass', 'infraclass', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma');
+my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'subphylum', 'superclass', 'class', 'subclass', 'infraclass', 'cohort', 'subcohort', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'section', 'subsection', 'series', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma', 'forma specialis', 'strain', 'isolate');
 my %taxrank;
 for (my $i = 0; $i < scalar(@taxrank); $i ++) {
 	$taxrank{$taxrank[$i]} = $i;
@@ -212,25 +212,30 @@ elsif ($minsoratio < 1) {
 
 # read input file
 my @queries;
-my %gi2taxid;
-my %query2gilist;
+my %acc2taxid;
+my %query2acclist;
 {
 	my $inputhandle;
 	unless (open($inputhandle, "< $inputfile")) {
 		&errorMessage(__LINE__, "Cannot open \"$inputfile\".");
 	}
+	my $query;
 	while (<$inputhandle>) {
 		s/\r?\n?$//;
-		if (/^([^\t]+)\t(.+)\r?\n?/) {
-			my $query = $1;
-			my @gilist = split(/\t/, $2);
+		s/;+size=\d+;*//g;
+		if (/^>(.+)$/) {
+			$query = $1;
 			push(@queries, $query);
-			push(@{$query2gilist{$query}}, @gilist);
-			foreach my $gi (@gilist) {
-				if ($gi) {
-					$gi2taxid{$gi} = 1;
-				}
+		}
+		elsif ($query && /^([^>].*)$/) {
+			my $acc = $1;
+			if ($acc) {
+				push(@{$query2acclist{$query}}, $acc);
+				$acc2taxid{$acc} = 1;
 			}
+		}
+		else {
+			&errorMessage(__LINE__, "\"$inputfile\" is invalid.");
 		}
 	}
 	close($inputhandle);
@@ -242,9 +247,9 @@ unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '')) {
 	&errorMessage(__LINE__, "Cannot connect database.");
 }
 {
-	print(STDERR "Getting GIs...");
+	print(STDERR "Getting accessions...");
 	my $statement;
-	unless ($statement = $dbhandle->prepare('SELECT gi, taxid FROM gi_taxid_nucl WHERE gi IN (' . join(', ', keys(%gi2taxid)) . ')')) {
+	unless ($statement = $dbhandle->prepare('SELECT acc, taxid FROM acc_taxid WHERE acc IN (' . join(', ', keys(%acc2taxid)) . ')')) {
 		&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 	}
 	unless ($statement->execute) {
@@ -252,7 +257,7 @@ unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '')) {
 	}
 	my $lineno = 1;
 	while (my @row = $statement->fetchrow_array) {
-		$gi2taxid{$row[0]} = $row[1];
+		$acc2taxid{$row[0]} = $row[1];
 		if ($lineno % 10000 == 0) {
 			print(STDERR '.');
 		}
@@ -311,17 +316,17 @@ $dbhandle->disconnect;
 # search higher taxa
 {
 	print(STDERR "Getting higher taxids...");
-	foreach my $gi (keys(%gi2taxid)) {
-		if ($gi2taxid{$gi} == 1) {
-			&errorMessage(__LINE__, "Taxdb does not have \"GI:$gi\" entry.");
+	foreach my $acc (keys(%acc2taxid)) {
+		if ($acc2taxid{$acc} == 1) {
+			&errorMessage(__LINE__, "Taxdb does not have \"Accession:$acc\" entry.");
 		}
 		else {
-			my $taxid = $gi2taxid{$gi};
-			delete($gi2taxid{$gi});
+			my $taxid = $acc2taxid{$acc};
+			delete($acc2taxid{$acc});
 			if ($ranks{$taxid}) {
-				$gi2taxid{$gi}{$ranks{$taxid}} = $taxid;
+				$acc2taxid{$acc}{$ranks{$taxid}} = $taxid;
 			}
-			&getParents($gi, $taxid);
+			&getParents($acc, $taxid);
 		}
 	}
 	print(STDERR "done.\n\n");
@@ -334,7 +339,7 @@ my %supports;
 	print(STDERR "Identifying by using BLAST results...\n");
 	for (my $i = 0; $i < scalar(@queries); $i ++) {
 		print(STDERR "Identifying \"$queries[$i]\"...\n");
-		my $nneighborhoods = scalar(@{$query2gilist{$queries[$i]}});
+		my $nneighborhoods = scalar(@{$query2acclist{$queries[$i]}});
 		if ($nneighborhoods) {
 			my $result;
 			# search lower rank to upper rank
@@ -343,19 +348,19 @@ my %supports;
 				my $nident = 0;
 				my @temp;
 				# check equal or lower rank
-				foreach my $gi (@{$query2gilist{$queries[$i]}}) {
+				foreach my $acc (@{$query2acclist{$queries[$i]}}) {
 					my $temp1;
 					for (my $k = $j; $k <= -1; $k ++) {
-						if (exists($gi2taxid{$gi}{$taxrank{$taxrank[$k]}})) {
+						if (exists($acc2taxid{$acc}{$taxrank{$taxrank[$k]}})) {
 							my $temp2;
 							foreach my $keyword (keys(%treatasunidentlower)) {
-								if ((!exists($treatasunidentlowerrestriction{$keyword}) || $treatasunidentlowerrestriction{$keyword} == $taxrank{$taxrank[$k]}) && $taxid2taxon{$gi2taxid{$gi}{$taxrank{$taxrank[$k]}}} =~ /$keyword/) {
+								if ((!exists($treatasunidentlowerrestriction{$keyword}) || $treatasunidentlowerrestriction{$keyword} == $taxrank{$taxrank[$k]}) && $taxid2taxon{$acc2taxid{$acc}{$taxrank{$taxrank[$k]}}} =~ /$keyword/) {
 									$temp2 = 1;
 									last;
 								}
 							}
 							unless ($temp2) {
-								$taxcomp{$gi2taxid{$gi}{$taxrank{$taxrank[$k]}}} ++;
+								$taxcomp{$acc2taxid{$acc}{$taxrank{$taxrank[$k]}}} ++;
 								$nident ++;
 								$temp1 = 1;
 								last;
@@ -363,7 +368,7 @@ my %supports;
 						}
 					}
 					unless ($temp1) {
-						push(@temp, $gi);
+						push(@temp, $acc);
 					}
 				}
 				# get best supported taxid
@@ -380,12 +385,12 @@ my %supports;
 							}
 						}
 						if ($parent && $ranks{$parent}) {
-							foreach my $gi (@temp) {
+							foreach my $acc (@temp) {
 								for (my $k = $j - 1; $k > scalar(@taxrank) * (-1); $k --) {
-									if (exists($gi2taxid{$gi}{$taxrank{$taxrank[$k]}})) {
+									if (exists($acc2taxid{$acc}{$taxrank{$taxrank[$k]}})) {
 										my $temp;
 										foreach my $keyword (keys(%treatasunidentupper)) {
-											if ((!exists($treatasunidentupperrestriction{$keyword}) || $treatasunidentupperrestriction{$keyword} == $taxrank{$taxrank[$k]}) && $taxid2taxon{$gi2taxid{$gi}{$taxrank{$taxrank[$k]}}} =~ /$keyword/) {
+											if ((!exists($treatasunidentupperrestriction{$keyword}) || $treatasunidentupperrestriction{$keyword} == $taxrank{$taxrank[$k]}) && $taxid2taxon{$acc2taxid{$acc}{$taxrank{$taxrank[$k]}}} =~ /$keyword/) {
 												$temp = 1;
 												last;
 											}
@@ -400,7 +405,7 @@ my %supports;
 													last;
 												}
 											}
-											if ($tempparent && $ranks{$tempparent} && $gi2taxid{$gi}{$taxrank{$taxrank[$k]}} != $tempparent) {
+											if ($tempparent && $ranks{$tempparent} && $acc2taxid{$acc}{$taxrank{$taxrank[$k]}} != $tempparent) {
 												$nident ++;
 											}
 											last;
@@ -487,13 +492,13 @@ my %supports;
 
 # get parents
 sub getParents {
-	my $gi = shift(@_);
+	my $acc = shift(@_);
 	my $daughterid = shift(@_);
 	if ($parents{$daughterid}) {
 		if ($ranks{$parents{$daughterid}}) {
-			$gi2taxid{$gi}{$ranks{$parents{$daughterid}}} = $parents{$daughterid};
+			$acc2taxid{$acc}{$ranks{$parents{$daughterid}}} = $parents{$daughterid};
 		}
-		&getParents($gi, $parents{$daughterid});
+		&getParents($acc, $parents{$daughterid});
 	}
 }
 
