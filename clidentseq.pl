@@ -363,7 +363,7 @@ sub readNegativeAccessionList {
 	if ($nacclist) {
 		$filehandleinput1 = &readFile($nacclist);
 		while (<$filehandleinput1>) {
-			if (/^\s*([A-Za-z0-9]+)/) {
+			if (/^\s*([A-Za-z0-9_]+)/) {
 				$nacclist{$1} = 1;
 			}
 		}
@@ -457,17 +457,17 @@ sub searchNeighborhoods {
 						my %neighborhoods;
 						my @tempneighborhoods;
 						while (<$pipehandleinput1>) {
-							if (!$tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $3 >= $minalnlen && $4 >= $minalnpcov) {
+							if (!$tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $3 >= $minalnlen && $4 >= $minalnpcov) {
 								$neighborhoods{$1} = 1;
 								@tempneighborhoods = keys(%neighborhoods);
 								if (scalar(@tempneighborhoods) >= $minnnseq) {
 									$tempscore = $2;
 								}
 							}
-							elsif ($tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $tempscore && $3 >= $minalnlen && $4 >= $minalnpcov) {
+							elsif ($tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $tempscore && $3 >= $minalnlen && $4 >= $minalnpcov) {
 								$neighborhoods{$1} = 1;
 							}
-							elsif ($tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+\d+/ && !exists($neighborhoods{$1}) && $2 < $tempscore) {
+							elsif ($tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+\d+/ && !exists($neighborhoods{$1}) && $2 < $tempscore) {
 								last;
 							}
 						}
@@ -491,7 +491,7 @@ sub searchNeighborhoods {
 								&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc length qcovhsp stitle\" -max_target_seqs 1000000000 -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
 							}
 							while (<$pipehandleinput1>) {
-								if (/^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $minalnlen && $3 >= $minalnpcov) {
+								if (/^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $minalnlen && $3 >= $minalnpcov) {
 									$neighborhoods{$1} = 1;
 								}
 							}
@@ -509,17 +509,17 @@ sub searchNeighborhoods {
 							my $tempscore;
 							undef(%neighborhoods);
 							while (<$pipehandleinput1>) {
-								if (!$tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $3 >= $minalnlen && $4 >= $minalnpcov) {
+								if (!$tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $3 >= $minalnlen && $4 >= $minalnpcov) {
 									$neighborhoods{$1} = 1;
 									@tempneighborhoods = keys(%neighborhoods);
 									if (scalar(@tempneighborhoods) >= $minnnseq) {
 										$tempscore = $2;
 									}
 								}
-								elsif ($tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $tempscore && $3 >= $minalnlen && $4 >= $minalnpcov) {
+								elsif ($tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $tempscore && $3 >= $minalnlen && $4 >= $minalnpcov) {
 									$neighborhoods{$1} = 1;
 								}
-								elsif ($tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+\d+/ && !exists($neighborhoods{$1}) && $2 < $tempscore) {
+								elsif ($tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+\d+/ && !exists($neighborhoods{$1}) && $2 < $tempscore) {
 									last;
 								}
 							}
@@ -542,7 +542,7 @@ sub searchNeighborhoods {
 							&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc evalue score sseq qcovhsp\" -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
 						}
 						while (<$pipehandleinput1>) {
-							if (!$nnscore && /^\s*([A-Za-z0-9]+)\s+(\S+)\s+(\d+)\s+(\S+)/) {
+							if (!$nnscore && /^\s*([A-Za-z0-9_]+)\s+(\S+)\s+(\d+)\s+(\S+)/) {
 								$nnseq{$4} = $1;
 								my $evalue = $2;
 								$nnscore = $3;
@@ -553,7 +553,7 @@ sub searchNeighborhoods {
 									}
 								}
 							}
-							elsif ($nnscore && /^\s*([A-Za-z0-9]+)\s+(\S+)\s+(\d+)\s+(\S+)/ && $3 == $nnscore) {
+							elsif ($nnscore && /^\s*([A-Za-z0-9_]+)\s+(\S+)\s+(\d+)\s+(\S+)/ && $3 == $nnscore) {
 								$nnseq{$4} = $1;
 							}
 						}
@@ -606,17 +606,17 @@ sub searchNeighborhoods {
 										&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue $tempeval -outfmt \"6 sacc score length qcovhsp\" -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
 									}
 									while (<$pipehandleinput1>) {
-										if (/^\s*([A-Za-z0-9]+)\s+(\d+)/ && !exists($nacclist{$1}) && $2 >= $nnscore) {
+										if (/^\s*([A-Za-z0-9_]+)\s+(\d+)/ && !exists($nacclist{$1}) && $2 >= $nnscore) {
 											$nacclist{$1} = 1;
 										}
-										elsif (!$borderlinescore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($nacclist{$1}) && $2 < $nnscore && $3 >= $minalnlenb && $4 >= $minalnpcovb) {
+										elsif (!$borderlinescore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($nacclist{$1}) && $2 < $nnscore && $3 >= $minalnlenb && $4 >= $minalnpcovb) {
 											push(@borderlineacc, $1);
 											$borderlinescore = $2;
 										}
-										elsif ($borderlinescore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($nacclist{$1}) && $2 == $borderlinescore && $3 >= $minalnlenb && $4 >= $minalnpcovb) {
+										elsif ($borderlinescore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($nacclist{$1}) && $2 == $borderlinescore && $3 >= $minalnlenb && $4 >= $minalnpcovb) {
 											push(@borderlineacc, $1);
 										}
-										elsif ($borderlinescore && /^\s*([A-Za-z0-9]+)\s+(\d+)/ && !exists($nacclist{$1}) && $2 < $borderlinescore) {
+										elsif ($borderlinescore && /^\s*([A-Za-z0-9_]+)\s+(\d+)/ && !exists($nacclist{$1}) && $2 < $borderlinescore) {
 											last;
 										}
 									}
@@ -641,16 +641,16 @@ sub searchNeighborhoods {
 								}
 								my %borderlines;
 								while (<$pipehandleinput1>) {
-									if (!$borderlinescore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($borderlines{$1}) && $2 < $nnscore && $3 >= $minalnlenb && $4 >= $minalnpcovb) {
+									if (!$borderlinescore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($borderlines{$1}) && $2 < $nnscore && $3 >= $minalnlenb && $4 >= $minalnpcovb) {
 										$borderlines{$1} = 1;
 										push(@borderlineacc, $1);
 										$borderlinescore = $2;
 									}
-									elsif ($borderlinescore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($borderlines{$1}) && $2 == $borderlinescore && $3 >= $minalnlenb && $4 >= $minalnpcovb) {
+									elsif ($borderlinescore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($borderlines{$1}) && $2 == $borderlinescore && $3 >= $minalnlenb && $4 >= $minalnpcovb) {
 										$borderlines{$1} = 1;
 										push(@borderlineacc, $1);
 									}
-									elsif ($borderlinescore && /^\s*([A-Za-z0-9]+)\s+(\d+)/ && !exists($borderlines{$1}) && $2 < $borderlinescore) {
+									elsif ($borderlinescore && /^\s*([A-Za-z0-9_]+)\s+(\d+)/ && !exists($borderlines{$1}) && $2 < $borderlinescore) {
 										last;
 									}
 								}
@@ -679,10 +679,10 @@ sub searchNeighborhoods {
 								}
 								my %neighborhoods;
 								while (<$pipehandleinput1>) {
-									if (/^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $borderlinescore && $3 >= $minalnlen && $4 >= $minalnpcov) {
+									if (/^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $borderlinescore && $3 >= $minalnlen && $4 >= $minalnpcov) {
 										$neighborhoods{$1} = 1;
 									}
-									elsif (/^\s*([A-Za-z0-9]+)\s+(\d+)/ && !exists($neighborhoods{$1}) && $2 < $borderlinescore) {
+									elsif (/^\s*([A-Za-z0-9_]+)\s+(\d+)/ && !exists($neighborhoods{$1}) && $2 < $borderlinescore) {
 										last;
 									}
 								}
@@ -702,7 +702,7 @@ sub searchNeighborhoods {
 									undef(%neighborhoods);
 									my $tempscore;
 									while (<$pipehandleinput1>) {
-										if (!$tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $3 >= $minalnlen && $4 >= $minalnpcov) {
+										if (!$tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $3 >= $minalnlen && $4 >= $minalnpcov) {
 											$neighborhoods{$1} = 1;
 											print($filehandleoutput1 "$1\n");
 											@tempneighborhoods = keys(%neighborhoods);
@@ -710,11 +710,11 @@ sub searchNeighborhoods {
 												$tempscore = $2;
 											}
 										}
-										elsif ($tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $tempscore && $3 >= $minalnlen && $4 >= $minalnpcov) {
+										elsif ($tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $tempscore && $3 >= $minalnlen && $4 >= $minalnpcov) {
 											$neighborhoods{$1} = 1;
 											print($filehandleoutput1 "$1\n");
 										}
-										elsif ($tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)/ && !exists($neighborhoods{$1}) && $2 < $tempscore) {
+										elsif ($tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)/ && !exists($neighborhoods{$1}) && $2 < $tempscore) {
 											last;
 										}
 									}
@@ -748,7 +748,7 @@ sub searchNeighborhoods {
 							}
 							my %borderlines;
 							while (<$pipehandleinput1>) {
-								if (!$borderlinescore && (/^\s*([A-Za-z0-9]+)\s+(\d+\.\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9]+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9]+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
+								if (!$borderlinescore && (/^\s*([A-Za-z0-9_]+)\s+(\d+\.\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9_]+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9_]+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
 									$borderlines{$1} = 1;
 									push(@borderlineacc, $1);
 									my $tempborderlinee = eval($2);
@@ -757,11 +757,11 @@ sub searchNeighborhoods {
 									}
 									$borderlinescore = $3;
 								}
-								elsif ($borderlinescore && (/^\s*([A-Za-z0-9]+)\s+(\d+\.\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9]+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9]+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $3 == $borderlinescore && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
+								elsif ($borderlinescore && (/^\s*([A-Za-z0-9_]+)\s+(\d+\.\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9_]+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9_]+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $3 == $borderlinescore && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
 									$borderlines{$1} = 1;
 									push(@borderlineacc, $1);
 								}
-								elsif ($borderlinescore && (/^\s*([A-Za-z0-9]+)\s+(\d+\.\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9]+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9]+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $3 < $borderlinescore && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
+								elsif ($borderlinescore && (/^\s*([A-Za-z0-9_]+)\s+(\d+\.\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9_]+)\s+(\d+e[\+\-]?\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9_]+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\S+)/ || /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)/) && !exists($borderlines{$1}) && $3 < $borderlinescore && $4 >= $minalnlenb && $5 >= $minalnpcovb) {
 									last;
 								}
 							}
@@ -801,16 +801,16 @@ sub searchNeighborhoods {
 								}
 								undef(%neighborhoods);
 								while (<$pipehandleinput1>) {
-									if (/^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 > $borderlinescore && $3 >= $minalnlen && $4 >= $minalnpcov) {
+									if (/^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 > $borderlinescore && $3 >= $minalnlen && $4 >= $minalnpcov) {
 										$neighborhoods{$1} = 1;
 									}
-									elsif (/^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 == $borderlinescore) {
+									elsif (/^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 == $borderlinescore) {
 										if ($3 >= $minalnlen && $4 >= $minalnpcov) {
 											$neighborhoods{$1} = 1;
 										}
 										$borderlinefound = 1;
 									}
-									elsif (/^\s*([A-Za-z0-9]+)\s+(\d+)/ && !exists($neighborhoods{$1}) && $2 < $borderlinescore) {
+									elsif (/^\s*([A-Za-z0-9_]+)\s+(\d+)/ && !exists($neighborhoods{$1}) && $2 < $borderlinescore) {
 										$borderlinefound = 1;
 										last;
 									}
@@ -838,7 +838,7 @@ sub searchNeighborhoods {
 								undef(%neighborhoods);
 								my $tempscore;
 								while (<$pipehandleinput1>) {
-									if (!$tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $3 >= $minalnlen && $4 >= $minalnpcov) {
+									if (!$tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $3 >= $minalnlen && $4 >= $minalnpcov) {
 										$neighborhoods{$1} = 1;
 										print($filehandleoutput1 "$1\n");
 										@tempneighborhoods = keys(%neighborhoods);
@@ -846,11 +846,11 @@ sub searchNeighborhoods {
 											$tempscore = $2;
 										}
 									}
-									elsif ($tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $tempscore && $3 >= $minalnlen && $4 >= $minalnpcov) {
+									elsif ($tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)\s+(\d+)\s+(\S+)/ && !exists($neighborhoods{$1}) && $2 >= $tempscore && $3 >= $minalnlen && $4 >= $minalnpcov) {
 										$neighborhoods{$1} = 1;
 										print($filehandleoutput1 "$1\n");
 									}
-									elsif ($tempscore && /^\s*([A-Za-z0-9]+)\s+(\d+)/ && !exists($neighborhoods{$1}) && $2 < $tempscore) {
+									elsif ($tempscore && /^\s*([A-Za-z0-9_]+)\s+(\d+)/ && !exists($neighborhoods{$1}) && $2 < $tempscore) {
 										last;
 									}
 								}
@@ -931,7 +931,7 @@ sub outputFile {
 				&errorMessage(__LINE__, "Cannot read \"$outputfile1.$i.temp/$listfile\".");
 			}
 			while (<$filehandleinput1>) {
-				if (/^\s*([A-Za-z0-9]+)/) {
+				if (/^\s*([A-Za-z0-9_]+)/) {
 					$tempaccs{$queries[$i]}{$1} = 1;
 				}
 			}

@@ -188,7 +188,7 @@ sub constructSeqDB {
 			my $seqname = $1;
 			my $seq = uc($2);
 			$seq =~ s/[> \r\n]//g;
-			$seqname =~ /\|*(?:gb|emb|dbj)\|([A-Za-z0-9]+)[\| ]/;
+			$seqname =~ /\|*(?:gb|emb|dbj)\|([A-Za-z0-9_]+)[\| ]/;
 			my $acc = $1;
 			my $seqlen = length($seq);
 			if ($seqlen >= $minlen && $seqlen <= $maxlen) {
@@ -266,7 +266,7 @@ sub clusterSequences {
 		my @seqname;
 		my $sequence;
 		my $statement;
-		unless ($statement = $seqdbhandle->prepare('SELECT acc, seqname, seq FROM seq WHERE acc IN (' . join(', ', @{$cluster}) . ')')) {
+		unless ($statement = $seqdbhandle->prepare("SELECT acc, seqname, seq FROM seq WHERE acc IN ('" . join("', '", @{$cluster}) . "')")) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		unless ($statement->execute) {

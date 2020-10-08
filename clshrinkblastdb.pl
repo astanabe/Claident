@@ -250,7 +250,7 @@ sub constructSeqDB {
 			my $seqname = $1;
 			my $seq = uc($2);
 			$seq =~ s/[> \r\n]//g;
-			$seqname =~ /\|*(?:gb|emb|dbj)\|([A-Za-z0-9]+)[\| ]/;
+			$seqname =~ /\|*(?:gb|emb|dbj)\|([A-Za-z0-9_]+)[\| ]/;
 			my $acc = $1;
 			my $seqlen = length($seq);
 			if ($seqlen >= $minlen && $seqlen <= $maxlen) {
@@ -346,7 +346,7 @@ sub clusterSequences {
 		while (my @row1 = $statement1->fetchrow_array) {
 			push(@acc, $row1[0]);
 			if (scalar(@acc) >= $threshold) {
-				unless ($statement2 = $seqdbhandle->prepare('SELECT acc, seq FROM seq WHERE acc IN (' . join(', ', @acc) . ')')) {
+				unless ($statement2 = $seqdbhandle->prepare("SELECT acc, seq FROM seq WHERE acc IN ('" . join("', '", @acc) . "')")) {
 					&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 				}
 				unless ($statement2->execute) {
@@ -412,7 +412,7 @@ sub clusterSequences {
 		while (my @row1 = $statement1->fetchrow_array) {
 			push(@acc, $row1[0]);
 			if (scalar(@acc) >= $threshold) {
-				unless ($statement2 = $seqdbhandle->prepare('SELECT acc, seq FROM seq WHERE acc IN (' . join(', ', @acc) . ')')) {
+				unless ($statement2 = $seqdbhandle->prepare("SELECT acc, seq FROM seq WHERE acc IN ('" . join("', '", @acc) . "')")) {
 					&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 				}
 				unless ($statement2->execute) {
@@ -515,7 +515,7 @@ sub outputResults {
 	foreach my $cluster (@cluster) {
 		my %subcluster;
 		my $statement;
-		unless ($statement = $taxdbhandle->prepare('SELECT acc, taxid FROM acc_taxid WHERE acc IN (' . join(', ', keys(%{$cluster})) . ')')) {
+		unless ($statement = $taxdbhandle->prepare("SELECT acc, taxid FROM acc_taxid WHERE acc IN ('" . join("', '", keys(%{$cluster})) . "')")) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		unless ($statement->execute) {
@@ -532,7 +532,7 @@ sub outputResults {
 			}
 			my @seqname;
 			my $sequence;
-			unless ($statement = $seqdbhandle->prepare('SELECT acc, seqname, seq FROM seq WHERE acc IN (' . join(', ', @{$subcluster{$taxid}}) . ')')) {
+			unless ($statement = $seqdbhandle->prepare("SELECT acc, seqname, seq FROM seq WHERE acc IN ('" . join("', '", @{$subcluster{$taxid}}) . "')")) {
 				&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 			}
 			unless ($statement->execute) {

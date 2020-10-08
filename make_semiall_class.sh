@@ -3,32 +3,33 @@ export PATH=/usr/local/share/claident/bin:$PATH
 # make taxonomy database
 clmaketaxdb --includetaxid=131567 --excludetaxid=7742 taxonomy semiall_temp.taxdb || exit $?
 # extract species-level identified sequences
-clretrievegi --includetaxa=genus,.+ --maxrank=species --ngword=' sp\.$' --taxdb=semiall_temp.taxdb semiall_species.txt &
-clretrievegi --includetaxa=genus,.+ --taxdb=semiall_temp.taxdb semiall_genus.txt &
-clretrievegi --includetaxa=family,.+ --taxdb=semiall_temp.taxdb semiall_family.txt &
-clretrievegi --includetaxa=order,.+ --taxdb=semiall_temp.taxdb semiall_order.txt &
-clretrievegi --includetaxa=class,.+ --taxdb=semiall_temp.taxdb semiall_class.txt &
+clretrieveacc --includetaxa=genus,.+,species,.+ --maxrank=species --ngword='species, sp\.$,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=semiall_temp.taxdb semiall_species.txt &
+clretrieveacc --includetaxa=genus,.+ --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=semiall_temp.taxdb semiall_genus.txt &
+clretrieveacc --includetaxa=family,.+ --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=semiall_temp.taxdb semiall_family.txt &
+clretrieveacc --includetaxa=order,.+ --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=semiall_temp.taxdb semiall_order.txt &
+clretrieveacc --includetaxa=class,.+ --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=semiall_temp.taxdb semiall_class.txt &
 wait
 # del duplicate
-clelimdupgi --workspace=disk semiall_species.txt semiall_genus.txt semiall_undergenus.txt &
-clelimdupgi --workspace=disk semiall_species.txt semiall_genus.txt semiall_family.txt semiall_underfamily.txt &
-clelimdupgi --workspace=disk semiall_species.txt semiall_genus.txt semiall_family.txt semiall_order.txt semiall_underorder.txt &
-clelimdupgi --workspace=disk semiall_species.txt semiall_genus.txt semiall_family.txt semiall_order.txt semiall_class.txt semiall_underclass.txt &
+clelimdupacc --workspace=disk semiall_species.txt semiall_genus.txt semiall_undergenus.txt &
+clelimdupacc --workspace=disk semiall_species.txt semiall_genus.txt semiall_family.txt semiall_underfamily.txt &
+clelimdupacc --workspace=disk semiall_species.txt semiall_genus.txt semiall_family.txt semiall_order.txt semiall_underorder.txt &
+clelimdupacc --workspace=disk semiall_species.txt semiall_genus.txt semiall_family.txt semiall_order.txt semiall_class.txt semiall_underclass.txt &
 wait
 # make BLAST database
 cd blastdb || exit $?
 # NT-independent, but overall_class-dependent
-clextractdupgi --workspace=disk overall_underclass.txt ../semiall_underclass.txt semiall_underclass.txt &
-clextractdupgi --workspace=disk overall_underclass.txt ../semiall_underorder.txt semiall_underorder.txt &
-clextractdupgi --workspace=disk overall_underclass.txt ../semiall_underfamily.txt semiall_underfamily.txt &
-clextractdupgi --workspace=disk overall_underclass.txt ../semiall_undergenus.txt semiall_undergenus.txt &
-clextractdupgi --workspace=disk overall_underclass.txt ../semiall_species.txt semiall_species.txt &
+clextractdupacc --workspace=disk overall_underclass.txt ../semiall_underclass.txt semiall_underclass.txt &
+clextractdupacc --workspace=disk overall_underclass.txt ../semiall_underorder.txt semiall_underorder.txt &
+clextractdupacc --workspace=disk overall_underclass.txt ../semiall_underfamily.txt semiall_underfamily.txt &
+clextractdupacc --workspace=disk overall_underclass.txt ../semiall_undergenus.txt semiall_undergenus.txt &
+clextractdupacc --workspace=disk overall_underclass.txt ../semiall_species.txt semiall_species.txt &
 wait
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist semiall_underclass.txt -out semiall_class -title semiall_class &
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist semiall_underorder.txt -out semiall_order -title semiall_order &
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist semiall_underfamily.txt -out semiall_family -title semiall_family &
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist semiall_undergenus.txt -out semiall_genus -title semiall_genus &
-blastdb_aliastool -dbtype nucl -db ./overall_class -gilist semiall_species.txt -out semiall_species -title semiall_species &
+sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in semiall_underorder.txt -seqid_title semiall_order -seqid_file_out semiall_order.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist semiall_order.bsl -out semiall_order -title semiall_order" &
+sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in semiall_underfamily.txt -seqid_title semiall_family -seqid_file_out semiall_family.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist semiall_family.bsl -out semiall_family -title semiall_family" &
+sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in semiall_undergenus.txt -seqid_title semiall_genus -seqid_file_out semiall_genus.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist semiall_genus.bsl -out semiall_genus -title semiall_genus" &
+sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in semiall_species.txt -seqid_title semiall_species -seqid_file_out semiall_species.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist semiall_species.bsl -out semiall_species -title semiall_species" &
+sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in prokaryota_all_undergenus.txt -seqid_title prokaryota_all_genus -seqid_file_out prokaryota_all_genus.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist prokaryota_all_genus.bsl -out prokaryota_all_genus -title prokaryota_all_genus" &
+sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in prokaryota_all_species.txt -seqid_title prokaryota_all_species -seqid_file_out prokaryota_all_species.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist prokaryota_all_species.bsl -out prokaryota_all_species -title prokaryota_all_species" &
 wait
 cd .. || exit $?
 # make taxdb

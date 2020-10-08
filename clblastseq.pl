@@ -38,7 +38,7 @@ my $devnull = File::Spec->devnull();
 my $numthreads = 1;
 my $ht;
 my $blastoption;
-my $output = 'GI';
+my $outputformat = 'ACC';
 
 # get input file name
 my $inputfile = $ARGV[-2];
@@ -77,6 +77,18 @@ while (glob("$outputfile.*")) {
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:ht|hyperthreads?)=(\d+)$/i) {
 			$ht = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:o|output)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^FASTA$/i) {
+				$outputformat = 'FASTA';
+			}
+			elsif ($value =~ /^(?:ACC|Accession)$/i) {
+				$outputformat = 'ACC';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
 		}
 		else {
 			&errorMessage(__LINE__, "Invalid option.");
@@ -225,13 +237,13 @@ unless (open($inputhandle, "< $inputfile")) {
 				print(STDERR "Running blastn for sequence $qnum...\n");
 				my @seq = $sequence =~ /\S/g;
 				my $pipehandle;
-				unless (open($pipehandle, "| BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sgi\" -show_gis -num_threads $ht 2> $devnull 1> $devnull")) {
-					&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sgi\" -show_gis -num_threads $ht\".");
+				unless (open($pipehandle, "| BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sacc sseq stitle\" -num_threads $ht 2> $devnull 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sacc sseq stitle\" -num_threads $ht\".");
 				}
 				print($pipehandle ">query$qnum\n" . join('', @seq) . "\n");
 				close($pipehandle);
 				if ($?) {
-					&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sgi\" -show_gis -num_threads $ht\".");
+					&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sacc sseq stitle\" -num_threads $ht\".");
 				}
 				exit;
 			}
@@ -249,15 +261,21 @@ while (wait != -1) {
 print(STDERR "done.\n\n");
 
 {
-	my %temp;
+	my %tempseq;
+	my %temptitle;
 	my $inputhandle;
 	for (my $i = 0; $i < scalar(@queries); $i ++) {
 		unless (open($inputhandle, "< $outputfile.$i")) {
 			&errorMessage(__LINE__, "Cannot read \"$outputfile.$i\".");
 		}
 		while (<$inputhandle>) {
-			if (/^\d+/) {
-				$temp{$&} = 1;
+			s/\r?\n?//;
+			my ($acc, $seq, $title) = split(/\t/, $_);
+			if ($acc && $seq && $title) {
+				if (!exists($tempseq{$acc}) || length($seq) > length($tempseq{$acc})) {
+					$tempseq{$acc} = $seq;
+					$temptitle{$acc} = $title;
+				}
 			}
 		}
 		close($inputhandle);
@@ -267,8 +285,13 @@ print(STDERR "done.\n\n");
 	unless (open($outputhandle, "> $outputfile")) {
 		&errorMessage(__LINE__, "Cannot write \"$outputfile\"");
 	}
-	foreach (keys(%temp)) {
-		print($outputhandle "$_\n");
+	foreach my $acc (keys(%tempseq)) {
+		if ($outputformat eq 'ACC') {
+			print($outputhandle "$acc\n");
+		}
+		elsif ($outputformat eq 'FASTA') {
+			print($outputhandle ">gb|$acc $temptitle{$acc}\n$tempseq{$acc}\n");
+		}
 	}
 	close($outputhandle);
 }
@@ -293,9 +316,11 @@ Command line options
 blastn options end
   Specify commandline options for blastn. (default: none)
 
--o, --output=GI|FASTA
-  Specify output format. GI makes GI list, FASTA makes FASTA sequeces of aligned
-part of BLAST-hit entries. (default: GI)
+-o, --output=ACCESSION|FASTA
+  Specify output format. ACCESSION makes accession list, FASTA makes FASTA
+sequeces of aligned part of BLAST-hit entries. If the same sequence is hit by
+multiple queries and the aligned part is different, the longest part will be
+output. (default: ACCESSION)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)

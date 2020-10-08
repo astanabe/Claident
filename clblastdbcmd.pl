@@ -1,24 +1,23 @@
 use strict;
 use Fcntl ':flock';
 use File::Spec;
-use IO::Compress::Gzip qw(gzip $GzipError);
-use IO::Compress::Bzip2 qw(bzip2 $Bzip2Error);
-use IO::Compress::Xz qw(xz $XzError);
 
 my $buildno = '0.2.x';
 
 my $devnull = File::Spec->devnull();
 
-my $blastdbcmdoption = ' -dbtype nucl -target_only -ctrl_a -long_seqids';
+my $blastdbcmdoption = ' -dbtype nucl -target_only';
 
 # options
 my $blastdb;
 my $outputformat = 'FASTA';
+my $filejoin = 1;
 my $numthreads = 1;
 my $nacclist;
 my %nacclist;
 my $minlen;
 my $maxlen;
+my $compress = 'gz';
 
 # input/output
 my $inputfile;
@@ -33,7 +32,6 @@ my $minnseq = 100000;
 
 # file handles
 my $filehandleinput1;
-my $filehandleinput2;
 my $filehandleoutput1;
 my $pipehandleinput1;
 
@@ -48,9 +46,12 @@ sub main {
 	&checkVariables();
 	# read negative accession list file
 	&readNegativeAccessionList();
-	# split input file and run blastdbcmd
+	# split input file
 	&splitInputFile();
-	exit(0);
+	# concatenate output files
+	if ($filejoin) {
+		&concatenateOutputFiles();
+	}
 }
 
 sub printStartupMessage {
@@ -89,7 +90,25 @@ sub getOptions {
 	$inputfile = $ARGV[-2];
 	$outputfile = $ARGV[-1];
 	for (my $i = 0; $i < scalar(@ARGV) - 2; $i ++) {
-		if ($ARGV[$i] =~ /^-+(?:db|blastdb|bdb)=(.+)$/i) {
+		if ($ARGV[$i] =~ /^-+compress=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:g|gz|gzip)$/i) {
+				$compress = 'gz';
+			}
+			elsif ($value =~ /^(?:b|bz|bz2|bzip|bzip2)$/i) {
+				$compress = 'bz2';
+			}
+			elsif ($value =~ /^(?:x|xz)$/i) {
+				$compress = 'xz';
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$compress = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:db|blastdb|bdb)=(.+)$/i) {
 			$blastdb = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:o|output)=(.+)$/i) {
@@ -102,6 +121,18 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:ACC|Accession)$/i) {
 				$outputformat = 'ACC';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+filejoin=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$filejoin = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$filejoin = 0;
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -135,7 +166,7 @@ sub checkVariables {
 		&errorMessage(__LINE__, "\"$outputfile\" already exists.");
 	}
 	while (glob("$outputfile.*.*")) {
-		if (/^$outputfile\..+\.(?:txt|fasta)$/) {
+		if (/^$outputfile\.\d+(?:\.gz|\.bz2|\.xz|\.list)?$/) {
 			&errorMessage(__LINE__, "Temporary file already exists.");
 		}
 	}
@@ -241,7 +272,7 @@ sub readNegativeAccessionList {
 	if ($nacclist) {
 		$filehandleinput1 = &readFile($nacclist);
 		while (<$filehandleinput1>) {
-			if (/^\s*([A-Za-z0-9]+)/) {
+			if (/^\s*([A-Za-z0-9_]+)/) {
 				$nacclist{$1} = 1;
 			}
 		}
@@ -250,7 +281,7 @@ sub readNegativeAccessionList {
 }
 
 sub splitInputFile {
-	print(STDERR "Running blastdbcmd...\n");
+	print(STDERR "Preparing files for blastdbcmd...\n");
 	# make splitted files
 	{
 		my $child = 0;
@@ -283,7 +314,7 @@ sub splitInputFile {
 						next;
 					}
 					else {
-						&runBlastdbcmd($tempnfile, $tempseqs);
+						&makeTemporaryFiles($tempnfile, $tempseqs);
 						exit;
 					}
 				}
@@ -305,7 +336,7 @@ sub splitInputFile {
 				}
 			}
 			else {
-				&runBlastdbcmd($tempnfile, $tempseqs);
+				&makeTemporaryFiles($tempnfile, $tempseqs);
 				exit;
 			}
 		}
@@ -313,16 +344,15 @@ sub splitInputFile {
 	# join
 	while (wait != -1) {
 		if ($?) {
-			&errorMessage(__LINE__, 'Cannot run blastdbcmd correctly.');
+			&errorMessage(__LINE__, 'Cannot split input file correctly.');
 		}
 	}
 	print(STDERR "done.\n\n");
 }
 
-sub runBlastdbcmd {
+sub makeTemporaryFiles {
 	my $tempnfile = shift(@_);
 	my $tempseqs = shift(@_);
-	print(STDERR "Running blastdbcmd using $outputfile.$tempnfile.list...\n");
 	unless (open($filehandleoutput1, "> $outputfile.$tempnfile.list")) {
 		&errorMessage(__LINE__, "Cannot write \"$outputfile.$tempnfile.list\".");
 	}
@@ -338,7 +368,6 @@ sub runBlastdbcmd {
 				my $acc = $1;
 				my $length = $2;
 				if ($minlen && $maxlen && $length >= $minlen && $length <= $maxlen || $minlen && $length >= $minlen || $maxlen && $length <= $maxlen) {
-					$acc =~ s/\.\d+$//;
 					$newaccs .= $acc . "\n";
 				}
 			}
@@ -350,57 +379,72 @@ sub runBlastdbcmd {
 		print($filehandleoutput1 "$newaccs\n");
 		close($filehandleoutput1);
 	}
+	print(STDERR "Running blastdbcmd using $outputfile.$tempnfile.list...\n");
 	if (-e "$outputfile.$tempnfile.list" && !-z "$outputfile.$tempnfile.list") {
-		system("BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry_batch $outputfile.$tempnfile.list -out $outputfile.$tempnfile.fasta -outfmt $outputformat 2> $devnull");
-		if (!-e "$outputfile.$tempnfile.fasta") {
-			&errorMessage(__LINE__, "Cannot run blastdbcmd correctly.");
+		if ($compress) {
+			$filehandleoutput1 = writeFile("$outputfile.$tempnfile.$compress");
 		}
-	}
-	# save to output file
-	if (-e "$outputfile.$tempnfile.fasta" && !-z "$outputfile.$tempnfile.fasta") {
-		$filehandleoutput1 = &writeFileAppend($outputfile);
-		unless (open($filehandleinput2, "< $outputfile.$tempnfile.fasta")) {
-			&errorMessage(__LINE__, "Cannot read \"$outputfile.$tempnfile.fasta\".");
+		else {
+			$filehandleoutput1 = writeFile("$outputfile.$tempnfile");
 		}
-		while (<$filehandleinput2>) {
+		unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry_batch $outputfile.$tempnfile.list -out - -outfmt $outputformat 2> $devnull |")) {
+			&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastdbcmd$blastdbcmdoption -db $blastdb -entry_batch $outputfile.$tempnfile.list -out - -outfmt $outputformat\".");
+		}
+		while (<$pipehandleinput1>) {
 			print($filehandleoutput1 $_);
 		}
-		close($filehandleinput2);
+		close($pipehandleinput1);
 		close($filehandleoutput1);
 	}
-	unlink("$outputfile.$tempnfile.fasta");
 	unlink("$outputfile.$tempnfile.list");
 }
 
-sub writeFileAppend {
+sub concatenateOutputFiles {
+	print(STDERR "Save to output file...\n");
+	my $tempfilename;
+	if ($compress) {
+		$tempfilename = "$outputfile.*.$compress";
+	}
+	else {
+		$tempfilename = "$outputfile.*";
+	}
+	$filehandleoutput1 = &writeFile($outputfile);
+	while (my $tempfile = glob($tempfilename)) {
+		if ($tempfile =~ /^$outputfile\.\d+/) {
+			$filehandleinput1 = &readFile($tempfile);
+			while (<$filehandleinput1>) {
+				print($filehandleoutput1 $_);
+			}
+			close($filehandleinput1);
+			unlink($tempfile);
+		}
+	}
+	close($filehandleoutput1);
+	print(STDERR "done.\n\n");
+}
+
+sub writeFile {
 	my $filehandle;
 	my $filename = shift(@_);
-	unless (open($filehandle, ">> $filename")) {
-		&errorMessage(__LINE__, "Cannot open \"$filename\".");
-	}
-	unless (flock($filehandle, LOCK_EX)) {
-		&errorMessage(__LINE__, "Cannot lock \"$filename\".");
-	}
-	unless (seek($filehandle, 0, 2)) {
-		&errorMessage(__LINE__, "Cannot seek \"$filename\".");
-	}
 	if ($filename =~ /\.gz$/i) {
-		unless ($filehandle = new IO::Compress::Gzip($filehandle, Append => 1)) {
+		unless (open($filehandle, "| gzip -c > $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
-		binmode($filehandle);
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless ($filehandle = new IO::Compress::Bzip2($filehandle, Append => 1)) {
+		unless (open($filehandle, "| bzip2 -c > $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
-		binmode($filehandle);
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless ($filehandle = new IO::Compress::Xz($filehandle, Append => 1)) {
+		unless (open($filehandle, "| xz -c > $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
-		binmode($filehandle);
+	}
+	else {
+		unless (open($filehandle, "> $filename")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
 	}
 	return($filehandle);
 }
@@ -454,6 +498,12 @@ Command line options
 -o, --output=FASTA|ACCTAXID|ACCESSION
   Specify output format. (default: FASTA)
 
+--compress=GZIP|BZIP2|XZ|DISABLE
+  Specify compress temporary files or not. (default: DISABLE)
+
+--filejoin=ENABLE|DISABLE
+  Specify whether output file will be joined or not. (default: ENABLE)
+
 --negativeacclist=FILENAME
   Specify file name of negative accession list. (default: none)
 
@@ -471,7 +521,7 @@ Command line options
 
 Acceptable input file formats
 =============================
-SeqID list (one sequence id per line)
+Accession list (1 per line)
 _END
 	exit;
 }

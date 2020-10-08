@@ -1706,7 +1706,7 @@ sub helpMessage {
 	print(STDERR <<"_END");
 Usage
 =====
-clsplitseq options inputfile outputfolder
+clsplitseq options inputfiles outputfolder
 
 Command line options
 ====================

@@ -263,7 +263,7 @@ sub readNegativeAccessionList {
 			&errorMessage(__LINE__, "Cannot open \"$nacclist\".");
 		}
 		while (<$filehandleinput1>) {
-			if (/^\s*([A-Za-z0-9]+)/) {
+			if (/^\s*([A-Za-z0-9_]+)/) {
 				$nacclist{$1} = 1;
 			}
 		}
@@ -354,7 +354,7 @@ sub runBLAST {
 	}
 	local $/ = "\n";
 	while (<$pipehandleinput1>) {
-		if (/^\s*(\S+)\s+([A-Za-z0-9]+)\s+(\d+)\s+(\S+)\s+(\S+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
+		if (/^\s*(\S+)\s+([A-Za-z0-9_]+)\s+(\d+)\s+(\S+)\s+(\S+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
 			my $prefix = $1;
 			my $acc = $2;
 			my $seq = $5;

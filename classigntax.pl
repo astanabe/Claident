@@ -249,7 +249,7 @@ unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '')) {
 {
 	print(STDERR "Getting accessions...");
 	my $statement;
-	unless ($statement = $dbhandle->prepare('SELECT acc, taxid FROM acc_taxid WHERE acc IN (' . join(', ', keys(%acc2taxid)) . ')')) {
+	unless ($statement = $dbhandle->prepare("SELECT acc, taxid FROM acc_taxid WHERE acc IN ('" . join("', '", keys(%acc2taxid)) . "')")) {
 		&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 	}
 	unless ($statement->execute) {

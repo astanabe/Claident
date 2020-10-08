@@ -6,17 +6,17 @@ my $buildno = '0.2.x';
 
 my $devnull = File::Spec->devnull();
 
-my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 2G';
+my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqids -max_file_sz 4G';
 
 # options
 my $numthreads = 1;
 my $nacclist;
 my %nacclist;
 my $minlen = 0;
-my $maxlen = 5000000000;
+my $maxlen = 10000000000;
 
 # input/output
-my $inputfile;
+my @inputfiles;
 my $output;
 
 # commands
@@ -24,7 +24,7 @@ my $makeblastdb;
 my $blastdb_aliastool;
 
 # global variables
-my $maxsize = 5000000000;
+my $maxsize = 10000000000;
 
 # file handles
 my $filehandleinput1;
@@ -41,7 +41,7 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
-	# read negative seqids list file
+	# read negative accessions list file
 	&readNegativeAccessionList();
 	# split input file and run makeblastdb
 	&splitInputFile();
@@ -83,9 +83,9 @@ _END
 
 sub getOptions {
 	# get arguments
-	$inputfile = $ARGV[-2];
+	my %inputfiles;
 	$output = $ARGV[-1];
-	for (my $i = 0; $i < scalar(@ARGV) - 2; $i ++) {
+	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 		if ($ARGV[$i] =~ /^-+n(?:egative)?(?:acc|accession|seqid)list=(.+)$/i) {
 			$nacclist = $1;
 		}
@@ -104,7 +104,21 @@ sub getOptions {
 			$numthreads = $1;
 		}
 		else {
-			&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
+			my @temp = glob($ARGV[$i]);
+			if (scalar(@temp) > 0) {
+				foreach (@temp) {
+					if (!exists($inputfiles{$_})) {
+						$inputfiles{$_} = 1;
+						push(@inputfiles, $_);
+					}
+					else {
+						&errorMessage(__LINE__, "\"$_\" is doubly specified.");
+					}
+				}
+			}
+			else {
+				&errorMessage(__LINE__, "Input file does not exist.");
+			}
 		}
 	}
 }
@@ -128,11 +142,8 @@ sub checkVariables {
 			&errorMessage(__LINE__, "Output file already exists.");
 		}
 	}
-	if (!$inputfile) {
+	if (scalar(@inputfiles) == 0) {
 		&errorMessage(__LINE__, "Input file is not given.");
-	}
-	if (!-e $inputfile) {
-		&errorMessage(__LINE__, "Input file does not exist.");
 	}
 	# search blastn
 	{
@@ -187,7 +198,7 @@ sub readNegativeAccessionList {
 	if ($nacclist) {
 		$filehandleinput1 = &readFile($nacclist);
 		while (<$filehandleinput1>) {
-			if (/^\s*(\d+)/) {
+			if (/^\s*([A-Za-z0-9_]+)/) {
 				$nacclist{$1} = 1;
 			}
 		}
@@ -207,62 +218,61 @@ sub splitInputFile {
 		my $tempseqlen = 0;
 		my $tempnfile = 0;
 		my $switch = 0;
-		$filehandleoutput1 = &writeFile("$output.$tempnfile.fasta");
-		$filehandleinput1 = &readFile($inputfile);
-		my $line = 0;
-		while (<$filehandleinput1>) {
-			$line ++;
-			if (/^>\s*(\S+)\s*/) {
-				my $seqid = $1;
-				if (exists($nacclist{$seqid}) || $seqid =~ /(?:gb|emb|dbj)\|([A-Za-z0-9]+)/ && (exists($nacclist{$1}))) {
-					$switch = 0;
-					next;
-				}
-				$switch = 1;
-				if ($tempseq) {
-					if (defined($minlen) && defined($maxlen) && $tempseqlen >= $minlen && $tempseqlen <= $maxlen) {
-						#print(STDERR "Sequence length: $tempseqlen\n");
-						print($filehandleoutput1 $tempseq);
-						$temptotal += $tempseqlen;
-					}
-				}
-				$tempseq = $_;
-				$tempseqlen = 0;
-				if ($temptotal >= $maxsize) {
-					close($filehandleoutput1);
-					if (my $pid = fork()) {
-						$child ++;
-						if ($child == $numthreads) {
-							if (wait == -1) {
-								$child = 0;
-							} else {
-								$child --;
-							}
-						}
-						if ($?) {
-							&errorMessage(__LINE__);
-						}
-						$temptotal = 0;
-						$tempnfile ++;
-						$filehandleoutput1 = &writeFile("$output.$tempnfile.fasta");
+		$filehandleoutput1 = &writeFile("$output." . sprintf("%02d", $tempnfile) . ".fasta");
+		foreach my $inputfile (@inputfiles) {
+			$filehandleinput1 = &readFile($inputfile);
+			my $line = 0;
+			while (<$filehandleinput1>) {
+				$line ++;
+				if (/^>\s*(\S+)\s*/) {
+					my $seqid = $1;
+					if (exists($nacclist{$seqid}) || $seqid =~ /(?:gb|emb|dbj)\|([A-Za-z0-9_]+)/ && (exists($nacclist{$1}))) {
+						$switch = 0;
 						next;
 					}
-					else {
-						#print(STDERR "line: " . __LINE__ . "; temptotal: $temptotal; tempnfile: $tempnfile; line: $line\n");
-						&runMakeblastdb($tempnfile);
-						exit;
+					$switch = 1;
+					if ($tempseq) {
+						if (defined($minlen) && defined($maxlen) && $tempseqlen >= $minlen && $tempseqlen <= $maxlen) {
+							print($filehandleoutput1 $tempseq);
+							$temptotal += $tempseqlen;
+						}
+					}
+					$tempseq = $_;
+					$tempseqlen = 0;
+					if ($temptotal >= $maxsize) {
+						close($filehandleoutput1);
+						if (my $pid = fork()) {
+							$child ++;
+							if ($child == $numthreads) {
+								if (wait == -1) {
+									$child = 0;
+								} else {
+									$child --;
+								}
+							}
+							if ($?) {
+								&errorMessage(__LINE__);
+							}
+							$temptotal = 0;
+							$tempnfile ++;
+							$filehandleoutput1 = &writeFile("$output." . sprintf("%02d", $tempnfile) . ".fasta");
+							next;
+						}
+						else {
+							&runMakeblastdb($tempnfile);
+							exit;
+						}
 					}
 				}
+				elsif ($switch) {
+					$tempseqlen += length($_) - 1;
+					$tempseq .= $_;
+				}
 			}
-			elsif ($switch) {
-				$tempseqlen += length($_) - 1;
-				$tempseq .= $_;
-			}
+			close($filehandleinput1);
 		}
-		close($filehandleinput1);
 		if ($tempseq) {
 			if (defined($minlen) && defined($maxlen) && $tempseqlen >= $minlen && $tempseqlen <= $maxlen) {
-				#print(STDERR "Sequence length: $tempseqlen\n");
 				print($filehandleoutput1 $tempseq);
 				$temptotal += $tempseqlen;
 			}
@@ -282,13 +292,12 @@ sub splitInputFile {
 					}
 				}
 				else {
-					#print(STDERR "line: " . __LINE__ . "; temptotal: $temptotal; tempnfile: $tempnfile; line: $line\n");
 					&runMakeblastdb($tempnfile);
 					exit;
 				}
 			}
 			else {
-				unlink("$output.$tempnfile.fasta");
+				unlink("$output." . sprintf("%02d", $tempnfile) . ".fasta");
 			}
 		}
 		else {
@@ -306,12 +315,13 @@ sub splitInputFile {
 
 sub runMakeblastdb {
 	my $tempnfile = shift(@_);
-	print(STDERR "Running makeblastdb using $output.$tempnfile.fasta...\n");
-	system("$makeblastdb$makeblastdboption -in $output.$tempnfile.fasta -out $output.$tempnfile -title $output.$tempnfile 1> $devnull 2> $devnull");
-	if (!-e "$output.$tempnfile.nsq" || -z "$output.$tempnfile.nsq") {
+	my $tempprefix = "$output." . sprintf("%02d", $tempnfile);
+	print(STDERR "Running makeblastdb using $tempprefix.fasta...\n");
+	system("$makeblastdb$makeblastdboption -in $tempprefix.fasta -out $tempprefix -title $tempprefix 1> $devnull 2> $devnull");
+	if (!-e "$tempprefix.nsq" || -z "$tempprefix.nsq") {
 		&errorMessage(__LINE__, "Cannot run makeblastdb correctly.");
 	}
-	unlink("$output.$tempnfile.fasta");
+	unlink("$tempprefix.fasta");
 }
 
 sub makeNal {
@@ -384,7 +394,7 @@ sub readFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "gzip -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pigz -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
@@ -419,7 +429,7 @@ sub helpMessage {
 	print(STDERR <<"_END");
 Usage
 =====
-clmakeblastdb options inputfile outputBLASTDB
+clmakeblastdb options inputfiles outputBLASTDB
 
 Command line options
 ====================
@@ -428,12 +438,6 @@ Command line options
 
 --negativeacc=accession(,accession..)
   Specify negative accessions.
-
---negativeseqidlist=FILENAME
-  Specify file name of negative SeqID list. (default: none)
-
---negativeseqid=SeqID(,SeqID..)
-  Specify negative SeqIDs.
 
 --minlen=INTEGER
   Specify minimum length of sequence. (default: 0)

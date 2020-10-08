@@ -156,7 +156,7 @@ if ($acclist) {
 			&errorMessage(__LINE__, "Cannot read \"$acclist\".");
 		}
 		while (<$inputhandle>) {
-			if (/^[A-Za-z0-9]+/) {
+			if (/^[A-Za-z0-9_]+/) {
 				unless ($statement->execute($&)) {
 					&errorMessage(__LINE__, "Cannot insert \"$&\".");
 				}
@@ -397,6 +397,7 @@ if (!$acclist) {
 	my $nentries = 1;
 	while (<$inputhandle>) {
 		my @columns = split(/\s+/, $_);
+		$columns[0] =~ s/\.\d+$//;
 		if ($includetaxid{$columns[1]} || !%includetaxid) {
 			unless ($statement->execute($columns[0], $columns[1])) {
 				&errorMessage(__LINE__, "Cannot insert \"$columns[0], $columns[1]\".");

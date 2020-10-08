@@ -1,7 +1,7 @@
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 PERL := $(filter /%,$(shell /bin/sh -c 'type perl'))
-VERSION := 0.2.2020.09.29
+VERSION := 0.2.2020.10.09
 PROGRAM := classigntax clblastdbcmd clblastprimer clblastseq clclassseqv clcleanseqv clconcatpair clconvrefdb clderepblastdb cldivseq clelimdupacc clextractdupacc clfillassign clfilterseq clfiltersum clidentseq climportfastq clmakeblastdb clmakecachedb clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clrecoverseqv clretrieveacc clremovechimera clshrinkblastdb clsplitseq clsumclass
 
 all: $(PROGRAM)

@@ -241,13 +241,13 @@ print(STDERR "Running BLAST search...\nThis may take a while.\n");
 		else {
 			print(STDERR "Running blastn for sequence $i...\n");
 			my $pipehandle;
-			unless (open($pipehandle, "| BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$i -outfmt \"6 sgi\" -show_gis -num_threads $ht 2> $devnull 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$i -outfmt \"6 sgi\" -show_gis -num_threads $ht\".");
+			unless (open($pipehandle, "| BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$i -outfmt \"6 sacc\" -num_threads $ht 2> $devnull 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$i -outfmt \"6 sacc\" -num_threads $ht\".");
 			}
 			print($pipehandle ">query$i\n$queries[$i]\n");
 			close($pipehandle);
 			if ($?) {
-				&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$i -outfmt \"6 sgi\" -show_gis -num_threads $ht\".");
+				&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$i -outfmt \"6 sacc\" -num_threads $ht\".");
 			}
 			exit;
 		}
@@ -270,7 +270,7 @@ print(STDERR "done.\n\n");
 			&errorMessage(__LINE__, "Cannot read \"$outputfile.$i\".");
 		}
 		while (<$inputhandle>) {
-			if (/^\d+/) {
+			if (/^[A-Za-z0-9_]+/) {
 				$temp{$&} = 1;
 			}
 		}

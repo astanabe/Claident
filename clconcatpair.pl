@@ -288,11 +288,31 @@ sub concatenateSequences {
 					$prefix =~ s/^.+\///;
 				}
 				$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
-				print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . " using VSEARCH5D...\n");
-				if (system("$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads 1> $devnull")) {
-					&errorMessage(__LINE__, "Cannot run \"$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads\".");
+				if ($prefix !~ /__undetermined$/) {
+					print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . " using VSEARCH5D...\n");
+					my @tempfiles;
+					if ($inputfiles[$i] =~ /\.xz$/) {
+						if (system("xz -dk " . $inputfiles[$i])) {
+							&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[$i] . "\".");
+						}
+						$inputfiles[$i] =~ s/\.xz$//;
+						push(@tempfiles, $inputfiles[$i]);
+					}
+					if ($inputfiles[($i + 1)] =~ /\.xz$/) {
+						if (system("xz -dk " . $inputfiles[($i + 1)])) {
+							&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[($i + 1)] . "\".");
+						}
+						$inputfiles[($i + 1)] =~ s/\.xz$//;
+						push(@tempfiles, $inputfiles[($i + 1)]);
+					}
+					if (system("$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads 1> $devnull")) {
+						&errorMessage(__LINE__, "Cannot run \"$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads\".");
+					}
+					push(@outputfastq, "$output/$prefix.fastq");
+					foreach my $tempfile (@tempfiles) {
+						unlink($tempfile);
+					}
 				}
-				push(@outputfastq, "$output/$prefix.fastq");
 			}
 			if ($compress) {
 				&compressInParallel(@outputfastq);
@@ -703,7 +723,7 @@ Command line options
 
 Acceptable input file formats
 =============================
-FASTQ (uncompressed, gzip-compressed, or bzip2-compressed)
+FASTQ (uncompressed, gzip-compressed, bzip2-compressed, or xz-compressed)
 _END
 	exit;
 }
