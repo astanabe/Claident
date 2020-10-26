@@ -4,22 +4,30 @@ export PATH=/usr/local/share/claident/bin:$PATH
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid33208[Organism:exp] AND (mitochondrion[Filter] OR mitochondrial[Filter]) NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' animals_mt.txt || exit $?
 # make taxonomy database
 #clmaketaxdb --includetaxid=33208 taxonomy animals.taxdb || exit $?
-# extract genus-level identified sequences
-clretrieveacc --includetaxa=genus,.+ --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --acclist=animals_mt.txt --taxdb=animals.taxdb animals_mt_genus.txt || exit $?
-# extract species-level identified sequences
-clretrieveacc --includetaxa=genus,.+,species,.+ --maxrank=species --ngword='species, sp\.$,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=animals_mt.txt --taxdb=animals.taxdb animals_mt_species.txt || exit $?
+# extract identified sequences
+clretrieveacc --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --acclist=animals_mt.txt --taxdb=animals.taxdb animals_mt_genus.txt &
+clretrieveacc --maxrank=species --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --acclist=animals_mt.txt --taxdb=animals.taxdb animals_mt_species_wsp.txt &
+clretrieveacc --maxrank=species --ngword='species, sp\.$,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=animals_mt.txt --taxdb=animals.taxdb animals_mt_species.txt &
+clretrieveacc --maxrank=species --ngword='species, sp\.,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=animals_mt.txt --taxdb=animals.taxdb animals_mt_species_wosp.txt &
+wait
 # make BLAST database
 cd blastdb || exit $?
 # NT-independent, but overall_class-dependent
-clextractdupacc --workspace=disk overall_underclass.txt ../animals_mt_genus.txt animals_mt_genus.txt &
-clextractdupacc --workspace=disk overall_underclass.txt ../animals_mt_species.txt animals_mt_species.txt &
+clextractdupacc --workspace=disk overall_class.txt ../animals_mt_genus.txt animals_mt_genus.txt &
+clextractdupacc --workspace=disk overall_class.txt ../animals_mt_species_wsp.txt animals_mt_species_wsp.txt &
+clextractdupacc --workspace=disk overall_class.txt ../animals_mt_species.txt animals_mt_species.txt &
+clextractdupacc --workspace=disk overall_class.txt ../animals_mt_species_wosp.txt animals_mt_species_wosp.txt &
 wait
 sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in animals_mt_genus.txt -seqid_title animals_mt_genus -seqid_file_out animals_mt_genus.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist animals_mt_genus.bsl -out animals_mt_genus -title animals_mt_genus" &
+sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in animals_mt_species_wsp.txt -seqid_title animals_mt_species_wsp -seqid_file_out animals_mt_species_wsp.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist animals_mt_species_wsp.bsl -out animals_mt_species_wsp -title animals_mt_species_wsp" &
 sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in animals_mt_species.txt -seqid_title animals_mt_species -seqid_file_out animals_mt_species.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist animals_mt_species.bsl -out animals_mt_species -title animals_mt_species" &
+sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in animals_mt_species_wosp.txt -seqid_title animals_mt_species_wosp -seqid_file_out animals_mt_species_wosp.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist animals_mt_species_wosp.bsl -out animals_mt_species_wosp -title animals_mt_species_wosp" &
 wait
 cd .. || exit $?
 # minimize taxdb
 clmaketaxdb --acclist=blastdb/animals_mt_genus.txt taxonomy animals_mt_genus.taxdb || exit $?
+ln -s animals_mt_genus.taxdb animals_mt_species_wsp.taxdb || exit $?
 ln -s animals_mt_genus.taxdb animals_mt_species.taxdb || exit $?
+ln -s animals_mt_genus.taxdb animals_mt_species_wosp.taxdb || exit $?
 #rm animals.taxdb || exit $?
 #rm blastdb/animals_genus.* || exit $?

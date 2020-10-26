@@ -133,7 +133,7 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+max(?:imum)?len(?:gth)?=(\d+)$/i) {
 			$maxlen = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+(?:over|ov)(?:len|length)=(.+)$/i) {
+		elsif ($ARGV[$i] =~ /^-+(?:overflow|over|ov)(?:len|length)=(.+)$/i) {
 			my $value = $1;
 			if ($value =~ /^(?:elim|eliminate)$/i) {
 				$ovlen = 'eliminate';
@@ -235,8 +235,8 @@ sub checkVariables {
 	if (-e $output && !$append) {
 		&errorMessage(__LINE__, "\"$output\" already exists.");
 	}
-	elsif ($folder) {
-		mkdir($output);
+	elsif ($folder && !mkdir($output)) {
+		&errorMessage(__LINE__, 'Cannot make output folder.');
 	}
 	else {
 		my @temp = glob("$output.*");
@@ -1162,6 +1162,10 @@ nonmatched sequences will be saved. (default: off)
 
 --maxlen=INTEGER
   Specify maximum length threshold. (default: Inf)
+
+--ovlen=ELIMINATE|TRUNCATE
+  Specify whether 1 whole sequence is eliminated or overflow is truncated if
+sequence length is longer than maxlen.
 
 --minqual=INTEGER
   Specify minimum quality threshold. (default: none)

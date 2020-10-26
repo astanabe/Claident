@@ -6,12 +6,15 @@ my $buildno = '0.2.x';
 
 my $devnull = File::Spec->devnull();
 
+# global variable
+my $vsearch5doption = " --fastq_qmax 93 --fastq_qmaxout 93 --fastq_allowmergestagger";
+
 # options
 my $folder = 0;
 my $maxnmismatch = 99999;
 my $maxpmismatch = 0.5;
 my $minovllen = 10;
-my $minlen = 0;
+my $minlen = 1;
 my $minqual = 0;
 my $compress = 'gz';
 my $mode = 'ovl';
@@ -164,11 +167,69 @@ sub getOptions {
 }
 
 sub checkVariables {
-	if (-e $output) {
-		&errorMessage(__LINE__, "\"$output\" already exists.");
-	}
 	if (!@inputfiles) {
 		&errorMessage(__LINE__, "No input file was specified.");
+	}
+	{
+		my @newinputfiles;
+		my @tempinputfiles;
+		foreach my $inputfile (@inputfiles) {
+			if (-d $inputfile) {
+				my @temp = sort(glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
+				if (scalar(@temp) % 2 == 0) {
+					for (my $i = 0; $i < scalar(@temp); $i += 2) {
+						if ((-f $temp[$i] || -l $temp[$i]) && (-f $temp[($i + 1)] || -l $temp[($i + 1)])) {
+							if ($temp[$i] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $temp[($i + 1)] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
+								push(@newinputfiles, $temp[$i], $temp[($i + 1)]);
+							}
+							else {
+								&errorMessage(__LINE__, "The input files are not paried-end sequences.");
+							}
+						}
+						else {
+							&errorMessage(__LINE__, "The input files \"$temp[0]\" and \"$temp[1]\" are invalid.");
+						}
+					}
+				}
+				else {
+					&errorMessage(__LINE__, "The input files are not paried-end sequences.");
+				}
+			}
+			elsif (-f $inputfile || -l $inputfile) {
+				push(@tempinputfiles, $inputfile);
+			}
+			else {
+				&errorMessage(__LINE__, "The input file \"$inputfile\" is invalid.");
+			}
+		}
+		if (scalar(@tempinputfiles) % 2 == 0) {
+			for (my $i = 0; $i < scalar(@tempinputfiles); $i += 2) {
+				if ((-f $tempinputfiles[$i] || -l $tempinputfiles[$i]) && (-f $tempinputfiles[($i + 1)] || -l $tempinputfiles[($i + 1)])) {
+					if ($tempinputfiles[$i] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $tempinputfiles[($i + 1)] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
+						push(@newinputfiles, $tempinputfiles[$i], $tempinputfiles[($i + 1)]);
+					}
+					else {
+						&errorMessage(__LINE__, "The input files are not paried-end sequences.");
+					}
+				}
+				else {
+					&errorMessage(__LINE__, "The input files \"$tempinputfiles[0]\" and \"$tempinputfiles[1]\" are invalid.");
+				}
+			}
+		}
+		else {
+			&errorMessage(__LINE__, "The input files are not paried-end sequences.");
+		}
+		@inputfiles = @newinputfiles;
+		if (scalar(@inputfiles) > 2) {
+			$folder = 1;
+		}
+	}
+	if (-e $output && !$append) {
+		&errorMessage(__LINE__, "\"$output\" already exists.");
+	}
+	elsif ($folder && !mkdir($output)) {
+		&errorMessage(__LINE__, 'Cannot make output folder.');
 	}
 	if ($maxpmismatch > 1) {
 		&errorMessage(__LINE__, "The maximum percentage of mismatches is invalid.");
@@ -177,47 +238,6 @@ sub checkVariables {
 	$minqual --;
 	if ($minqual < 0) {
 		$minqual = 0;
-	}
-	if (scalar(@inputfiles) > 2) {
-		if (scalar(@inputfiles) % 2 == 0) {
-			@inputfiles = sort(@inputfiles);
-			for (my $i = 0; $i < scalar(@inputfiles); $i += 2) {
-				if (-f $inputfiles[0] && !-z $inputfiles[0] && -f $inputfiles[1] && !-z $inputfiles[1] && $inputfiles[0] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $inputfiles[1] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
-					next;
-				}
-				else {
-					&errorMessage(__LINE__, "The input file names \"$inputfiles[0]\" and \"$inputfiles[1]\" are invalid.");
-				}
-			}
-			$folder = 1;
-		}
-		else {
-			&errorMessage(__LINE__, "The number of input files is not even number.");
-		}
-	}
-	elsif (scalar(@inputfiles) == 1) {
-		if (-d $inputfiles[0]) {
-			my @tempinputfiles;
-			my @temp = glob("$inputfiles[0]/*.forward.*");
-			if (scalar(@temp) > 0) {
-				foreach my $forward (@temp) {
-					my $reverse = $forward;
-					$reverse =~ s/\.forward\./.reverse./;
-					if (-f $forward && !-z $forward && -f $reverse && !-z $reverse && $forward =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $reverse =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
-						push(@tempinputfiles, $forward);
-						push(@tempinputfiles, $reverse);
-					}
-				}
-			}
-			else {
-				&errorMessage(__LINE__, "Input file does not exist.");
-			}
-			@inputfiles = @tempinputfiles;
-			$folder = 1;
-		}
-		else {
-			&errorMessage(__LINE__, "Input is not a directory.");
-		}
 	}
 	# search vsearch5d
 	{
@@ -264,6 +284,25 @@ sub checkVariables {
 			$vsearch5d = 'vsearch5d';
 		}
 	}
+	# initialize vsearch5d options
+	if ($minqual) {
+		$vsearch5doption .= " --fastq_truncqual $minqual";
+	}
+	if ($minlen) {
+		$vsearch5doption .= " --fastq_minlen $minlen";
+	}
+	if ($minovllen) {
+		$vsearch5doption .= " --fastq_minovlen $minovllen";
+	}
+	if ($maxnmismatch) {
+		$vsearch5doption .= " --fastq_maxdiffs $maxnmismatch";
+	}
+	if ($maxpmismatch) {
+		$vsearch5doption .= " --fastq_maxdiffpct $maxpmismatch";
+	}
+	if ($numthreads) {
+		$vsearch5doption .= " --threads $numthreads";
+	}
 }
 
 sub concatenateSequences {
@@ -271,16 +310,30 @@ sub concatenateSequences {
 	if ($mode eq 'ovl') {
 		if (scalar(@inputfiles) == 2 && !$folder) {
 			print(STDERR "Concatenating $inputfiles[0] and $inputfiles[1] using VSEARCH5D...\n");
-			if (system("$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output --threads $numthreads\".");
+			my @tempfiles;
+			if ($inputfiles[$i] =~ /\.xz$/) {
+				if (system("xz -dk " . $inputfiles[$i])) {
+					&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[$i] . "\".");
+				}
+				$inputfiles[$i] =~ s/\.xz$//;
+				push(@tempfiles, $inputfiles[$i]);
+			}
+			if ($inputfiles[($i + 1)] =~ /\.xz$/) {
+				if (system("xz -dk " . $inputfiles[($i + 1)])) {
+					&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[($i + 1)] . "\".");
+				}
+				$inputfiles[($i + 1)] =~ s/\.xz$//;
+				push(@tempfiles, $inputfiles[($i + 1)]);
+			}
+			if (system("$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastqout $output 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastqout $output\".");
+			}
+			foreach my $tempfile (@tempfiles) {
+				unlink($tempfile);
 			}
 			&compressFileByName($output);
 		}
 		else {
-			# make output directory
-			if (!-e $output && !mkdir($output)) {
-				&errorMessage(__LINE__, 'Cannot make output folder.');
-			}
 			my @outputfastq;
 			for (my $i = 0; $i < scalar(@inputfiles); $i += 2) {
 				my $prefix = $inputfiles[$i];
@@ -305,8 +358,8 @@ sub concatenateSequences {
 						$inputfiles[($i + 1)] =~ s/\.xz$//;
 						push(@tempfiles, $inputfiles[($i + 1)]);
 					}
-					if (system("$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads 1> $devnull")) {
-						&errorMessage(__LINE__, "Cannot run \"$vsearch5d --fastq_qmax 93 --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastq_truncqual $minqual --fastq_minlen $minlen --fastq_minovlen $minovllen --fastq_maxdiffs $maxnmismatch --fastq_maxdiffpct $maxpmismatch --fastq_allowmergestagger --fastqout $output/$prefix.fastq --threads $numthreads\".");
+					if (system("$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$prefix.fastq 1> $devnull")) {
+						&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$prefix.fastq\".");
 					}
 					push(@outputfastq, "$output/$prefix.fastq");
 					foreach my $tempfile (@tempfiles) {
@@ -337,9 +390,11 @@ sub concatenateSequences {
 					$prefix =~ s/^.+\///;
 				}
 				$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
-				print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . "...\n");
-				&concatenateNonoverlappedPair($inputfiles[$i], $inputfiles[($i + 1)], "$output/$prefix.fastq");
-				push(@outputfastq, "$output/$prefix.fastq");
+				if ($prefix !~ /__undetermined$/) {
+					print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . "...\n");
+					&concatenateNonoverlappedPair($inputfiles[$i], $inputfiles[($i + 1)], "$output/$prefix.fastq");
+					push(@outputfastq, "$output/$prefix.fastq");
+				}
 			}
 			&concatenateFiles(@outputfastq);
 		}
@@ -706,7 +761,7 @@ Command line options
   Specify the minimum quality value for 3'-tail trimming. (default: 0)
 
 --minlen=INTEGER
-  Specify the minimum length after trimming. (default: 0)
+  Specify the minimum length after trimming. (default: 1)
 
 --minovllen=INTEGER
   Specify the minimum length of overlap. (default: 10)
