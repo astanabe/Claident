@@ -47,7 +47,7 @@ sub main {
 
 sub printStartupMessage {
 	print(STDERR <<"_END");
-clcalcfastqstat $buildno
+clcalcfastqstatv $buildno
 =======================================================================
 
 Official web site of this script is
@@ -289,9 +289,9 @@ sub helpMessage {
 	print(STDERR <<"_END");
 Usage
 =====
-clcalcfastqstat options inputfolder outputfile
-clcalcfastqstat options inputfile1 inputfile2 ... inputfileN outputfile
-clcalcfastqstat options forwardread reverseread outputfile
+clcalcfastqstatv options inputfolder outputfile
+clcalcfastqstatv options inputfile1 inputfile2 ... inputfileN outputfile
+clcalcfastqstatv options forwardread reverseread outputfile
 
 Command line options
 ====================

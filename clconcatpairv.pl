@@ -308,6 +308,10 @@ sub checkVariables {
 		$vsearch5doption .= " --fastq_mergepairs";
 	}
 	elsif ($mode eq 'non') {
+		$vsearch5doption .= " --join_padgap $padding";
+		my $padqual = $padding;
+		$padqual =~ s/[ACGT]/I/g;
+		$vsearch5doption .= " --join_padgapq $padqual";
 		$vsearch5doption .= " --fastq_join2";
 	}
 }
