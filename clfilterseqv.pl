@@ -338,7 +338,7 @@ sub checkVariables {
 sub filterSequences {
 	print(STDERR "\nProcessing sequences...\n");
 	if (!$paired && !$folder) {
-		print(STDERR "Filtering $inputfiles[0] using VSEARCH...\n");
+		print(STDERR "Filtering \"$inputfiles[0]\" using VSEARCH...\n");
 		my $tempfile;
 		if ($inputfiles[0] =~ /\.xz$/) {
 			if (system("xz -dk " . $inputfiles[0])) {
@@ -364,7 +364,7 @@ sub filterSequences {
 			}
 			$prefix =~ s/\.fastq(?:\.gz|\.bz2|\.xz)?$//;
 			if ($prefix !~ /__undetermined/) {
-				print(STDERR "Filtering $inputfiles[$i] using VSEARCH...\n");
+				print(STDERR "Filtering \"$inputfiles[$i]\" using VSEARCH...\n");
 				my $tempfile;
 				if ($inputfiles[$i] =~ /\.xz$/) {
 					if (system("xz -dk " . $inputfiles[$i])) {
@@ -400,7 +400,7 @@ sub filterSequences {
 			}
 			$reverseprefix =~ s/\.fastq(?:\.gz|\.bz2|\.xz)?$//;
 			if ($forwardprefix !~ /__undetermined/ && $reverseprefix !~ /__undetermined/) {
-				print(STDERR "Filtering $inputfiles[$i] and " . $inputfiles[($i + 1)] . " using VSEARCH...\n");
+				print(STDERR "Filtering \"$inputfiles[$i]\" and \"" . $inputfiles[($i + 1)] . "\" using VSEARCH...\n");
 				my @tempfiles;
 				if ($inputfiles[$i] =~ /\.xz$/) {
 					if (system("xz -dk " . $inputfiles[$i])) {

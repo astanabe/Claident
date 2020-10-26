@@ -2,7 +2,7 @@ PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 PERL := $(filter /%,$(shell /bin/sh -c 'type perl'))
 VERSION := 0.2.2020.10.26
-PROGRAM := classigntax clblastdbcmd clblastprimer clblastseq clcalcfastqstatv clclassseqv clcleanseqv clconcatpair clconvrefdb clderepblastdb cldivseq clelimdupacc clextractdupacc clfillassign clfilterseq clfilterseqv clfiltersum clidentseq climportfastq clmakeblastdb clmakecachedb clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clrecoverseqv clretrieveacc clremovechimera clshrinkblastdb clsplitseq clsumclass
+PROGRAM := classigntax clblastdbcmd clblastprimer clblastseq clcalcfastqstatv clclassseqv clcleanseqv clconcatpair clconcatpairv clconvrefdb clderepblastdb cldivseq clelimdupacc clextractdupacc clfillassign clfilterseq clfilterseqv clfiltersum clidentseq climportfastq clmakeblastdb clmakecachedb clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clrecoverseqv clretrieveacc clremovechimera clshrinkblastdb clsplitseq clsumclass
 
 all: $(PROGRAM)
 
@@ -34,7 +34,11 @@ clcleanseqv: clcleanseqv.pl
 	echo '#!'$(PERL) > $@
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 
-clconcatpair: clconcatpair.pl
+clconcatpair: clconcatpairv
+	ln -s $< $@
+	chmod 755 $@
+
+clconcatpairv: clconcatpairv.pl
 	echo '#!'$(PERL) > $@
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 

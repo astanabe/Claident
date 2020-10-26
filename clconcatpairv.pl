@@ -57,7 +57,7 @@ sub main {
 
 sub printStartupMessage {
 	print(STDERR <<"_END");
-clconcatpair $buildno
+clconcatpairv $buildno
 =======================================================================
 
 Official web site of this script is
@@ -286,297 +286,99 @@ sub checkVariables {
 		}
 	}
 	# initialize vsearch5d options
-	if ($minqual) {
-		$vsearch5doption .= " --fastq_truncqual $minqual";
-	}
-	if ($minlen) {
-		$vsearch5doption .= " --fastq_minlen $minlen";
-	}
-	if ($minovllen) {
-		$vsearch5doption .= " --fastq_minovlen $minovllen";
-	}
-	if ($maxnmismatch) {
-		$vsearch5doption .= " --fastq_maxdiffs $maxnmismatch";
-	}
-	if ($maxpmismatch) {
-		$vsearch5doption .= " --fastq_maxdiffpct $maxpmismatch";
-	}
 	if ($numthreads) {
 		$vsearch5doption .= " --threads $numthreads";
+	}
+	if ($mode eq 'ovl') {
+		if ($minqual) {
+			$vsearch5doption .= " --fastq_truncqual $minqual";
+		}
+		if ($minlen) {
+			$vsearch5doption .= " --fastq_minlen $minlen";
+		}
+		if ($minovllen) {
+			$vsearch5doption .= " --fastq_minovlen $minovllen";
+		}
+		if ($maxnmismatch) {
+			$vsearch5doption .= " --fastq_maxdiffs $maxnmismatch";
+		}
+		if ($maxpmismatch) {
+			$vsearch5doption .= " --fastq_maxdiffpct $maxpmismatch";
+		}
+		$vsearch5doption .= " --fastq_mergepairs";
+	}
+	elsif ($mode eq 'non') {
+		$vsearch5doption .= " --fastq_join2";
 	}
 }
 
 sub concatenateSequences {
 	print(STDERR "\nProcessing sequences...\n");
-	if ($mode eq 'ovl') {
-		if (scalar(@inputfiles) == 2 && !$folder) {
-			my $i = 0;
-			print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . " using VSEARCH5D...\n");
-			my @tempfiles;
-			if ($inputfiles[$i] =~ /\.xz$/) {
-				if (system("xz -dk " . $inputfiles[$i])) {
-					&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[$i] . "\".");
-				}
-				$inputfiles[$i] =~ s/\.xz$//;
-				push(@tempfiles, $inputfiles[$i]);
+	if (scalar(@inputfiles) == 2 && !$folder) {
+		my $i = 0;
+		print(STDERR "Concatenating \"$inputfiles[$i]\" and \"" . $inputfiles[($i + 1)] . "\" using VSEARCH5D...\n");
+		my @tempfiles;
+		if ($inputfiles[$i] =~ /\.xz$/) {
+			if (system("xz -dk " . $inputfiles[$i])) {
+				&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[$i] . "\".");
 			}
-			if ($inputfiles[($i + 1)] =~ /\.xz$/) {
-				if (system("xz -dk " . $inputfiles[($i + 1)])) {
-					&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[($i + 1)] . "\".");
-				}
-				$inputfiles[($i + 1)] =~ s/\.xz$//;
-				push(@tempfiles, $inputfiles[($i + 1)]);
-			}
-			if (system("$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output\".");
-			}
-			foreach my $tempfile (@tempfiles) {
-				unlink($tempfile);
-			}
-			&compressFileByName($output);
+			$inputfiles[$i] =~ s/\.xz$//;
+			push(@tempfiles, $inputfiles[$i]);
 		}
-		else {
-			my @outputfastq;
-			for (my $i = 0; $i < scalar(@inputfiles); $i += 2) {
-				my $prefix = $inputfiles[$i];
-				if ($prefix =~ /\//) {
-					$prefix =~ s/^.+\///;
-				}
-				$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
-				if ($prefix !~ /__undetermined$/) {
-					print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . " using VSEARCH5D...\n");
-					my @tempfiles;
-					if ($inputfiles[$i] =~ /\.xz$/) {
-						if (system("xz -dk " . $inputfiles[$i])) {
-							&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[$i] . "\".");
-						}
-						$inputfiles[$i] =~ s/\.xz$//;
-						push(@tempfiles, $inputfiles[$i]);
-					}
-					if ($inputfiles[($i + 1)] =~ /\.xz$/) {
-						if (system("xz -dk " . $inputfiles[($i + 1)])) {
-							&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[($i + 1)] . "\".");
-						}
-						$inputfiles[($i + 1)] =~ s/\.xz$//;
-						push(@tempfiles, $inputfiles[($i + 1)]);
-					}
-					if (system("$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$prefix.fastq 1> $devnull")) {
-						&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$prefix.fastq\".");
-					}
-					push(@outputfastq, "$output/$prefix.fastq");
-					foreach my $tempfile (@tempfiles) {
-						unlink($tempfile);
-					}
-				}
+		if ($inputfiles[($i + 1)] =~ /\.xz$/) {
+			if (system("xz -dk " . $inputfiles[($i + 1)])) {
+				&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[($i + 1)] . "\".");
 			}
-			if ($compress) {
-				&compressInParallel(@outputfastq);
-			}
+			$inputfiles[($i + 1)] =~ s/\.xz$//;
+			push(@tempfiles, $inputfiles[($i + 1)]);
 		}
+		if (system("$vsearch5d$vsearch5doption $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearch5doption $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output\".");
+		}
+		foreach my $tempfile (@tempfiles) {
+			unlink($tempfile);
+		}
+		&compressFileByName($output);
 	}
-	elsif ($mode eq 'non') {
-		if (scalar(@inputfiles) == 2 && !$folder) {
-			print(STDERR "Concatenating $inputfiles[0] and $inputfiles[1]...\n");
-			&concatenateNonoverlappedPair($inputfiles[0], $inputfiles[1], $output);
-			&concatenateFiles($output);
+	else {
+		my @outputfastq;
+		for (my $i = 0; $i < scalar(@inputfiles); $i += 2) {
+			my $prefix = $inputfiles[$i];
+			if ($prefix =~ /\//) {
+				$prefix =~ s/^.+\///;
+			}
+			$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
+			if ($prefix !~ /__undetermined$/) {
+				print(STDERR "Concatenating \"$inputfiles[$i]\" and \"" . $inputfiles[($i + 1)] . "\" using VSEARCH5D...\n");
+				my @tempfiles;
+				if ($inputfiles[$i] =~ /\.xz$/) {
+					if (system("xz -dk " . $inputfiles[$i])) {
+						&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[$i] . "\".");
+					}
+					$inputfiles[$i] =~ s/\.xz$//;
+					push(@tempfiles, $inputfiles[$i]);
+				}
+				if ($inputfiles[($i + 1)] =~ /\.xz$/) {
+					if (system("xz -dk " . $inputfiles[($i + 1)])) {
+						&errorMessage(__LINE__, "Cannot run \"xz -dk " . $inputfiles[($i + 1)] . "\".");
+					}
+					$inputfiles[($i + 1)] =~ s/\.xz$//;
+					push(@tempfiles, $inputfiles[($i + 1)]);
+				}
+				if (system("$vsearch5d$vsearch5doption $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$prefix.fastq 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearch5doption $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$prefix.fastq\".");
+				}
+				push(@outputfastq, "$output/$prefix.fastq");
+				foreach my $tempfile (@tempfiles) {
+					unlink($tempfile);
+				}
+			}
 		}
-		else {
-			# make output directory
-			if (!-e $output && !mkdir($output)) {
-				&errorMessage(__LINE__, 'Cannot make output folder.');
-			}
-			my @outputfastq;
-			for (my $i = 0; $i < scalar(@inputfiles); $i += 2) {
-				my $prefix = $inputfiles[$i];
-				if ($prefix =~ /\//) {
-					$prefix =~ s/^.+\///;
-				}
-				$prefix =~ s/\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$//;
-				if ($prefix !~ /__undetermined$/) {
-					print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . "...\n");
-					&concatenateNonoverlappedPair($inputfiles[$i], $inputfiles[($i + 1)], "$output/$prefix.fastq");
-					push(@outputfastq, "$output/$prefix.fastq");
-				}
-			}
-			&concatenateFiles(@outputfastq);
+		if ($compress) {
+			&compressInParallel(@outputfastq);
 		}
 	}
 	print(STDERR "done.\n");
-}
-
-sub concatenateNonoverlappedPair {
-	my $forwardread = shift(@_);
-	my $reverseread = shift(@_);
-	my $outputfile = shift(@_);
-	$filehandleinput1 = &readFile($forwardread);
-	$filehandleinput2 = &readFile($reverseread);
-	# concatenate
-	{
-		my $tempnline = 1;
-		my $seqname;
-		my $nucseq1;
-		my $qualseq1;
-		my $nucseq2;
-		my $qualseq2;
-		my %child;
-		my %pid;
-		my $child = 0;
-		$| = 1;
-		$? = 0;
-		# Processing FASTQ in parallel
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			if ($tempnline % 4 == 1 && /^\@(.+)/) {
-				$seqname = $1;
-				readline($filehandleinput2);
-			}
-			elsif ($tempnline % 4 == 2) {
-				s/[^a-zA-Z]//g;
-				$nucseq1 = uc($_);
-				$nucseq2 = readline($filehandleinput2);
-				$nucseq2 =~ s/\r?\n?$//;
-				$nucseq2 =~ s/[^a-zA-Z]//g;
-				$nucseq2 = uc($nucseq2);
-			}
-			elsif ($tempnline % 4 == 3 && /^\+/) {
-				$tempnline ++;
-				readline($filehandleinput2);
-				next;
-			}
-			elsif ($tempnline % 4 == 0 && $seqname && $nucseq1) {
-				s/\s//g;
-				$qualseq1 = $_;
-				$qualseq2 = readline($filehandleinput2);
-				$qualseq2 =~ s/\r?\n?$//;
-				$qualseq2 =~ s/\s//g;
-				$qualseq2 = $qualseq2;
-				if (my $pid = fork()) {
-					for (my $i = 0; $i < $numthreads * 2; $i ++) {
-						if (!exists($child{$i})) {
-							$child{$i} = 1;
-							$pid{$pid} = $i;
-							$child = $i;
-							last;
-						}
-					}
-					my @child = keys(%child);
-					if (scalar(@child) == $numthreads * 2) {
-						my $endpid = wait();
-						if ($endpid == -1) {
-							undef(%child);
-							undef(%pid);
-						}
-						else {
-							delete($child{$pid{$endpid}});
-							delete($pid{$endpid});
-						}
-					}
-					if ($?) {
-						&errorMessage(__LINE__);
-					}
-					undef($seqname);
-					undef($nucseq1);
-					undef($qualseq1);
-					undef($nucseq2);
-					undef($qualseq2);
-					$tempnline ++;
-					next;
-				}
-				else {
-					# reverse-complement reverse sequence
-					$nucseq2 = &reversecomplement($nucseq2);
-					{
-						my @tempqual = split('', $qualseq2);
-						$qualseq2 = join('', reverse(@tempqual));
-					}
-					# make quality padding
-					my $qualpadding = $padding;
-					$qualpadding =~ s/./V/g;
-					# save to file
-					unless (open($filehandleoutput1, ">> $outputfile.$child")) {
-						&errorMessage(__LINE__, "Cannot write \"$outputfile.$child\".");
-					}
-					unless (flock($filehandleoutput1, LOCK_EX)) {
-						&errorMessage(__LINE__, "Cannot lock \"$outputfile.$child\".");
-					}
-					unless (seek($filehandleoutput1, 0, 2)) {
-						&errorMessage(__LINE__, "Cannot seek \"$outputfile.$child\".");
-					}
-					print($filehandleoutput1 "\@$seqname\n" . $nucseq2 . $padding . $nucseq1 . "\n+\n" . $qualseq2 . $qualpadding . $qualseq1 . "\n");
-					close($filehandleoutput1);
-					exit;
-				}
-			}
-			else {
-				&errorMessage(__LINE__, "Invalid FASTQ.\nFile: $forwardread\nLine: $tempnline");
-			}
-			$tempnline ++;
-		}
-		# join
-		while (wait != -1) {
-			if ($?) {
-				&errorMessage(__LINE__, 'Cannot concatenate sequences correctly.');
-			}
-		}
-	}
-	close($filehandleinput1);
-	close($filehandleinput2);
-}
-
-sub concatenateFiles {
-	{
-		my $child = 0;
-		$| = 1;
-		$? = 0;
-		foreach my $outputfile (@_) {
-			if (my $pid = fork()) {
-				$child ++;
-				if ($child == $numthreads) {
-					if (wait == -1) {
-						$child = 0;
-					} else {
-						$child --;
-					}
-				}
-				if ($?) {
-					&errorMessage(__LINE__);
-				}
-				next;
-			}
-			else {
-				my @seqfiles = glob("$outputfile.*");
-				#if (scalar(@seqfiles) <= $numthreads * 2) {
-					if ($folder && $compress) {
-						$filehandleoutput1 = writeFile("$outputfile.$compress");
-					}
-					else {
-						$filehandleoutput1 = writeFile("$outputfile");
-					}
-					foreach my $seqfile (@seqfiles) {
-						unless (open($filehandleinput1, "< $seqfile")) {
-							&errorMessage(__LINE__, "Cannot open \"$seqfile\".");
-						}
-						while (<$filehandleinput1>) {
-							print($filehandleoutput1 $_);
-						}
-						close($filehandleinput1);
-						unlink($seqfile);
-					}
-					close($filehandleoutput1);
-				#}
-				#else {
-				#	&errorMessage(__LINE__, "Invalid results.");
-				#}
-				exit;
-			}
-		}
-		# join
-		while (wait != -1) {
-			if ($?) {
-				&errorMessage(__LINE__, 'Cannot concatenate sequence file correctly.');
-			}
-		}
-	}
 }
 
 sub compressInParallel {
@@ -719,16 +521,6 @@ sub writeFile {
 	return($filehandle);
 }
 
-sub reversecomplement {
-	my @temp = split('', $_[0]);
-	my @seq;
-	foreach my $seq (reverse(@temp)) {
-		$seq =~ tr/ACGTMRYKVHDBacgtmrykvhdb/TGCAKYRMBDHVtgcakyrmbdhv/;
-		push(@seq, $seq);
-	}
-	return(join('', @seq));
-}
-
 sub errorMessage {
 	my $lineno = shift(@_);
 	my $message = shift(@_);
@@ -741,9 +533,9 @@ sub helpMessage {
 	print(STDERR <<"_END");
 Usage
 =====
-clconcatpair options inputfolder outputfolder
-clconcatpair options inputfile1 inputfile2 ... inputfileN outputfolder
-clconcatpair options forwardread reverseread outputfile (or outputfolder)
+clconcatpairv options inputfolder outputfolder
+clconcatpairv options inputfile1 inputfile2 ... inputfileN outputfolder
+clconcatpairv options forwardread reverseread outputfile (or outputfolder)
 
 Command line options
 ====================
