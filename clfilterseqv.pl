@@ -196,7 +196,7 @@ sub checkVariables {
 							}
 						}
 						else {
-							&errorMessage(__LINE__, "The input files \"$temp[0]\" and \"$temp[1]\" are invalid.");
+							&errorMessage(__LINE__, "The input files \"$temp[$i]\" and \"" . $temp[($i + 1)] . "\" are invalid.");
 						}
 					}
 				}
@@ -236,7 +236,7 @@ sub checkVariables {
 					}
 				}
 				else {
-					&errorMessage(__LINE__, "The input files \"$tempinputfiles[0]\" and \"$tempinputfiles[1]\" are invalid.");
+					&errorMessage(__LINE__, "The input files \"$tempinputfiles[$i]\" and \"" . $tempinputfiles[($i + 1)] . "\" are invalid.");
 				}
 			}
 		}

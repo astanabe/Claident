@@ -21,6 +21,7 @@ my $mode = 'ovl';
 my $padding = 'ACGTACGTACGTACGT';
 my $numthreads = 1;
 my $nodel;
+my $append;
 
 # input/output
 my $output;
@@ -187,7 +188,7 @@ sub checkVariables {
 							}
 						}
 						else {
-							&errorMessage(__LINE__, "The input files \"$temp[0]\" and \"$temp[1]\" are invalid.");
+							&errorMessage(__LINE__, "The input files \"$temp[$i]\" and \"" . $temp[($i + 1)] . "\" are invalid.");
 						}
 					}
 				}
@@ -213,7 +214,7 @@ sub checkVariables {
 					}
 				}
 				else {
-					&errorMessage(__LINE__, "The input files \"$tempinputfiles[0]\" and \"$tempinputfiles[1]\" are invalid.");
+					&errorMessage(__LINE__, "The input files \"$tempinputfiles[$i]\" and \"" . $tempinputfiles[($i + 1)] . "\" are invalid.");
 				}
 			}
 		}
@@ -309,7 +310,8 @@ sub concatenateSequences {
 	print(STDERR "\nProcessing sequences...\n");
 	if ($mode eq 'ovl') {
 		if (scalar(@inputfiles) == 2 && !$folder) {
-			print(STDERR "Concatenating $inputfiles[0] and $inputfiles[1] using VSEARCH5D...\n");
+			my $i = 0;
+			print(STDERR "Concatenating $inputfiles[$i] and " . $inputfiles[($i + 1)] . " using VSEARCH5D...\n");
 			my @tempfiles;
 			if ($inputfiles[$i] =~ /\.xz$/) {
 				if (system("xz -dk " . $inputfiles[$i])) {
@@ -325,8 +327,8 @@ sub concatenateSequences {
 				$inputfiles[($i + 1)] =~ s/\.xz$//;
 				push(@tempfiles, $inputfiles[($i + 1)]);
 			}
-			if (system("$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastqout $output 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[0] --reverse $inputfiles[1] --fastqout $output\".");
+			if (system("$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearch5doption --fastq_mergepairs $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output\".");
 			}
 			foreach my $tempfile (@tempfiles) {
 				unlink($tempfile);
