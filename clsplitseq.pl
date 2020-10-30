@@ -18,7 +18,7 @@ my $reversetagfile;
 my $elimtag = 1;
 my $minlen = 1;
 my $maxlen;
-my $minqualtag;
+my $minqualtag = 0;
 my $replaceinternal;
 my $converse;
 my $maxpmismatch = 0.14;
@@ -139,6 +139,9 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:o|other)$/i) {
 				$seqnamestyle = 'other';
+			}
+			elsif ($value =~ /^nochange$/i) {
+				$seqnamestyle = 'nochange';
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -1325,16 +1328,17 @@ sub saveToFile {
 			$seqname .= ':' . $options->{'umiseq'};
 		}
 		$seqname .= " $seqnamesuffix";
+		$seqname .= " SN:$samplename";
 	}
-	else {
+	elsif ($seqnamestyle eq 'other') {
 		if ($options->{'umiseq'}) {
 			$seqname .= ' UMI:' . $options->{'umiseq'};
 		}
 		if ($options->{'tagseq'}) {
 			$seqname .= ' MID:' . $options->{'tagseq'};
 		}
+		$seqname .= " SN:$samplename";
 	}
-	$seqname .= " SN:$samplename";
 	print($filehandleoutput1 "\@$seqname\n$nucseq\n+\n$qualseq\n");
 	close($filehandleoutput1);
 }
@@ -1713,7 +1717,7 @@ Command line options
 --runname=RUNNAME
   Specify run name. This is mandatory. (default: none)
 
---seqnamestyle=ILLUMINA|OTHER
+--seqnamestyle=ILLUMINA|OTHER|NOCHANGE
   Specify sequence name style. (default:ILLUMINA)
 
 --primername=PRIMERNAME
@@ -1785,7 +1789,7 @@ If you want to restrict length of UMI, give INTEGER instead of Boolean.
   Specify outputfile append or not. (default: off)
 
 --minqualtag=INTEGER
-  Specify minimum quality threshold for tag. (default: minqual)
+  Specify minimum quality threshold for tag. (default: 0)
 
 --gapopenscore=INTEGER
   Specify gap open score for alignment of primers. (default: -10)

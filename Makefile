@@ -1,8 +1,8 @@
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 PERL := $(filter /%,$(shell /bin/sh -c 'type perl'))
-VERSION := 0.2.2020.10.26
-PROGRAM := classigntax clblastdbcmd clblastprimer clblastseq clcalcfastqstatv clclassseqv clcleanseqv clconcatpair clconcatpairv clconvrefdb clderepblastdb cldivseq clelimdupacc clextractdupacc clfillassign clfilterseq clfilterseqv clfiltersum clidentseq climportfastq clmakeblastdb clmakecachedb clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clrecoverseqv clretrieveacc clremovechimera clshrinkblastdb clsplitseq clsumclass
+VERSION := 0.2.2020.10.31
+PROGRAM := classigntax clblastdbcmd clblastprimer clblastseq clcalcfastqstatv clclassseqv clcleanseqv clconcatpair clconcatpairv clconvrefdb clderepblastdb cldivseq clelimdupacc clextractdupacc clfillassign clfilterseq clfilterseqv clfiltersum clidentseq climportfastq clmakeblastdb clmakecachedb clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clrecoverseqv clretrieveacc clremovechimerav clshrinkblastdb clsplitseq clsumclass clsumtaxa
 
 all: $(PROGRAM)
 
@@ -27,10 +27,6 @@ clcalcfastqstatv: clcalcfastqstatv.pl
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clclassseqv: clclassseqv.pl
-	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
-
-clcleanseqv: clcleanseqv.pl
 	echo '#!'$(PERL) > $@
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 
@@ -122,7 +118,7 @@ clretrieveacc: clretrieveacc.pl
 	echo '#!'$(PERL) > $@
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 
-clremovechimera: clremovechimera.pl
+clremovechimerav: clremovechimerav.pl
 	echo '#!'$(PERL) > $@
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 
@@ -135,6 +131,10 @@ clsplitseq: clsplitseq.pl
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clsumclass: clsumclass.pl
+	echo '#!'$(PERL) > $@
+	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+
+clsumtaxa: clsumtaxa.pl
 	echo '#!'$(PERL) > $@
 	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
 

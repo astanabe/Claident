@@ -107,132 +107,39 @@ sub checkVariables {
 }
 
 sub readMembers {
-	my $format;
 	# read input file
 	$filehandleinput1 = &readFile($inputfile);
+	my $otuname;
 	while (<$filehandleinput1>) {
-		if (/\t/) {
-			$format = 'contigmembers';
-			last;
+		s/\r?\n?$//;
+		s/;+size=\d+;*//g;
+		if (/^>(.+)$/) {
+			$otuname = $1;
+			push(@otunames, $otuname);
 		}
-		elsif (/^>/) {
-			$format = 'otu';
-			last;
-		}
-		else {
-			&errorMessage(__LINE__, "The input file is unknown format.");
-		}
-	}
-	close($filehandleinput1);
-	# read input file again
-	$filehandleinput1 = &readFile($inputfile);
-	# if input file is contigmembers
-	if ($format eq 'contigmembers') {
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			if (my @row = split(/\t/)) {
-				if (scalar(@row) > 2) {
-					my $otuname = shift(@row);
-					push(@otunames, $otuname);
-					foreach my $contigmember (@row) {
-						my @temp = split(/__/, $contigmember);
-						if (scalar(@temp) == 3) {
-							my ($temp, $temprunname, $primer) = @temp;
-							if ($runname) {
-								$temprunname = $runname;
-							}
-							$table{"$temprunname\__$primer"}{$otuname} ++;
-						}
-						elsif (scalar(@temp) == 4) {
-							my ($temp, $temprunname, $tag, $primer) = @temp;
-							if ($runname) {
-								$temprunname = $runname;
-							}
-							$table{"$temprunname\__$tag\__$primer"}{$otuname} ++;
-						}
-						else {
-							&errorMessage(__LINE__, "\"$contigmember\" is invalid name.");
-						}
-					}
+		elsif ($otuname && /^([^>].*)$/) {
+			my $otumember = $1;
+			my @temp = split(/__/, $otumember);
+			if (scalar(@temp) == 3) {
+				my ($temp, $temprunname, $primer) = @temp;
+				if ($runname) {
+					$temprunname = $runname;
 				}
-				elsif (scalar(@row) == 2) {
-					push(@otunames, $row[1]);
-					my @temp = split(/__/, $row[1]);
-					if (scalar(@temp) == 3) {
-						my ($temp, $temprunname, $primer) = @temp;
-						if ($runname) {
-							$temprunname = $runname;
-						}
-						$table{"$temprunname\__$primer"}{$row[1]} ++;
-					}
-					elsif (scalar(@temp) == 4) {
-						my ($temp, $temprunname, $tag, $primer) = @temp;
-						if ($runname) {
-							$temprunname = $runname;
-						}
-						$table{"$temprunname\__$tag\__$primer"}{$row[1]} ++;
-					}
-					else {
-						&errorMessage(__LINE__, "\"$row[1]\" is invalid name.");
-					}
-				}
-				else {
-					&errorMessage(__LINE__, "Invalid assemble results.\nInput file: $inputfile\nContig: $row[0]\n");
-				}
+				$table{"$temprunname\__$primer"}{$otuname} ++;
 			}
-		}
-	}
-	elsif ($format eq 'otu') {
-		my $otuname;
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			s/;+size=\d+;*//g;
-			if (/^>(.+)$/) {
-				$otuname = $1;
-				push(@otunames, $otuname);
-				my @temp = split(/__/, $otuname);
-				if (scalar(@temp) == 3) {
-					my ($temp, $temprunname, $primer) = @temp;
-					if ($runname) {
-						$temprunname = $runname;
-					}
-					$table{"$temprunname\__$primer"}{$otuname} ++;
+			elsif (scalar(@temp) == 4) {
+				my ($temp, $temprunname, $tag, $primer) = @temp;
+				if ($runname) {
+					$temprunname = $runname;
 				}
-				elsif (scalar(@temp) == 4) {
-					my ($temp, $temprunname, $tag, $primer) = @temp;
-					if ($runname) {
-						$temprunname = $runname;
-					}
-					$table{"$temprunname\__$tag\__$primer"}{$otuname} ++;
-				}
-				else {
-					&errorMessage(__LINE__, "\"$otuname\" is invalid name.");
-				}
-			}
-			elsif ($otuname && /^([^>].*)$/) {
-				my $otumember = $1;
-				my @temp = split(/__/, $otumember);
-				if (scalar(@temp) == 3) {
-					my ($temp, $temprunname, $primer) = @temp;
-					if ($runname) {
-						$temprunname = $runname;
-					}
-					$table{"$temprunname\__$primer"}{$otuname} ++;
-				}
-				elsif (scalar(@temp) == 4) {
-					my ($temp, $temprunname, $tag, $primer) = @temp;
-					if ($runname) {
-						$temprunname = $runname;
-					}
-					$table{"$temprunname\__$tag\__$primer"}{$otuname} ++;
-				}
-				else {
-					&errorMessage(__LINE__, "\"$otumember\" is invalid name.");
-				}
+				$table{"$temprunname\__$tag\__$primer"}{$otuname} ++;
 			}
 			else {
-				&errorMessage(__LINE__, "\"$inputfile\" is invalid.");
+				&errorMessage(__LINE__, "\"$otumember\" is invalid name.");
 			}
+		}
+		else {
+			&errorMessage(__LINE__, "\"$inputfile\" is invalid.");
 		}
 	}
 	close($filehandleinput1);
@@ -327,8 +234,6 @@ Command line options
 
 Acceptable input file formats
 =============================
-contigmembers.txt
-contigmembers.gz
 otu.gz
 _END
 	exit;

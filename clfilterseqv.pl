@@ -1,13 +1,12 @@
 use strict;
 use File::Spec;
-use Fcntl ':flock';
 
 my $buildno = '0.2.x';
 
 my $devnull = File::Spec->devnull();
 
 # global variable
-my $vsearchoption = " --notrunclabels --fastq_qmax 93 --fastq_qmaxout 93";
+my $vsearchoption = " --fastq_qmax 93";
 
 # options
 my $folder = 0;

@@ -11,7 +11,6 @@ my $vsearchoption = " --fastq_qmax 93";
 
 # options
 my $mode = 2;
-my $numthreads = 1;
 
 # input/output
 my $output;
@@ -83,9 +82,6 @@ sub getOptions {
 	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 		if ($ARGV[$i] =~ /^-+(?:m|mode)=(\d+)$/i) {
 			$mode = $1;
-		}
-		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
-			$numthreads = $1;
 		}
 		else {
 			my @temp = glob($ARGV[$i]);
@@ -196,9 +192,6 @@ sub checkVariables {
 	elsif ($mode == 2) {
 		$vsearchoption .= " --output $output --fastq_eestats2 - --length_cutoffs \"5,*,5\"";
 	}
-	if ($numthreads) {
-		$vsearchoption .= " --threads $numthreads";
-	}
 }
 
 sub filterSequences {
@@ -299,9 +292,6 @@ Command line options
   Specify the statistics calculation mode. These number corresponds to
 \"fastq_stats\", \"fastq_eestats\" and \"fastq_eestats2\", respectively.
 (default: 2)
-
--n, --numthreads=INTEGER
-  Specify the number of processes. (default: 1)
 
 Acceptable input file formats
 =============================
