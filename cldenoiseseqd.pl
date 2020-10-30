@@ -95,6 +95,9 @@ sub getOptions {
 			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
 				$pooling = 0;
 			}
+			elsif ($value =~ /^(?:pseudo|p)$/i) {
+				$pooling = 'pseudo';
+			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 			}
