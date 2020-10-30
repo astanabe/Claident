@@ -26,7 +26,6 @@ my $vsearch5d;
 
 # global variables
 my $root = getcwd();
-my %members;
 
 # file handles
 my $filehandleinput1;
@@ -51,10 +50,6 @@ sub main {
 	&checkVariables();
 	# check input file format
 	&checkInputFiles();
-	# make output directory
-	if (!-e $outputfolder && !mkdir($outputfolder)) {
-		&errorMessage(__LINE__, 'Cannot make output folder.');
-	}
 	# change working directory
 	unless (chdir($outputfolder)) {
 		&errorMessage(__LINE__, 'Cannot change working directory.');
@@ -170,11 +165,35 @@ sub getOptions {
 }
 
 sub checkVariables {
-	if (-e $outputfolder) {
-		&errorMessage(__LINE__, "\"$outputfolder\" already exists.");
-	}
 	if (!@inputfiles) {
 		&errorMessage(__LINE__, "No input file was specified.");
+	}
+	{
+		my @newinputfiles;
+		my @tempinputfiles;
+		foreach my $inputfile (@inputfiles) {
+			if (-d $inputfile) {
+				my @temp = sort(glob("$inputfile/*.fasta"), glob("$inputfile/*.fasta.gz"), glob("$inputfile/*.fasta.bz2"), glob("$inputfile/*.fasta.xz"), glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
+				for (my $i = 0; $i < scalar(@temp); $i ++) {
+					if (-f $temp[$i] || -l $temp[$i]) {
+						push(@newinputfiles, $temp[$i]);
+					}
+					else {
+						&errorMessage(__LINE__, "The input files \"$temp[0]\" and \"$temp[1]\" are invalid.");
+					}
+				}
+			}
+			elsif (-f $inputfile || -l $inputfile) {
+				push(@newinputfiles, $inputfile);
+			}
+			else {
+				&errorMessage(__LINE__, "The input file \"$inputfile\" is invalid.");
+			}
+		}
+		@inputfiles = @newinputfiles;
+	}
+	if (-e $outputfolder) {
+		&errorMessage(__LINE__, "\"$outputfolder\" already exists.");
 	}
 	if ($vsearchoption !~ / -+id \d+/) {
 		$vsearchoption = " --id 0.97" . $vsearchoption;
@@ -277,12 +296,12 @@ sub checkInputFiles {
 							}
 						}
 						if ($fileformat eq 'FASTA' && /^>/ || $fileformat eq 'FASTQ' && $lineno % 4 == 1) {
-							if ($_ =~ /.+__.+__.+__.+/ || $_ =~ /^\s*\r?\n?$/) {
+							if ($_ =~ / SN:\S+__\S+__\S+/ || $_ =~ /^\s*\r?\n?$/) {
 								$lineno ++;
 								next;
 							}
 							else {
-								$_ = s/^[>\@](.+)\r?\n?$/$1/;
+								$_ =~ s/^[>\@](.+)\r?\n?$/$1/;
 								&errorMessage(__LINE__, "The sequence name \"$_\" in \"$inputfile\" is invalid.");
 							}
 						}
@@ -328,9 +347,18 @@ sub makeConcatenatedFiles {
 				$tempinputfile = $inputpath;
 			}
 		}
+		my %replace;
 		$filehandleinput1 = &readFile($tempinputfile);
-		while (<$filehandleinput1>) {
-			print($filehandleoutput1 $_);
+		{
+			my $tempnum = 1;
+			while (<$filehandleinput1>) {
+				if (/^>/) {
+					s/^>(.+)\r?\n?/>temp_$tempnum\n/;
+					$replace{$1} = "temp_$tempnum";
+					$tempnum ++;
+				}
+				print($filehandleoutput1 $_);
+			}
 		}
 		close($filehandleinput1);
 		my $otufile = $inputfile;
@@ -341,6 +369,7 @@ sub makeConcatenatedFiles {
 		if (-e $otufile) {
 			$filehandleinput1 = &readFile($otufile);
 			while (<$filehandleinput1>) {
+				s/^>(.+)\r?\n?/>$replace{$1}\n/;
 				print($filehandleoutput2 $_);
 			}
 			close($filehandleinput1);
@@ -349,6 +378,7 @@ sub makeConcatenatedFiles {
 			$filehandleinput1 = &readFile($tempinputfile);
 			while (<$filehandleinput1>) {
 				if (/^>/) {
+					s/^>(.+)\r?\n?/>$replace{$1}\n/;
 					print($filehandleoutput2 $_);
 				}
 			}
@@ -361,8 +391,8 @@ sub makeConcatenatedFiles {
 
 sub runVSEARCH {
 	print(STDERR "Running remapping by VSEARCH...\n");
-	unless (fcopy("$root/$centroidfile", "clustered.fasta")) {
-		&errorMessage(__LINE__, "Cannot copy \"$root/$centroidfile\" to \"clustered.fasta\".");
+	unless (fcopy("$root/$centroidfile", "temp.fasta")) {
+		&errorMessage(__LINE__, "Cannot copy \"$root/$centroidfile\" to \"temp.fasta\".");
 	}
 	my $tempminovllen;
 	if ($minovllen == 0) {
@@ -373,16 +403,16 @@ sub runVSEARCH {
 	}
 	# remap dereplicated reads to centroids
 	if ($paddinglen > 0) {
-		if (system("$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --idoffset $paddinglen --mincols $tempminovllen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --idoffset $paddinglen --mincols $tempminovllen\".");
+		if (system("$vsearch5d$vsearchoption concatenated.fasta --db temp.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --idoffset $paddinglen --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --db temp.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --idoffset $paddinglen --mincols $tempminovllen\".");
 		}
 	}
 	else {
-		if (system("$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --mincols $tempminovllen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --db clustered.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --mincols $tempminovllen\".");
+		if (system("$vsearch$vsearchoption concatenated.fasta --db temp.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --db temp.fasta --threads $numthreads --dbnotmatched nohit.fasta --uc clustered.uc --mincols $tempminovllen\".");
 		}
 	}
-	&convertUCtoOTUMembers("clustered.uc", "clustered.otu.gz", "concatenated.otu.gz");
+	&convertUCtoOTUMembers("temp.fasta", "clustered.fasta", "clustered.uc", "clustered.otu.gz", "concatenated.otu.gz");
 	unless ($nodel) {
 		unlink("concatenated.fasta");
 		unlink("concatenated.otu.gz");
@@ -392,64 +422,34 @@ sub runVSEARCH {
 	}
 	else {
 		print(STDERR "WARNING!: Several centroid sequences did not match the input sequences.\nThis is weird.\nPlease check the input files and \"nohit.fasta\".\n");
-		#if (system("gzip nohit.fasta")) {
-		#	&errorMessage(__LINE__, "Cannot run \"gzip nohit.fasta\".");
-		#}
 	}
-	# sort by abundance
-	&readMembers("clustered.otu.gz");
-	{
-		$filehandleinput1 = &readFile("clustered.fasta");
-		$filehandleoutput1 = &writeFile("temp.fasta");
-		local $/ = "\n>";
-		while (<$filehandleinput1>) {
-			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
-				my $seqname = $1;
-				my $sequence = uc($2);
-				$seqname =~ s/;+size=\d+;*//g;
-				$sequence =~ s/[^A-Z]//sg;
-				if ($members{$seqname}) {
-					print($filehandleoutput1 ">$seqname;size=$members{$seqname};\n$sequence\n");
-				}
-				else {
-					&errorMessage(__LINE__, "Invalid result.");
-				}
-			}
-		}
-		close($filehandleoutput1);
-		close($filehandleinput1);
-	}
-	if (system("$vsearch$vsearchoption2 temp.fasta --output clustered.fasta --threads $numthreads 1> $devnull")) {
-		&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption2 temp.fasta --output clustered.fasta --threads $numthreads\".");
-	}
-	unless ($nodel) {
-		unlink("temp.fasta");
-	}
-	#if (system("gzip clustered.fasta")) {
-	#	&errorMessage(__LINE__, "Cannot run \"gzip clustered.fasta\".");
-	#}
 	print(STDERR "done.\n\n");
 }
 
 sub convertUCtoOTUMembers {
 	my @subotufile = @_;
+	my $tempfasta = shift(@subotufile);
+	my $outfasta = shift(@subotufile);
 	my $ucfile = shift(@subotufile);
 	my $otufile = shift(@subotufile);
 	my %subcluster;
 	foreach my $subotufile (@subotufile) {
 		$filehandleinput1 = &readFile($subotufile);
-		my $centroid;
+		my $otuname;
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			s/;+size=\d+;*//g;
 			if (/^>(.+)$/) {
-				$centroid = $1;
+				$otuname = $1;
 			}
-			elsif ($centroid && /^([^>].*)$/) {
-				push(@{$subcluster{$centroid}}, $1);
+			elsif ($otuname && /^([^>].*)$/) {
+				push(@{$subcluster{$otuname}}, $1);
 			}
 		}
 		close($filehandleinput1);
+		unless ($otuname) {
+			&errorMessage(__LINE__, "\"$subotufile\" is invalid.");
+		}
 	}
 	my %cluster;
 	$filehandleinput1 = &readFile($ucfile);
@@ -488,15 +488,30 @@ sub convertUCtoOTUMembers {
 	unless ($nodel) {
 		unlink($ucfile);
 	}
+	my %replace;
 	$filehandleoutput1 = &writeFile($otufile);
-	foreach my $centroid (keys(%cluster)) {
-		print($filehandleoutput1 ">$centroid\n");
-		foreach my $member (@{$cluster{$centroid}}) {
-			if ($member ne $centroid) {
+	{
+		my @cluster = sort({scalar(@{$cluster{$b}}) <=> scalar(@{$cluster{$a}})} keys(%cluster));
+		my $ncluster = scalar(@cluster);
+		my $length = length($ncluster);
+		my $num = 1;
+		foreach my $centroid (@cluster) {
+			my $otuname = sprintf(">otu_%0*d\n", $length, $num);
+			$replace{$centroid} = $otuname;
+			print($filehandleoutput1 ">$otuname\n");
+			foreach my $member (@{$cluster{$centroid}}) {
 				print($filehandleoutput1 "$member\n");
 			}
 		}
 	}
+	close($filehandleoutput1);
+	$filehandleoutput1 = &writeFile($outfasta);
+	$filehandleinput1 = &readFile($tempfasta);
+	while (<$filehandleinput1>) {
+		s/^>(.+)\r?\n?/>$replace{$1}\n/;
+		print($filehandleoutput2 $_);
+	}
+	close($filehandleinput1);
 	close($filehandleoutput1);
 }
 
@@ -531,27 +546,6 @@ sub getMinimumLength {
 		$minlen = 10000;
 	}
 	return($minlen);
-}
-
-sub readMembers {
-	my $otufile = shift(@_);
-	$filehandleinput1 = &readFile($otufile);
-	my $centroid;
-	while (<$filehandleinput1>) {
-		s/\r?\n?$//;
-		s/;+size=\d+;*//g;
-		if (/^>(.+)$/) {
-			$centroid = $1;
-			$members{$centroid} = 1;
-		}
-		elsif ($centroid && /^([^>].*)$/) {
-			$members{$centroid} ++;
-		}
-		else {
-			&errorMessage(__LINE__, "\"$otufile\" is invalid.");
-		}
-	}
-	close($filehandleinput1);
 }
 
 sub writeFile {
