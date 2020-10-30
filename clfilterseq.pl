@@ -31,7 +31,6 @@ my $numthreads = 1;
 # Input/Output
 my @inputfiles;
 my $output;
-my $contigmembers;
 my $otufile;
 my $replicatelist;
 
@@ -55,7 +54,7 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
-	# read contigmembers or otufile
+	# read otufile
 	&readMembers();
 	# recognize file format
 	&recognizeFormat();
@@ -120,9 +119,6 @@ sub getOptions {
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:o|output)=(?:folder|dir|directory)$/i) {
 			$folder = 1;
-		}
-		elsif ($ARGV[$i] =~ /^-+contigmembers?=(.+)$/i) {
-			$contigmembers = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+otufile=(.+)$/i) {
 			$otufile = $1;
@@ -244,19 +240,13 @@ sub checkVariables {
 			&errorMessage(__LINE__, "Temporary files already exist.");
 		}
 	}
-	if ($contigmembers && $otufile) {
-		&errorMessage(__LINE__, "Both contigmembers and OTU files were given, but these options are incompatible.");
-	}
-	if ($contigmembers && !-e $contigmembers) {
-		&errorMessage(__LINE__, "\"$contigmembers\" does not exist.");
-	}
 	if ($otufile && !-e $otufile) {
 		&errorMessage(__LINE__, "\"$otufile\" does not exist.");
 	}
 	if ($replicatelist && !-e $replicatelist) {
 		&errorMessage(__LINE__, "\"$replicatelist\" does not exist.");
 	}
-	if (($minnseq || $replicatelist) && !$otufile && !$contigmembers) {
+	if (($minnseq || $replicatelist) && !$otufile) {
 		my $prefix = $inputfiles[0];
 		$prefix =~ s/\.(?:gz|bz2|xz)$//i;
 		$prefix =~ s/\.[^\.]+$//;
@@ -266,21 +256,12 @@ sub checkVariables {
 		elsif (-e "$prefix.otu") {
 			$otufile = "$prefix.otu";
 		}
-		elsif (-e "$prefix.contigmembers.gz") {
-			$contigmembers = "$prefix.contigmembers.gz";
-		}
-		elsif (-e "$prefix.contigmembers.txt") {
-			$contigmembers = "$prefix.contigmembers.txt";
-		}
-		elsif (-e "$prefix.contigmembers") {
-			$contigmembers = "$prefix.contigmembers";
-		}
 	}
-	if ($minnseq && !$contigmembers && !$otufile) {
-		&errorMessage(__LINE__, "The minimum number threshold for reads of contigs requires contigmembers or OTU file.");
+	if ($minnseq && !$otufile) {
+		&errorMessage(__LINE__, "The minimum number threshold for reads of contigs requires OTU file.");
 	}
-	if ($replicatelist && !$contigmembers && !$otufile) {
-		&errorMessage(__LINE__, "Replicate list requires contigmembers or OTU file.");
+	if ($replicatelist && !$otufile) {
+		&errorMessage(__LINE__, "Replicate list requires OTU file.");
 	}
 	if ($minnseq && $replicatelist) {
 		&errorMessage(__LINE__, "The minimum number threshold for reads of contigs is incompatible to replicate list.");
@@ -306,142 +287,24 @@ sub checkVariables {
 }
 
 sub readMembers {
-	# read contig members
-	if ($contigmembers && $minnseq) {
-		$filehandleinput1 = &readFile($contigmembers);
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			my @temp = split(/\t/, $_);
-			if (scalar(@temp) > 2) {
-				$members{$temp[0]} = scalar(@temp) - 1;
-			}
-			elsif (scalar(@temp) == 2) {
-				$members{$temp[1]} = 1;
-			}
-			elsif (/.+/) {
-				&errorMessage(__LINE__, "The contigmembers file is invalid.");
-			}
-		}
-		close($filehandleinput1);
-	}
-	elsif ($otufile && $minnseq) {
+	# read OTU file
+	if ($otufile && $minnseq) {
 		$filehandleinput1 = &readFile($otufile);
-		my $centroid;
+		my $otuname;
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			s/;+size=\d+;*//g;
 			if (/^>(.+)$/) {
-				$centroid = $1;
-				$members{$centroid} = 1;
+				$otuname = $1;
 			}
-			elsif ($centroid && /^([^>].*)$/) {
-				$members{$centroid} ++;
+			elsif ($otuname && /^([^>].*)$/) {
+				$members{$otuname} ++;
 			}
 			else {
 				&errorMessage(__LINE__, "\"$otufile\" is invalid.");
 			}
 		}
 		close($filehandleinput1);
-	}
-	elsif ($contigmembers && $replicatelist) {
-		# read contigmembers and store
-		my %table;
-		my %otusum;
-		my @otunames;
-		$filehandleinput1 = &readFile($contigmembers);
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			my @row = split(/\t/, $_);
-			if (scalar(@row) > 2) {
-				my $otuname = shift(@row);
-				push(@otunames, $otuname);
-				foreach my $contigmember (@row) {
-					my @temp = split(/__/, $contigmember);
-					if (scalar(@temp) == 3) {
-						my ($temp, $temprunname, $primer) = @temp;
-						if ($runname) {
-							$temprunname = $runname;
-						}
-						$table{"$temprunname\__$primer"}{$otuname} ++;
-						$otusum{$otuname} ++;
-					}
-					elsif (scalar(@temp) == 4) {
-						my ($temp, $temprunname, $tag, $primer) = @temp;
-						if ($runname) {
-							$temprunname = $runname;
-						}
-						$table{"$temprunname\__$tag\__$primer"}{$otuname} ++;
-						$otusum{$otuname} ++;
-					}
-					else {
-						&errorMessage(__LINE__, "\"$contigmember\" is invalid name.");
-					}
-				}
-			}
-			elsif (scalar(@row) == 2) {
-				push(@otunames, $row[1]);
-				my @temp = split(/__/, $row[1]);
-				if (scalar(@temp) == 3) {
-					my ($temp, $temprunname, $primer) = @temp;
-					if ($runname) {
-						$temprunname = $runname;
-					}
-					$table{"$temprunname\__$primer"}{$row[1]} ++;
-					$otusum{$row[1]} ++;
-				}
-				elsif (scalar(@temp) == 4) {
-					my ($temp, $temprunname, $tag, $primer) = @temp;
-					if ($runname) {
-						$temprunname = $runname;
-					}
-					$table{"$temprunname\__$tag\__$primer"}{$row[1]} ++;
-					$otusum{$row[1]} ++;
-				}
-				else {
-					&errorMessage(__LINE__, "\"$row[1]\" is invalid name.");
-				}
-			}
-			else {
-				&errorMessage(__LINE__, "The contigmembers file is invalid.");
-			}
-		}
-		close($filehandleinput1);
-		# read replicatelist
-		my %replicate;
-		$filehandleinput1 = &readFile($replicatelist);
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			my @temp = split(/\t/, $_);
-			for (my $i = 0; $i < scalar(@temp); $i ++) {
-				push(@{$replicate{$temp[0]}}, $temp[$i]);
-			}
-		}
-		close($filehandleinput1);
-		# determine whether chimeric OTU or not within sample
-		my %withinsample;
-		foreach my $sample (keys(%replicate)) {
-			my %nreps;
-			my %nreads;
-			foreach my $replicate (@{$replicate{$sample}}) {
-				foreach my $otuname (@otunames) {
-					if ($table{$replicate}{$otuname}) {
-						$nreps{$otuname} ++;
-						$nreads{$otuname} += $table{$replicate}{$otuname};
-					}
-				}
-			}
-			foreach my $otuname (keys(%nreps)) {
-				if ($nreps{$otuname} < $minnreplicate || ($nreps{$otuname} / @{$replicate{$sample}}) < $minpreplicate) {
-					$withinsample{$otuname} += $nreads{$otuname};
-				}
-			}
-		}
-		# determine whether chimeric OTU or not in total
-		foreach my $otuname (@otunames) {
-			if ($withinsample{$otuname} >= $minnpositive && ($withinsample{$otuname} / $otusum{$otuname}) >= $minppositive) {
-				$eliminate{$otuname} = 1;
-			}
-		}
 	}
 	elsif ($otufile && $replicatelist) {
 		# read OTU file and store
@@ -456,40 +319,12 @@ sub readMembers {
 			if (/^>(.+)$/) {
 				$otuname = $1;
 				push(@otunames, $otuname);
-				my @temp = split(/__/, $otuname);
-				if (scalar(@temp) == 3) {
-					my ($temp, $temprunname, $primer) = @temp;
-					if ($runname) {
-						$temprunname = $runname;
-					}
-					$table{"$temprunname\__$primer"}{$otuname} ++;
-					$otusum{$otuname} ++;
-				}
-				elsif (scalar(@temp) == 4) {
-					my ($temp, $temprunname, $tag, $primer) = @temp;
-					if ($runname) {
-						$temprunname = $runname;
-					}
-					$table{"$temprunname\__$tag\__$primer"}{$otuname} ++;
-					$otusum{$otuname} ++;
-				}
-				else {
-					&errorMessage(__LINE__, "\"$otuname\" is invalid name.");
-				}
 			}
-			elsif ($otuname && /^([^>].*)$/) {
-				my $otumember = $1;
-				my @temp = split(/__/, $otumember);
+			elsif ($otuname && / SN:(\S+)/) {
+				my $samplename = $1;
+				my @temp = split(/__/, $samplename);
 				if (scalar(@temp) == 3) {
-					my ($temp, $temprunname, $primer) = @temp;
-					if ($runname) {
-						$temprunname = $runname;
-					}
-					$table{"$temprunname\__$primer"}{$otuname} ++;
-					$otusum{$otuname} ++;
-				}
-				elsif (scalar(@temp) == 4) {
-					my ($temp, $temprunname, $tag, $primer) = @temp;
+					my ($temprunname, $tag, $primer) = @temp;
 					if ($runname) {
 						$temprunname = $runname;
 					}
@@ -497,7 +332,7 @@ sub readMembers {
 					$otusum{$otuname} ++;
 				}
 				else {
-					&errorMessage(__LINE__, "\"$otumember\" is invalid name.");
+					&errorMessage(__LINE__, "\"$_\" is invalid name.");
 				}
 			}
 			else {
@@ -1182,9 +1017,6 @@ sequence length is longer than maxlen.
 --replaceinternal
   Specify whether internal low-quality characters replace to missing
 data (?) or not. (default: off)
-
---contigmembers=FILENAME
-  Specify file path to contigmembers file. (default: none)
 
 --otufile=FILENAME
   Specify file path to otu file. (default: none)

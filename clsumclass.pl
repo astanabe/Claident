@@ -117,25 +117,18 @@ sub readMembers {
 			$otuname = $1;
 			push(@otunames, $otuname);
 		}
-		elsif ($otuname && /^([^>].*)$/) {
-			my $otumember = $1;
-			my @temp = split(/__/, $otumember);
+		elsif ($otuname && / SN:(\S+)/) {
+			my $samplename = $1;
+			my @temp = split(/__/, $samplename);
 			if (scalar(@temp) == 3) {
-				my ($temp, $temprunname, $primer) = @temp;
-				if ($runname) {
-					$temprunname = $runname;
-				}
-				$table{"$temprunname\__$primer"}{$otuname} ++;
-			}
-			elsif (scalar(@temp) == 4) {
-				my ($temp, $temprunname, $tag, $primer) = @temp;
+				my ($temprunname, $tag, $primer) = @temp;
 				if ($runname) {
 					$temprunname = $runname;
 				}
 				$table{"$temprunname\__$tag\__$primer"}{$otuname} ++;
 			}
 			else {
-				&errorMessage(__LINE__, "\"$otumember\" is invalid name.");
+				&errorMessage(__LINE__, "\"$_\" is invalid name.");
 			}
 		}
 		else {
