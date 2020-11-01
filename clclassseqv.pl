@@ -474,6 +474,7 @@ sub convertUCtoOTUMembers {
 	$filehandleoutput1 = &writeFile($outfasta);
 	$filehandleinput1 = &readFile($tempfasta);
 	while (<$filehandleinput1>) {
+		s/;+size=\d+;*//g;
 		s/^>(.+)\r?\n?/>$replace{$1}\n/;
 		print($filehandleoutput2 $_);
 	}

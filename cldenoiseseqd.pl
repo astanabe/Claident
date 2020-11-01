@@ -146,7 +146,7 @@ sub checkVariables {
 						push(@newinputfiles, $temp[$i]);
 					}
 					else {
-						&errorMessage(__LINE__, "The input files \"$temp[0]\" and \"$temp[1]\" are invalid.");
+						&errorMessage(__LINE__, "The input files \"$temp[$i]\" is invalid.");
 					}
 				}
 			}
