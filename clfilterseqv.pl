@@ -6,7 +6,7 @@ my $buildno = '0.2.x';
 my $devnull = File::Spec->devnull();
 
 # global variable
-my $vsearchoption;
+my $vsearchoption = " --fastq_qmax 93";
 
 # options
 my $folder = 0;
@@ -15,7 +15,7 @@ my $maxnee = 2.0;
 my $minlen = 0;
 my $maxlen = 99999;
 my $minqual = 0;
-my $maxqual = 41;
+my $maxqual = 93;
 my $ovlen = 'truncate';
 my $maxnNs = 0;
 my $compress = 'gz';
@@ -316,11 +316,14 @@ sub checkVariables {
 	if ($minqual) {
 		$vsearchoption .= " --fastq_truncqual $minqual";
 	}
-	if ($maxqual) {
-		$vsearchoption .= " --fastq_qmax $maxqual";
-	}
 	if ($minlen) {
 		$vsearchoption .= " --fastq_minlen $minlen";
+	}
+	if ($maxqual == 93) {
+		undef($maxqual);
+	}
+	elsif ($maxqual > 93) {
+		&errorMessage(__LINE__, "The maximum quality value is invalid.");
 	}
 	if ($maxlen) {
 		if ($ovlen eq 'truncate') {
@@ -353,8 +356,15 @@ sub filterSequences {
 			$inputfiles[0] =~ s/\.xz$//;
 			$tempfile = $inputfiles[0];
 		}
-		if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout $output 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout $output\".");
+		if ($maxqual) {
+			if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout - | $vsearch --fastq_convert - --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout - | $vsearch --fastq_convert - --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output\".");
+			}
+		}
+		else {
+			if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout $output 1> $devnull")) {
+				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout $output\".");
+			}
 		}
 		if ($tempfile) {
 			unlink($tempfile);
@@ -379,8 +389,15 @@ sub filterSequences {
 					$inputfiles[$i] =~ s/\.xz$//;
 					$tempfile = $inputfiles[$i];
 				}
-				if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout $output/$prefix.fastq 1> $devnull")) {
-					&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout $output/$prefix.fastq\".");
+				if ($maxqual) {
+					if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout - | $vsearch --fastq_convert - --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$prefix.fastq 1> $devnull")) {
+						&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout - | $vsearch --fastq_convert - --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$prefix.fastq\".");
+					}
+				}
+				else {
+					if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout $output/$prefix.fastq 1> $devnull")) {
+						&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout $output/$prefix.fastq\".");
+					}
 				}
 				push(@outputfastq, "$output/$prefix.fastq");
 				if ($tempfile) {
@@ -424,6 +441,22 @@ sub filterSequences {
 				}
 				if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$forwardprefix.fastq --fastqout_rev $output/$reverseprefix.fastq 1> $devnull")) {
 					&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$forwardprefix.fastq --fastqout_rev $output/$reverseprefix.fastq\".");
+				}
+				if ($maxqual) {
+					if (rename("$output/$forwardprefix.fastq", "$output/$forwardprefix.temp")) {
+						&errorMessage(__LINE__, "Cannot rename \"$output/$forwardprefix.fastq\" to \"$output/$forwardprefix.temp\".");
+					}
+					if (system("$vsearch --fastq_convert $output/$forwardprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$forwardprefix.fastq 1> $devnull")) {
+						&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_convert $output/$forwardprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$forwardprefix.fastq\".");
+					}
+					unlink("$output/$forwardprefix.temp");
+					if (rename("$output/$reverseprefix.fastq", "$output/$reverseprefix.temp")) {
+						&errorMessage(__LINE__, "Cannot rename \"$output/$reverseprefix.fastq\" to \"$output/$reverseprefix.temp\".");
+					}
+					if (system("$vsearch --fastq_convert $output/$reverseprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$reverseprefix.fastq 1> $devnull")) {
+						&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_convert $output/$reverseprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$reverseprefix.fastq\".");
+					}
+					unlink("$output/$reverseprefix.temp");
 				}
 				push(@outputfastq, "$output/$forwardprefix.fastq", "$output/$reverseprefix.fastq");
 				foreach my $tempfile (@tempfiles) {
@@ -606,7 +639,7 @@ Command line options
   Specify the minimum quality value for 3'-tail trimming. (default: 0)
 
 --maxqual=INTEGER
-  Specify the maximum quality value. (default: 41)
+  Specify the maximum quality value. (default: 93)
 
 --minlen=INTEGER
   Specify the minimum length after trimming. (default: 0)
