@@ -6,7 +6,7 @@ my $buildno = '0.2.x';
 my $devnull = File::Spec->devnull();
 
 # global variable
-my $vsearchoption = " --fastq_qmax 93";
+my $vsearchoption;
 
 # options
 my $folder = 0;
@@ -15,6 +15,7 @@ my $maxnee = 2.0;
 my $minlen = 0;
 my $maxlen = 99999;
 my $minqual = 0;
+my $maxqual = 41;
 my $ovlen = 'truncate';
 my $maxnNs = 0;
 my $compress = 'gz';
@@ -100,6 +101,9 @@ sub getOptions {
 		}
 		elsif ($ARGV[$i] =~ /^-+min(?:imum)?qual(?:ity)?=(\d+)$/i) {
 			$minqual = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+max(?:imum)?qual(?:ity)?=(\d+)$/i) {
+			$maxqual = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+min(?:imum)?len(?:gth)?=(\d+)$/i) {
 			$minlen = $1;
@@ -312,6 +316,9 @@ sub checkVariables {
 	if ($minqual) {
 		$vsearchoption .= " --fastq_truncqual $minqual";
 	}
+	if ($maxqual) {
+		$vsearchoption .= " --fastq_qmax $maxqual";
+	}
 	if ($minlen) {
 		$vsearchoption .= " --fastq_minlen $minlen";
 	}
@@ -329,9 +336,9 @@ sub checkVariables {
 	if (defined($maxnNs)) {
 		$vsearchoption .= " --fastq_maxns $maxnNs";
 	}
-	if ($numthreads) {
-		$vsearchoption .= " --threads $numthreads";
-	}
+	#if ($numthreads) {
+	#	$vsearchoption .= " --threads $numthreads";
+	#}
 }
 
 sub filterSequences {
@@ -597,6 +604,9 @@ Command line options
 
 --minqual=INTEGER
   Specify the minimum quality value for 3'-tail trimming. (default: 0)
+
+--maxqual=INTEGER
+  Specify the maximum quality value. (default: 41)
 
 --minlen=INTEGER
   Specify the minimum length after trimming. (default: 0)
