@@ -182,7 +182,7 @@ sub checkVariables {
 				my @temp = sort(glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
 				if (scalar(@temp) % 2 == 0) {
 					for (my $i = 0; $i < scalar(@temp); $i += 2) {
-						if ((-f $temp[$i] || -l $temp[$i]) && (-f $temp[($i + 1)] || -l $temp[($i + 1)])) {
+						if (-e $temp[$i] && -e $temp[($i + 1)]) {
 							if ($temp[$i] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $temp[($i + 1)] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
 								if (defined($paired) && $paired == 0) {
 									&errorMessage(__LINE__, "The input files are invalid. Paired-end and single-end sequences cannot be mixed.");
@@ -213,7 +213,7 @@ sub checkVariables {
 					$paired = 0;
 				}
 			}
-			elsif (-f $inputfile || -l $inputfile) {
+			elsif (-e $inputfile) {
 				push(@tempinputfiles, $inputfile);
 			}
 			else {
@@ -222,7 +222,7 @@ sub checkVariables {
 		}
 		if (scalar(@tempinputfiles) % 2 == 0) {
 			for (my $i = 0; $i < scalar(@tempinputfiles); $i += 2) {
-				if ((-f $tempinputfiles[$i] || -l $tempinputfiles[$i]) && (-f $tempinputfiles[($i + 1)] || -l $tempinputfiles[($i + 1)])) {
+				if (-e $tempinputfiles[$i] && -e $tempinputfiles[($i + 1)]) {
 					if ($tempinputfiles[$i] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $tempinputfiles[($i + 1)] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
 						if (defined($paired) && $paired == 0) {
 							&errorMessage(__LINE__, "The input files are invalid. Paired-end and single-end sequences cannot be mixed.");
@@ -339,13 +339,10 @@ sub checkVariables {
 	if (defined($maxnNs)) {
 		$vsearchoption .= " --fastq_maxns $maxnNs";
 	}
-	#if ($numthreads) {
-	#	$vsearchoption .= " --threads $numthreads";
-	#}
 }
 
 sub filterSequences {
-	print(STDERR "\nProcessing sequences...\n");
+	print(STDERR "Processing sequences...\n");
 	if (!$paired && !$folder) {
 		print(STDERR "Filtering \"$inputfiles[0]\" using VSEARCH...\n");
 		my $tempfile;
@@ -468,7 +465,7 @@ sub filterSequences {
 			&compressInParallel(@outputfastq);
 		}
 	}
-	print(STDERR "done.\n");
+	print(STDERR "done.\n\n");
 }
 
 sub compressInParallel {

@@ -80,7 +80,7 @@ sub getOptions {
 	$output = $ARGV[-1];
 	my %inputfiles;
 	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
-		if ($ARGV[$i] =~ /^-+(?:m|mode)=(\d+)$/i) {
+		if ($ARGV[$i] =~ /^-+(?:mode|m)=(\d+)$/i) {
 			$mode = $1;
 		}
 		else {
@@ -114,7 +114,7 @@ sub checkVariables {
 			if (-d $inputfile) {
 				my @temp = sort(glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
 				for (my $i = 0; $i < scalar(@temp); $i ++) {
-					if (-f $temp[$i] || -l $temp[$i]) {
+					if (-e $temp[$i]) {
 						push(@newinputfiles, $temp[$i]);
 					}
 					else {
@@ -122,7 +122,7 @@ sub checkVariables {
 					}
 				}
 			}
-			elsif (-f $inputfile || -l $inputfile) {
+			elsif (-e $inputfile) {
 				push(@newinputfiles, $inputfile);
 			}
 			else {
@@ -207,7 +207,7 @@ sub filterSequences {
 	}
 	close($pipehandleoutput1);
 	&compressFileByName($output);
-	print(STDERR "done.\n");
+	print(STDERR "done.\n\n");
 }
 
 sub compressFileByName {

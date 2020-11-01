@@ -76,7 +76,7 @@ sub getOptions {
 		elsif ($vsearchmode) {
 			$vsearchoption .= " $ARGV[$i]";
 		}
-		elsif ($ARGV[$i] =~ 'vsearch') {
+		elsif ($ARGV[$i] eq 'vsearch') {
 			$vsearchmode = 1;
 		}
 		elsif ($ARGV[$i] =~ /^-+max(?:imum)?(?:r|rate|p|percentage)chimeras?=(.+)$/i) {

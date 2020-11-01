@@ -179,7 +179,7 @@ sub checkVariables {
 				my @temp = sort(glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
 				if (scalar(@temp) % 2 == 0) {
 					for (my $i = 0; $i < scalar(@temp); $i += 2) {
-						if ((-f $temp[$i] || -l $temp[$i]) && (-f $temp[($i + 1)] || -l $temp[($i + 1)])) {
+						if (-e $temp[$i] && -e $temp[($i + 1)]) {
 							if ($temp[$i] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $temp[($i + 1)] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
 								push(@newinputfiles, $temp[$i], $temp[($i + 1)]);
 							}
@@ -196,7 +196,7 @@ sub checkVariables {
 					&errorMessage(__LINE__, "The input files are not paried-end sequences.");
 				}
 			}
-			elsif (-f $inputfile || -l $inputfile) {
+			elsif (-e $inputfile) {
 				push(@tempinputfiles, $inputfile);
 			}
 			else {
@@ -205,7 +205,7 @@ sub checkVariables {
 		}
 		if (scalar(@tempinputfiles) % 2 == 0) {
 			for (my $i = 0; $i < scalar(@tempinputfiles); $i += 2) {
-				if ((-f $tempinputfiles[$i] || -l $tempinputfiles[$i]) && (-f $tempinputfiles[($i + 1)] || -l $tempinputfiles[($i + 1)])) {
+				if (-e $tempinputfiles[$i] && -e $tempinputfiles[($i + 1)]) {
 					if ($tempinputfiles[$i] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $tempinputfiles[($i + 1)] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
 						push(@newinputfiles, $tempinputfiles[$i], $tempinputfiles[($i + 1)]);
 					}
@@ -317,7 +317,7 @@ sub checkVariables {
 }
 
 sub concatenateSequences {
-	print(STDERR "\nProcessing sequences...\n");
+	print(STDERR "Processing sequences...\n");
 	if (scalar(@inputfiles) == 2 && !$folder) {
 		my $i = 0;
 		print(STDERR "Concatenating \"$inputfiles[$i]\" and \"" . $inputfiles[($i + 1)] . "\" using VSEARCH5D...\n");
@@ -382,7 +382,7 @@ sub concatenateSequences {
 			&compressInParallel(@outputfastq);
 		}
 	}
-	print(STDERR "done.\n");
+	print(STDERR "done.\n\n");
 }
 
 sub compressInParallel {

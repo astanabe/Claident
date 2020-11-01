@@ -175,15 +175,15 @@ sub checkVariables {
 			if (-d $inputfile) {
 				my @temp = sort(glob("$inputfile/*.fasta"), glob("$inputfile/*.fasta.gz"), glob("$inputfile/*.fasta.bz2"), glob("$inputfile/*.fasta.xz"), glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
 				for (my $i = 0; $i < scalar(@temp); $i ++) {
-					if (-f $temp[$i] || -l $temp[$i]) {
+					if (-e $temp[$i]) {
 						push(@newinputfiles, $temp[$i]);
 					}
 					else {
-						&errorMessage(__LINE__, "The input files \"$temp[0]\" and \"$temp[1]\" are invalid.");
+						&errorMessage(__LINE__, "The input files \"$temp[$i]\" is invalid.");
 					}
 				}
 			}
-			elsif (-f $inputfile || -l $inputfile) {
+			elsif (-e $inputfile) {
 				push(@newinputfiles, $inputfile);
 			}
 			else {
@@ -514,6 +514,9 @@ sub convertUCtoOTUMembers {
 	}
 	close($filehandleinput1);
 	close($filehandleoutput1);
+	unless ($nodel) {
+		unlink($tempfasta);
+	}
 }
 
 sub getMinimumLength {

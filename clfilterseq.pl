@@ -398,7 +398,7 @@ sub recognizeFormat {
 }
 
 sub processSequences {
-	print(STDERR "\nProcessing sequences...\n");
+	print(STDERR "Processing sequences...\n");
 	$filehandleinput1 = &readFile($inputfiles[0]);
 	if ($inputfiles[1]) {
 		$filehandleinput2 = &readFile($inputfiles[1]);
@@ -628,7 +628,7 @@ sub processSequences {
 	if ($filehandleinput2) {
 		close($filehandleinput2);
 	}
-	print(STDERR "done.\n");
+	print(STDERR "done.\n\n");
 }
 
 sub concatenateFiles {

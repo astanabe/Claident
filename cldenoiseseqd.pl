@@ -142,7 +142,7 @@ sub checkVariables {
 			if (-d $inputfile) {
 				my @temp = sort(glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
 				for (my $i = 0; $i < scalar(@temp); $i ++) {
-					if (-f $temp[$i] || -l $temp[$i]) {
+					if (-e $temp[$i]) {
 						push(@newinputfiles, $temp[$i]);
 					}
 					else {
@@ -150,7 +150,7 @@ sub checkVariables {
 					}
 				}
 			}
-			elsif (-f $inputfile || -l $inputfile) {
+			elsif (-e $inputfile) {
 				push(@newinputfiles, $inputfile);
 			}
 			else {
@@ -238,7 +238,7 @@ sub checkVariables {
 }
 
 sub extractInParallel {
-	print(STDERR "\nPreparing files for DADA2...\n");
+	print(STDERR "Preparing files for DADA2...\n");
 	{
 		my $child = 0;
 		$| = 1;
@@ -270,11 +270,11 @@ sub extractInParallel {
 			&errorMessage(__LINE__, 'Cannot extract/copy fastq files correctly.');
 		}
 	}
-	print(STDERR "done.\n");
+	print(STDERR "done.\n\n");
 }
 
 sub runDADA2 {
-	print(STDERR "\nRunning DADA2...\n");
+	print(STDERR "Running DADA2...\n");
 	$filehandleoutput1 = &writeFile("$outputfolder/runDADA2.R");
 	print($filehandleoutput1 "ranseed <- $seed\n");
 	print($filehandleoutput1 "numthreads <- $numthreads\n");
@@ -312,11 +312,11 @@ _END
 	if (system("$Rscript --vanilla $outputfolder/runDADA2.R")) {
 		&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outputfolder/runDADA2.R\" correctly.");
 	}
-	print(STDERR "done.\n");
+	print(STDERR "done.\n\n");
 }
 
 sub postDADA2 {
-	print(STDERR "\nAnalyzing DADA2 output...\n");
+	print(STDERR "Analyzing DADA2 output and save results...\n");
 	my %denoised;
 	my %nseqdenoised;
 	#my %uniques;
@@ -440,7 +440,7 @@ sub postDADA2 {
 	}
 	close($filehandleoutput2);
 	close($filehandleoutput1);
-	print(STDERR "done.\n");
+	print(STDERR "done.\n\n");
 }
 
 sub readFile {

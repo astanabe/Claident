@@ -8,7 +8,7 @@ my $devnull = File::Spec->devnull();
 
 # options
 my $numthreads = 1;
-my $vsearchoption = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --sizeout --sizeorder --qmask none --fulldp --cluster_size';
+my $vsearchoption = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sizeorder --qmask none --fulldp --cluster_size';
 my $paddinglen = 0;
 my $minovllen = 0;
 my $nodel;
@@ -16,6 +16,7 @@ my $nodel;
 # input/output
 my $outputfolder;
 my @inputfiles;
+my @otufiles;
 
 # commands
 my $vsearch;
@@ -45,20 +46,10 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
-	# check input file format
-	&checkInputFiles();
-	# change working directory
-	unless (chdir($outputfolder)) {
-		&errorMessage(__LINE__, 'Cannot change working directory.');
-	}
 	# make concatenated files
 	&makeConcatenatedFiles();
 	# run assembling
 	&runVSEARCH();
-	# change working directory
-	unless (chdir($root)) {
-		&errorMessage(__LINE__, 'Cannot change working directory.');
-	}
 }
 
 sub printStartupMessage {
@@ -154,18 +145,28 @@ sub checkVariables {
 		my @tempinputfiles;
 		foreach my $inputfile (@inputfiles) {
 			if (-d $inputfile) {
-				my @temp = sort(glob("$inputfile/*.fasta"), glob("$inputfile/*.fasta.gz"), glob("$inputfile/*.fasta.bz2"), glob("$inputfile/*.fasta.xz"), glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
+				my @temp = sort(glob("$inputfile/*.fasta"), glob("$inputfile/*.fasta.gz"), glob("$inputfile/*.fasta.bz2"), glob("$inputfile/*.fasta.xz"));
 				for (my $i = 0; $i < scalar(@temp); $i ++) {
-					if (-f $temp[$i] || -l $temp[$i]) {
-						push(@newinputfiles, $temp[$i]);
+					if (-e $temp[$i]) {
+						my $otufile = $temp[$i];
+						$otufile =~ s/\.(?:fq|fastq|fa|fasta|fas)(?:\.gz|\.bz2|\.xz)?$/.otu.gz/;
+						if (-e $otufile) {
+							push(@newinputfiles, $temp[$i]);
+							push(@otufiles, $otufile);
+						}
 					}
 					else {
-						&errorMessage(__LINE__, "The input files \"$temp[0]\" and \"$temp[1]\" are invalid.");
+						&errorMessage(__LINE__, "The input files \"$temp[$i]\" is invalid.");
 					}
 				}
 			}
-			elsif (-f $inputfile || -l $inputfile) {
-				push(@newinputfiles, $inputfile);
+			elsif (-e $inputfile) {
+				my $otufile = $inputfile;
+				$otufile =~ s/\.(?:fq|fastq|fa|fasta|fas)(?:\.gz|\.bz2|\.xz)?$/.otu.gz/;
+				if (-e $otufile) {
+					push(@newinputfiles, $inputfile);
+					push(@otufiles, $otufile);
+				}
 			}
 			else {
 				&errorMessage(__LINE__, "The input file \"$inputfile\" is invalid.");
@@ -234,134 +235,52 @@ sub checkVariables {
 	}
 }
 
-sub checkInputFiles {
-	print(STDERR "Checking input files...\n");
-	{
-		my $child = 0;
-		$| = 1;
-		$? = 0;
-		foreach my $inputfile (@inputfiles) {
-			if (my $pid = fork()) {
-				$child ++;
-				if ($child == $numthreads) {
-					if (wait == -1) {
-						$child = 0;
-					} else {
-						$child --;
-					}
-				}
-				if ($?) {
-					&errorMessage(__LINE__);
-				}
-				next;
-			}
-			else {
-				print(STDERR "Checking $inputfile...\n");
-				if ($inputfile =~ /^.+__.+__.+/) {
-					my $fileformat;
-					my $lineno = 1;
-					$filehandleinput1 = &readFile($inputfile);
-					while (<$filehandleinput1>) {
-						if (!$fileformat && $lineno == 1) {
-							if (/^>/) {
-								$fileformat = 'FASTA';
-							}
-							elsif (/^\@/) {
-								$fileformat = 'FASTQ';
-							}
-							else {
-								&errorMessage(__LINE__, "The input file \"$inputfile\" is invalid.");
-							}
-						}
-						if ($fileformat eq 'FASTA' && /^>/ || $fileformat eq 'FASTQ' && $lineno % 4 == 1) {
-							if ($_ =~ / SN:\S+__\S+__\S+/ || $_ =~ /^\s*\r?\n?$/) {
-								$lineno ++;
-								next;
-							}
-							else {
-								$_ =~ s/^[>\@](.+)\r?\n?$/$1/;
-								&errorMessage(__LINE__, "The sequence name \"$_\" in \"$inputfile\" is invalid.");
-							}
-						}
-						$lineno ++;
-					}
-					close($filehandleinput1);
-				}
-				exit;
-			}
-		}
-	}
-	print(STDERR "done.\n\n");
-}
-
 sub makeConcatenatedFiles {
-	$filehandleoutput1 = writeFile("concatenated.fasta");
-	$filehandleoutput2 = writeFile("concatenated.otu.gz");
-	foreach my $inputfile (@inputfiles) {
-		my $filename = $inputfile;
-		$filename =~ s/^.+(?:\/|\\)//;
-		$filename =~ s/\.(?:gz|bz2|xz)$//;
-		$filename =~ s/\.[^\.]+$//;
-		my $tempinputfile;
-		{
-			my $inputpath;
-			if ($inputfile =~ /^\//) {
-				$inputpath = $inputfile;
-			}
-			else {
-				$inputpath = "$root/$inputfile";
-			}
-			if ($inputfile =~ /\.(?:fq|fastq)(?:\.gz|\.bz2|\.xz)?$/) {
-				&convertFASTQtoFASTA($inputpath, "$filename.fasta");
-				$tempinputfile = "$filename.fasta";
-			}
-			elsif ($inputfile =~ /\.xz$/) {
-				if (system("xz -dc $inputpath > $filename.fasta")) {
-					&errorMessage(__LINE__, "Cannot run \"xz -dc $inputpath > $filename.fasta\".");
-				}
-				$tempinputfile = "$filename.fasta";
-			}
-			else {
-				$tempinputfile = $inputpath;
-			}
-		}
+	$filehandleoutput1 = &writeFile("$outputfolder/concatenated.otu.gz");
+	$filehandleoutput2 = &writeFile("$outputfolder/concatenated.fasta");
+	my $num = 1;
+	for (my $i = 0; $i < scalar(@inputfiles); $i ++) {
+		$filehandleinput1 = &readFile($otufiles[$i]);
 		my %replace;
-		$filehandleinput1 = &readFile($tempinputfile);
+		my %otumembers;
 		{
-			my $tempnum = 1;
+			my $otuname;
 			while (<$filehandleinput1>) {
-				if (/^>/) {
-					s/^>(.+)\r?\n?/>temp_$tempnum\n/;
-					$replace{$1} = "temp_$tempnum";
-					$tempnum ++;
+				s/\r?\n?$//;
+				s/;size=\d+;*//g;
+				if (/^>(.+)$/) {
+					$otuname = $1;
+					s/$otuname/temp_$num/;
+					$replace{$otuname} = "temp_$num";
+					$num ++;
 				}
-				print($filehandleoutput1 $_);
+				elsif ($otuname && /^([^>].*)$/) {
+					push(@{$otumembers{$replace{$otuname}}}, $1);
+				}
+				else {
+					&errorMessage(__LINE__, "\"$otufiles[$i]\" is invalid.");
+				}
+				print($filehandleoutput1 "$_\n");
 			}
 		}
 		close($filehandleinput1);
-		my $otufile = $inputfile;
-		$otufile =~ s/\.(?:fq|fastq|fa|fasta|fas)(?:\.gz|\.bz2|\.xz)?$/.otu.gz/;
-		if ($otufile !~ /^\//) {
-			$otufile = "$root/$otufile";
-		}
-		if (-e $otufile) {
-			$filehandleinput1 = &readFile($otufile);
-			while (<$filehandleinput1>) {
-				s/^>(.+)\r?\n?/>$replace{$1}\n/;
-				print($filehandleoutput2 $_);
-			}
-			close($filehandleinput1);
-		}
-		else {
-			$filehandleinput1 = &readFile($tempinputfile);
-			while (<$filehandleinput1>) {
-				if (/^>/) {
-					s/^>(.+)\r?\n?/>$replace{$1}\n/;
-					print($filehandleoutput2 $_);
+		$filehandleinput1 = &readFile($inputfiles[$i]);
+		while (<$filehandleinput1>) {
+			s/\r?\n?$//;
+			s/;size=\d+;*//g;
+			if (/^>(.+)$/) {
+				my $otuname = $1;
+				if ($replace{$otuname} && @{$otumembers{$replace{$otuname}}}) {
+					my $size = scalar(@{$otumembers{$replace{$otuname}}});
+					s/$otuname/$replace{$otuname};size=$size;/;
+				}
+				else {
+					&errorMessage(__LINE__, "\"$inputfiles[$i]\" is invalid.");
 				}
 			}
-			close($filehandleinput1);
+			print($filehandleoutput2 "$_\n");
 		}
+		close($filehandleinput1);
 	}
 	close($filehandleoutput1);
 	close($filehandleoutput2);
@@ -371,35 +290,38 @@ sub runVSEARCH {
 	print(STDERR "Running clustering by VSEARCH...\n");
 	my $tempminovllen;
 	if ($minovllen == 0) {
-		$tempminovllen = &getMinimumLength("concatenated.fasta") - 10;
+		$tempminovllen = &getMinimumLength("$outputfolder/concatenated.fasta") - 10;
 	}
 	else {
 		$tempminovllen = $minovllen;
 	}
 	if ($paddinglen > 0) {
-		if (system("$vsearch5d$vsearchoption concatenated.fasta --clusterout_sort --idoffset $paddinglen --threads $numthreads --centroids temp.fasta --uc clustered.uc --mincols $tempminovllen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption concatenated.fasta --clusterout_sort --idoffset $paddinglen --threads $numthreads --centroids temp.fasta --uc clustered.uc --mincols $tempminovllen\".");
+		if (system("$vsearch5d$vsearchoption $outputfolder/concatenated.fasta --idoffset $paddinglen --threads $numthreads --centroids $outputfolder/temp.fasta --uc $outputfolder/temp.uc --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption $outputfolder/concatenated.fasta --idoffset $paddinglen --threads $numthreads --centroids $outputfolder/temp.fasta --uc $outputfolder/temp.uc --mincols $tempminovllen\".");
 		}
 	}
 	else {
-		if (system("$vsearch$vsearchoption concatenated.fasta --clusterout_sort --threads $numthreads --centroids temp.fasta --uc clustered.uc --mincols $tempminovllen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption concatenated.fasta --clusterout_sort --threads $numthreads --centroids temp.fasta --uc clustered.uc --mincols $tempminovllen\".");
+		if (system("$vsearch$vsearchoption $outputfolder/concatenated.fasta --threads $numthreads --centroids $outputfolder/temp.fasta --uc $outputfolder/temp.uc --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption $outputfolder/concatenated.fasta --clusterout_sort --threads $numthreads --centroids $outputfolder/temp.fasta --uc $outputfolder/temp.uc --mincols $tempminovllen\".");
 		}
 	}
-	&convertUCtoOTUMembers("temp.fasta", "clustered.fasta", "clustered.uc", "clustered.otu.gz", "concatenated.otu.gz");
-	unlink("concatenated.fasta");
-	unlink("concatenated.otu.gz");
+	&convertUCtoOTUMembers("$outputfolder/temp.fasta", "$outputfolder/temp.uc", "$outputfolder/clustered.fasta", "$outputfolder/clustered.otu.gz", "$outputfolder/concatenated.otu.gz");
+	unless ($nodel) {
+		unlink("$outputfolder/concatenated.fasta");
+		unlink("$outputfolder/concatenated.otu.gz");
+		unlink("$outputfolder/temp.fasta");
+		unlink("$outputfolder/temp.uc");
+	}
 	print(STDERR "done.\n\n");
 }
 
 sub convertUCtoOTUMembers {
-	my @subotufile = @_;
-	my $tempfasta = shift(@subotufile);
-	my $outfasta = shift(@subotufile);
-	my $ucfile = shift(@subotufile);
-	my $otufile = shift(@subotufile);
-	my %subcluster;
-	foreach my $subotufile (@subotufile) {
+	my $tempfasta = shift(@_);
+	my $tempuc = shift(@_);
+	my $outfasta = shift(@_);
+	my $outotufile = shift(@_);
+	my %subotumembers;
+	foreach my $subotufile (@_) {
 		$filehandleinput1 = &readFile($subotufile);
 		my $otuname;
 		while (<$filehandleinput1>) {
@@ -409,74 +331,75 @@ sub convertUCtoOTUMembers {
 				$otuname = $1;
 			}
 			elsif ($otuname && /^([^>].*)$/) {
-				push(@{$subcluster{$otuname}}, $1);
+				push(@{$subotumembers{$otuname}}, $1);
+			}
+			else {
+				&errorMessage(__LINE__, "\"$subotufile\" is invalid.");
 			}
 		}
 		close($filehandleinput1);
-		unless ($otuname) {
-			&errorMessage(__LINE__, "\"$subotufile\" is invalid.");
-		}
 	}
-	my %cluster;
-	$filehandleinput1 = &readFile($ucfile);
+	my %otumembers;
+	$filehandleinput1 = &readFile($tempuc);
 	while (<$filehandleinput1>) {
 		s/\r?\n?$//;
 		s/;+size=\d+;*//g;
 		my @row = split(/\t/, $_);
 		if ($row[0] eq 'S') {
-			push(@{$cluster{$row[8]}}, $row[8]);
-			if (exists($subcluster{$row[8]})) {
-				foreach my $submember (@{$subcluster{$row[8]}}) {
-					if ($submember ne $row[8]) {
-						push(@{$cluster{$row[8]}}, $submember);
-					}
-					else {
-						&errorMessage(__LINE__, "\"$ucfile\" is invalid.");
-					}
+			if (exists($subotumembers{$row[8]})) {
+				foreach my $submember (@{$subotumembers{$row[8]}}) {
+					push(@{$otumembers{$row[8]}}, $submember);
 				}
+			}
+			else {
+				push(@{$otumembers{$row[8]}}, $row[8]);
 			}
 		}
 		elsif ($row[0] eq 'H') {
-			push(@{$cluster{$row[9]}}, $row[8]);
-			if (exists($subcluster{$row[8]})) {
-				foreach my $submember (@{$subcluster{$row[8]}}) {
-					if ($submember ne $row[8] && $submember ne $row[9]) {
-						push(@{$cluster{$row[9]}}, $submember);
-					}
-					else {
-						&errorMessage(__LINE__, "\"$ucfile\" is invalid.");
-					}
+			if (exists($subotumembers{$row[8]})) {
+				foreach my $submember (@{$subotumembers{$row[8]}}) {
+					push(@{$otumembers{$row[9]}}, $submember);
 				}
+			}
+			else {
+				push(@{$otumembers{$row[9]}}, $row[8]);
 			}
 		}
 	}
 	close($filehandleinput1);
-	unless ($nodel) {
-		unlink($ucfile);
-	}
 	my %replace;
-	$filehandleoutput1 = &writeFile($otufile);
+	$filehandleoutput1 = &writeFile($outotufile);
 	{
-		my @cluster = sort({scalar(@{$cluster{$b}}) <=> scalar(@{$cluster{$a}})} keys(%cluster));
-		my $ncluster = scalar(@cluster);
-		my $length = length($ncluster);
+		my @otumembers = sort({scalar(@{$otumembers{$b}}) <=> scalar(@{$otumembers{$a}})} keys(%otumembers));
+		my $notumembers = scalar(@otumembers);
+		my $length = length($notumembers);
 		my $num = 1;
-		foreach my $centroid (@cluster) {
-			my $otuname = sprintf(">otu_%0*d\n", $length, $num);
+		foreach my $centroid (@otumembers) {
+			my $otuname = sprintf("otu_%0*d", $length, $num);
 			$replace{$centroid} = $otuname;
 			print($filehandleoutput1 ">$otuname\n");
-			foreach my $member (@{$cluster{$centroid}}) {
+			foreach my $member (@{$otumembers{$centroid}}) {
 				print($filehandleoutput1 "$member\n");
 			}
+			$num ++;
 		}
 	}
 	close($filehandleoutput1);
 	$filehandleoutput1 = &writeFile($outfasta);
 	$filehandleinput1 = &readFile($tempfasta);
 	while (<$filehandleinput1>) {
-		s/;+size=\d+;*//g;
-		s/^>(.+)\r?\n?/>$replace{$1}\n/;
-		print($filehandleoutput2 $_);
+		s/\r?\n?$//;
+		s/;size=\d+;*//g;
+		if (/^>(.+)$/) {
+			my $otuname = $1;
+			if ($replace{$otuname}) {
+				s/$otuname/$replace{$otuname}/;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$tempfasta\" is invalid.");
+			}
+		}
+		print($filehandleoutput1 "$_\n");
 	}
 	close($filehandleinput1);
 	close($filehandleoutput1);
@@ -565,29 +488,6 @@ sub readFile {
 		}
 	}
 	return($filehandle);
-}
-
-sub convertFASTQtoFASTA {
-	my $fastqfile = shift(@_);
-	my $fastafile = shift(@_);
-	$filehandleinput3 = &readFile($fastqfile);
-	$filehandleoutput3 = &writeFile($fastafile);
-	while (<$filehandleinput3>) {
-		my $nameline = $_;
-		my $seqline = <$filehandleinput3>;
-		my $sepline = <$filehandleinput3>;
-		my $qualline = <$filehandleinput3>;
-		if (substr($nameline, 0, 1) ne '@') {
-			&errorMessage(__LINE__, "\"$fastqfile\" is invalid.");
-		}
-		if (substr($sepline, 0, 1) ne '+') {
-			&errorMessage(__LINE__, "\"$fastqfile\" is invalid.");
-		}
-		print($filehandleoutput3 '>' . substr($nameline, 1));
-		print($filehandleoutput3 $seqline);
-	}
-	close($filehandleoutput3);
-	close($filehandleinput3);
 }
 
 sub errorMessage {
