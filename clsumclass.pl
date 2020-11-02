@@ -31,7 +31,7 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
-	# read contigmembers or otu file
+	# read otu file
 	&readMembers();
 	# save summary
 	&saveSummary();

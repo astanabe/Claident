@@ -72,7 +72,6 @@ sub main {
 	&readPrimers();
 	# read tags
 	&readTags();
-	print(STDERR "\n");
 	# split sequences
 	&splitSequences();
 	# concatenate FASTQ files

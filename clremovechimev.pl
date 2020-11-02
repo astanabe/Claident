@@ -19,7 +19,6 @@ my $nodel;
 
 # the other global variables
 my $devnull = File::Spec->devnull();
-my %members;
 my $vsearch;
 
 # file handles
@@ -315,7 +314,6 @@ sub checkVariables {
 }
 
 sub makeTemporaryFile {
-	$filehandleoutput1 = &writeFile("$outputfolder/temp.fasta");
 	$filehandleinput1 = &readFile($otufiles[0]);
 	my %otumembers;
 	{
@@ -335,6 +333,7 @@ sub makeTemporaryFile {
 		}
 	}
 	close($filehandleinput1);
+	$filehandleoutput1 = &writeFile("$outputfolder/temp.fasta");
 	$filehandleinput1 = &readFile($inputfiles[0]);
 	while (<$filehandleinput1>) {
 		s/\r?\n?$//;
