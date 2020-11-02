@@ -15,6 +15,7 @@ my $tagfile;
 my $reversetagfile;
 my $reversecomplement;
 my $siglevel = 0.05;
+my $tagjump = 'half';
 
 # the other global variables
 my $devnull = File::Spec->devnull();
@@ -107,6 +108,18 @@ sub getOptions {
 			}
 			else {
 				&errorMessage(__LINE__, "Significance level is invalid.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+tagjump=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:full|f)$/i) {
+				$tagjump = 'full';
+			}
+			elsif ($value =~ /^(?:half|h)$/i) {
+				$tagjump = 'half';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 			}
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:mode|m)=(.+)$/i) {
@@ -349,30 +362,49 @@ sub readTags {
 		my @tempreversetags = sort(keys(%tempreversetags));
 		if (@temptags && @tempreversetags) {
 			print(STDERR "Sample vs noncritical misidentified sample associtations\n");
-			my %halfjump;
-			my %reversehalfjump;
-			foreach my $temptag (@temptags) {
-				foreach my $tempreversetag (@tempreversetags) {
-					my $tagseq = "$temptag+$tempreversetag";
-					if (!exists($tag{$tagseq})) {
-						push(@{$halfjump{$temptag}}, $tagseq);
-						push(@{$reversehalfjump{$tempreversetag}}, $tagseq);
+			if ($tagjump eq 'half') {
+				my %halfjump;
+				my %reversehalfjump;
+				foreach my $temptag (@temptags) {
+					foreach my $tempreversetag (@tempreversetags) {
+						my $tagseq = "$temptag+$tempreversetag";
+						if (!exists($tag{$tagseq})) {
+							push(@{$halfjump{$temptag}}, $tagseq);
+							push(@{$reversehalfjump{$tempreversetag}}, $tagseq);
+						}
+					}
+				}
+				foreach my $temptag (@temptags) {
+					foreach my $tempreversetag (@tempreversetags) {
+						my $tagseq = "$temptag+$tempreversetag";
+						if ($tag{$tagseq}) {
+							foreach my $samplename (keys(%samplenames)) {
+								my @temp = split(/__/, $samplename);
+								if (scalar(@temp) == 3) {
+									my ($runname, $tag, $primer) = @temp;
+									if ($tag eq $tag{$tagseq}) {
+										foreach my $blanktag (@{$halfjump{$temptag}}, @{$reversehalfjump{$tempreversetag}}) {
+											push(@{$sample2blank{$samplename}}, "$runname\__$blanktag\__$primer");
+											$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			}
-			foreach my $temptag (@temptags) {
-				foreach my $tempreversetag (@tempreversetags) {
-					my $tagseq = "$temptag+$tempreversetag";
-					if ($tag{$tagseq}) {
-						foreach my $samplename (keys(%samplenames)) {
-							my @temp = split(/__/, $samplename);
-							if (scalar(@temp) == 3) {
-								my ($runname, $tag, $primer) = @temp;
-								if ($tag eq $tag{$tagseq}) {
-									foreach my $blanktag (@{$halfjump{$temptag}}, @{$reversehalfjump{$tempreversetag}}) {
-										push(@{$sample2blank{$samplename}}, "$runname\__$blanktag\__$primer");
-										$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
-									}
+			elsif ($tagjump eq 'full') {
+				foreach my $temptag (@temptags) {
+					foreach my $tempreversetag (@tempreversetags) {
+						my $tagseq = "$temptag+$tempreversetag";
+						if (!exists($tag{$tagseq})) {
+							foreach my $samplename (keys(%samplenames)) {
+								my @temp = split(/__/, $samplename);
+								if (scalar(@temp) == 3) {
+									my ($runname, $tag, $primer) = @temp;
+									push(@{$sample2blank{$samplename}}, "$runname\__$tagseq\__$primer");
+									$blanksamples{"$runname\__$tagseq\__$primer"} = 1;
 								}
 							}
 						}
@@ -714,6 +746,9 @@ for decontamination)
 
 --index2file=FILENAME
   Specify index2 file name for Illumina data. (default: none)
+
+--tagjump=HALF|FULL
+  Specify tag jump assumption. (default: HALF)
 
 Acceptable input file formats
 =============================
