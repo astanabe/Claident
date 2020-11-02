@@ -458,11 +458,8 @@ sub removeContaminants {
 		foreach my $otuname (keys(%{$table{$samplename}})) {
 			my @nseqblank;
 			foreach my $blanksample (@{$sample2blank{$samplename}}) {
-				if ($table{$blanksample}{$otuname}) {
+				if ($table{$blanksample}{$otuname} > 0) {
 					push(@nseqblank, $table{$blanksample}{$otuname});
-				}
-				else {
-					push(@nseqblank, 0);
 				}
 			}
 			if ($table{$samplename}{$otuname} > 0 && @nseqblank) {
