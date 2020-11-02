@@ -14,6 +14,7 @@ my $mode;
 my $tagfile;
 my $reversetagfile;
 my $reversecomplement;
+my $siglevel = 0.05;
 
 # the other global variables
 my $devnull = File::Spec->devnull();
@@ -100,7 +101,15 @@ sub getOptions {
 	$outputfolder = $ARGV[-1];
 	my %inputfiles;
 	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
-		if ($ARGV[$i] =~ /^-+(?:mode|m)=(.+)$/i) {
+		if ($ARGV[$i] =~ /^-+(?:sig|significant|significance)level=(.+)$/i) {
+			if ($1 > 0 && $1 < 1) {
+				$siglevel = $1;
+			}
+			else {
+				&errorMessage(__LINE__, "Significance level is invalid.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:mode|m)=(.+)$/i) {
 			my $value = $1;
 			if ($value =~ /^(?:eliminate|e)$/i) {
 				$mode = 'eliminate';
@@ -560,7 +569,7 @@ sub isOutlier {
 	my $mean = &mean($samplesize, @_);
 	my $stdev = &stdev($samplesize, $mean, @_);
 	my $currentdeviation = abs($currentabundance - $mean);
-	my $t = Statistics::Distributions::tdistr(($samplesize - 2), 0.05);
+	my $t = Statistics::Distributions::tdistr(($samplesize - 2), ($siglevel / 2));
 	if ($currentdeviation > (($t * ($samplesize - 1)) / (sqrt($samplesize) * sqrt($samplesize - 2 + ($t ** 2)))) * $stdev) {
 		return(1);
 	}
@@ -681,6 +690,9 @@ Command line options
 --mode=ELIMINATE|SUBTRACTMAX
   Specify run mode. (default: ELIMINATE for index-hopping removal, SUBTRACTMAX
 for decontamination)
+
+--siglevel=DECIMAL
+  Specify significance level for modified Thompson Tau test. (default: 0.05)
 
 --blank=SAMPLENAME,...,SAMPLENAME
   Specify blank sample names. (default: none)
