@@ -339,7 +339,7 @@ sub readTags {
 		my @temptags = sort(keys(%temptags));
 		my @tempreversetags = sort(keys(%tempreversetags));
 		if (@temptags && @tempreversetags) {
-			print(STDERR "Tag ID vs jumped tag associtations\n");
+			print(STDERR "Sample vs noncritical misidentified sample associtations\n");
 			my %halfjump;
 			my %reversehalfjump;
 			foreach my $temptag (@temptags) {
@@ -371,7 +371,11 @@ sub readTags {
 				}
 			}
 			foreach my $samplename (sort(keys(%sample2blank))) {
-				print(STDERR $samplename . " : " . join(',', @{$sample2blank{$samplename}}) . "\n");
+				print(STDERR "$samplename :");
+				foreach (@{$sample2blank{$samplename}}) {
+					print(STDERR "\n  $_");
+				}
+				print(STDERR "\n");
 			}
 		}
 		print(STDERR "done.\n\n");
@@ -445,7 +449,12 @@ sub removeContaminants {
 		foreach my $otuname (keys(%{$table{$samplename}})) {
 			my @nseqblank;
 			foreach my $blanksample (@{$sample2blank{$samplename}}) {
-				push(@nseqblank, $table{$blanksample}{$otuname});
+				if ($table{$blanksample}{$otuname}) {
+					push(@nseqblank, $table{$blanksample}{$otuname});
+				}
+				else {
+					push(@nseqblank, 0);
+				}
 			}
 			if ($table{$samplename}{$otuname} > 0 && @nseqblank) {
 				my $tempmax = &max(@nseqblank);
@@ -582,7 +591,7 @@ sub stdev {
 		foreach (@_) {
 			$temp += ($_ - $mean) ** 2;
 		}
-		return($temp / ($samplesize - 1));
+		return(sqrt($temp / ($samplesize - 1)));
 	}
 	else {
 		&errorMessage(__LINE__, "Invalid data.");
