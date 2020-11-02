@@ -60,6 +60,8 @@ sub main {
 	&readListFiles();
 	# decontaminate
 	&removeContaminants();
+	# output results
+	&saveResults();
 }
 
 sub printStartupMessage {
