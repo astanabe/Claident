@@ -357,7 +357,7 @@ sub readTags {
 							my @temp = split(/__/, $samplename);
 							if (scalar(@temp) == 3) {
 								my ($runname, $tag, $primer) = @temp;
-								if ($tag eq $tag{$sampletag}) {
+								if ($tag eq $tag{$sampletag} && $tag !~ /^[ACGT]+\+[ACGT]+$/ && $blanktag =~ /^[ACGT]+\+[ACGT]+$/) {
 									push(@{$sample2blank{$samplename}}, "$runname\__$blanktag\__$primer");
 									$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
 								}
@@ -380,10 +380,13 @@ sub readTags {
 sub readListFiles {
 	print(STDERR "Reading blank and/or ignoring lists...\n");
 	if (%blanklist) {
-		foreach my $samplename (keys(%sample2blank)) {
-			foreach my $blanksample (keys(%blanklist)) {
-				push(@{$sample2blank{$samplename}}, $blanksample);
+		foreach my $blanksample (keys(%blanklist)) {
+			foreach my $samplename (keys(%samplenames)) {
+				if (!$blanklist{$samplename}) {
+					push(@{$sample2blank{$samplename}}, $blanksample);
+				}
 			}
+			$blanksamples{$blanksample} = 1;
 		}
 	}
 	elsif ($blanklist) {
@@ -395,10 +398,16 @@ sub readListFiles {
 				$samplename = $1;
 			}
 			elsif ($samplename && /^([^>].*)$/) {
-				push(@{$sample2blank{$samplename}}, $1);
+				my $blanksample = $1;
+				push(@{$sample2blank{$samplename}}, $blanksample);
+				$blanksamples{$blanksample} = 1;
 			}
-			else {
-				&errorMessage(__LINE__, "\"$blanklist\" is invalid.");
+			elsif (/^([^>].*)$/) {
+				my $blanksample = $1;
+				foreach my $tempsample (keys(%samplenames)) {
+					push(@{$sample2blank{$tempsample}}, $blanksample);
+				}
+				$blanksamples{$blanksample} = 1;
 			}
 		}
 		close($filehandleinput1);
@@ -474,6 +483,9 @@ sub saveResults {
 			delete($otunames{$otuname});
 		}
 	}
+	foreach my $blanksample (keys(%blanksamples)) {
+		delete($samplenames{$blanksample});
+	}
 	if (!mkdir($outputfolder)) {
 		&errorMessage(__LINE__, "Cannot make output folder.");
 	}
@@ -509,7 +521,7 @@ sub saveResults {
 			}
 			elsif ($otuname && $otunames{$otuname} && / SN:(\S+)/) {
 				my $samplename = $1;
-				if ($table{$samplename}{$otuname} > 0) {
+				if ($samplename && $samplenames{$samplename} && $table{$samplename}{$otuname} > 0) {
 					print($filehandleoutput1 "$_\n");
 					$table{$samplename}{$otuname} --;
 				}
