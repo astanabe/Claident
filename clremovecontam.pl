@@ -340,32 +340,31 @@ sub readTags {
 		my @tempreversetags = sort(keys(%tempreversetags));
 		if (@temptags && @tempreversetags) {
 			print(STDERR "Tag ID vs jumped tag associtations\n");
+			my %halfjump;
+			my %reversehalfjump;
 			foreach my $temptag (@temptags) {
-				my @sampletag;
-				my @blanktag;
 				foreach my $tempreversetag (@tempreversetags) {
 					my $tagseq = "$temptag+$tempreversetag";
 					if (!exists($tag{$tagseq})) {
-						$tag{$tagseq} = $tagseq;
-						push(@blanktag, $tagseq);
-					}
-					else {
-						push(@sampletag, $tagseq);
+						push(@{$halfjump{$temptag}}, $tagseq);
+						push(@{$reversehalfjump{$tempreversetag}}, $tagseq);
 					}
 				}
-				foreach my $sampletag (@sampletag) {
-					foreach my $blanktag (@blanktag) {
+			}
+			foreach my $temptag (@temptags) {
+				foreach my $tempreversetag (@tempreversetags) {
+					my $tagseq = "$temptag+$tempreversetag";
+					if ($tag{$tagseq}) {
 						foreach my $samplename (keys(%samplenames)) {
 							my @temp = split(/__/, $samplename);
 							if (scalar(@temp) == 3) {
 								my ($runname, $tag, $primer) = @temp;
-								if ($tag eq $tag{$sampletag} && $tag !~ /^[ACGT]+\+[ACGT]+$/ && $blanktag =~ /^[ACGT]+\+[ACGT]+$/) {
-									push(@{$sample2blank{$samplename}}, "$runname\__$blanktag\__$primer");
-									$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
+								if ($tag eq $tag{$tagseq}) {
+									foreach my $blanktag (@{$halfjump{$temptag}}, @{$reversehalfjump{$tempreversetag}}) {
+										push(@{$sample2blank{$samplename}}, "$runname\__$blanktag\__$primer");
+										$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
+									}
 								}
-							}
-							else {
-								&errorMessage(__LINE__, "\"$samplename\" is invalid.");
 							}
 						}
 					}
