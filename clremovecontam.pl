@@ -384,7 +384,7 @@ sub readTags {
 									my ($runname, $tag, $primer) = @temp;
 									if ($tag eq $tag{$tagseq}) {
 										foreach my $blanktag (@{$halfjump{$temptag}}, @{$reversehalfjump{$tempreversetag}}) {
-											push(@{$sample2blank{$samplename}}, "$runname\__$blanktag\__$primer");
+											$sample2blank{$samplename}{"$runname\__$blanktag\__$primer"} = 1;
 											$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
 										}
 									}
@@ -403,7 +403,7 @@ sub readTags {
 								my @temp = split(/__/, $samplename);
 								if (scalar(@temp) == 3) {
 									my ($runname, $tag, $primer) = @temp;
-									push(@{$sample2blank{$samplename}}, "$runname\__$tagseq\__$primer");
+									$sample2blank{$samplename}{"$runname\__$tagseq\__$primer"} = 1;
 									$blanksamples{"$runname\__$tagseq\__$primer"} = 1;
 								}
 							}
@@ -413,7 +413,7 @@ sub readTags {
 			}
 			foreach my $samplename (sort(keys(%sample2blank))) {
 				print(STDERR "$samplename :");
-				foreach (@{$sample2blank{$samplename}}) {
+				foreach (sort(keys(%{$sample2blank{$samplename}}))) {
 					print(STDERR "\n  $_");
 				}
 				print(STDERR "\n");
@@ -429,7 +429,7 @@ sub readListFiles {
 		foreach my $blanksample (keys(%blanklist)) {
 			foreach my $samplename (keys(%samplenames)) {
 				if (!$blanklist{$samplename}) {
-					push(@{$sample2blank{$samplename}}, $blanksample);
+					$sample2blank{$samplename}{$blanksample} = 1;
 				}
 			}
 			$blanksamples{$blanksample} = 1;
@@ -445,13 +445,13 @@ sub readListFiles {
 			}
 			elsif ($samplename && /^([^>].*)$/) {
 				my $blanksample = $1;
-				push(@{$sample2blank{$samplename}}, $blanksample);
+				$sample2blank{$samplename}{$blanksample} = 1;
 				$blanksamples{$blanksample} = 1;
 			}
 			elsif (/^([^>].*)$/) {
 				my $blanksample = $1;
 				foreach my $tempsample (keys(%samplenames)) {
-					push(@{$sample2blank{$tempsample}}, $blanksample);
+					$sample2blank{$tempsample}{$blanksample} = 1;
 				}
 				$blanksamples{$blanksample} = 1;
 			}
@@ -489,7 +489,7 @@ sub removeContaminants {
 	foreach my $samplename (keys(%sample2blank)) {
 		foreach my $otuname (keys(%{$table{$samplename}})) {
 			my @nseqblank;
-			foreach my $blanksample (@{$sample2blank{$samplename}}) {
+			foreach my $blanksample (keys(%{$sample2blank{$samplename}})) {
 				if ($table{$blanksample}{$otuname} > 0) {
 					push(@nseqblank, $table{$blanksample}{$otuname});
 				}
