@@ -2,7 +2,7 @@ use strict;
 use File::Spec;
 use Statistics::Distributions;
 
-my $buildno = '0.2.x';
+my $buildno = '0.9.x';
 
 # input/output
 my @inputfiles;

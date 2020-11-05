@@ -1,6 +1,6 @@
 use strict;
 
-my $buildno = '0.2.x';
+my $buildno = '0.9.x';
 
 # options
 my $unit = 0;

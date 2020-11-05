@@ -2,7 +2,7 @@ use strict;
 use Fcntl ':flock';
 use File::Spec;
 
-my $buildno = '0.2.x';
+my $buildno = '0.9.x';
 
 # options
 my $compress = 'gz';

@@ -1,7 +1,7 @@
 use strict;
 use File::Copy::Recursive ('fcopy', 'rcopy', 'dircopy');
 
-my $buildno = '0.2.x';
+my $buildno = '0.9.x';
 
 # input/output
 my $inputfile;

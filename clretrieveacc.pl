@@ -2,7 +2,7 @@ use strict;
 use DBI;
 use LWP::UserAgent;
 
-my $buildno = '0.2.x';
+my $buildno = '0.9.x';
 
 print(STDERR <<"_END");
 clretrieveacc $buildno

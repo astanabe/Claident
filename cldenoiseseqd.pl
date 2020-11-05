@@ -2,7 +2,7 @@ use strict;
 use File::Spec;
 use File::Copy::Recursive ('fcopy', 'rcopy', 'dircopy');
 
-my $buildno = '0.2.x';
+my $buildno = '0.9.x';
 
 my $devnull = File::Spec->devnull();
 
