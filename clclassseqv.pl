@@ -11,6 +11,7 @@ my $numthreads = 1;
 my $vsearchoption = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sizeorder --qmask none --fulldp --cluster_size';
 my $paddinglen = 0;
 my $minovllen = 0;
+my $tableformat = 'matrix';
 my $nodel;
 
 # input/output
@@ -112,6 +113,17 @@ sub getOptions {
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
 			$numthreads = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+tableformat=(.+)$/i) {
+			if ($1 =~ /^matrix$/i) {
+				$tableformat = 'matrix';
+			}
+			elsif ($1 =~ /^column$/i) {
+				$tableformat = 'column';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
+			}
 		}
 		elsif ($ARGV[$i] =~ /^-+nodel$/i) {
 			$nodel = 1;
@@ -367,18 +379,27 @@ sub convertUCtoOTUMembers {
 		}
 	}
 	close($filehandleinput1);
+	my %table;
+	my %samplenames;
+	my %otunames;
 	my %replace;
 	$filehandleoutput1 = &writeFile($outotufile);
 	{
-		my @otumembers = sort({scalar(@{$otumembers{$b}}) <=> scalar(@{$otumembers{$a}})} keys(%otumembers));
+		my @otumembers = sort({scalar(@{$otumembers{$b}}) <=> scalar(@{$otumembers{$a}}) || $a cmp $b} keys(%otumembers));
 		my $notumembers = scalar(@otumembers);
 		my $length = length($notumembers);
 		my $num = 1;
 		foreach my $centroid (@otumembers) {
 			my $otuname = sprintf("otu_%0*d", $length, $num);
+			$otunames{$otuname} = 1;
 			$replace{$centroid} = $otuname;
 			print($filehandleoutput1 ">$otuname\n");
 			foreach my $member (@{$otumembers{$centroid}}) {
+				if ($member =~ / SN:(\S+)/) {
+					my $samplename = $1;
+					$table{$samplename}{$otuname} ++;
+					$samplenames{$samplename} = 1;
+				}
 				print($filehandleoutput1 "$member\n");
 			}
 			$num ++;
@@ -403,6 +424,43 @@ sub convertUCtoOTUMembers {
 	}
 	close($filehandleinput1);
 	close($filehandleoutput1);
+	# save table
+	{
+		my @otunames = sort({$a cmp $b} keys(%otunames));
+		my @samplenames = sort({$a cmp $b} keys(%samplenames));
+		unless (open($filehandleoutput1, "> $outputfolder/clustered.tsv")) {
+			&errorMessage(__LINE__, "Cannot make \"$outputfolder/clustered.tsv\".");
+		}
+		if ($tableformat eq 'matrix') {
+			print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
+			foreach my $samplename (@samplenames) {
+				print($filehandleoutput1 $samplename);
+				foreach my $otuname (@otunames) {
+					if ($table{$samplename}{$otuname}) {
+						print($filehandleoutput1 "\t$table{$samplename}{$otuname}");
+					}
+					else {
+						print($filehandleoutput1 "\t0");
+					}
+				}
+				print($filehandleoutput1 "\n");
+			}
+		}
+		elsif ($tableformat eq 'column') {
+			print($filehandleoutput1 "samplename\totuname\tnreads\n");
+			foreach my $samplename (@samplenames) {
+				foreach my $otuname (@otunames) {
+					if ($table{$samplename}{$otuname}) {
+						print($filehandleoutput1 "$samplename\t$otuname\t$table{$samplename}{$otuname}\n");
+					}
+					else {
+						print($filehandleoutput1 "$samplename\t$otuname\t0\n");
+					}
+				}
+			}
+		}
+		close($filehandleoutput1);
+	}
 }
 
 sub getMinimumLength {
@@ -518,6 +576,9 @@ Command line options
 
 --minovllen=INTEGER
   Specify minimum overlap length. 0 means automatic. (default: 0)
+
+--tableformat=COLUMN|MATRIX
+  Specify output table format. (default: MATRIX)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)

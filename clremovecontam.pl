@@ -16,6 +16,7 @@ my $reversetagfile;
 my $reversecomplement;
 my $siglevel = 0.05;
 my $tagjump = 'half';
+my $tableformat = 'matrix';
 
 # the other global variables
 my $devnull = File::Spec->devnull();
@@ -163,6 +164,17 @@ sub getOptions {
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:reversecomplement|revcomp)$/i) {
 			$reversecomplement = 1;
+		}
+		elsif ($ARGV[$i] =~ /^-+tableformat=(.+)$/i) {
+			if ($1 =~ /^matrix$/i) {
+				$tableformat = 'matrix';
+			}
+			elsif ($1 =~ /^column$/i) {
+				$tableformat = 'column';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
+			}
 		}
 		else {
 			my @temp = glob($ARGV[$i]);
@@ -442,13 +454,19 @@ sub readListFiles {
 			}
 			elsif (/^([^>].*)$/) {
 				my $blanksample = $1;
-				foreach my $tempsample (keys(%samplenames)) {
-					$sample2blank{$tempsample}{$blanksample} = 1;
-				}
 				$blanksamples{$blanksample} = 1;
 			}
 		}
 		close($filehandleinput1);
+	}
+	if (%blanksamples && !%sample2blank) {
+		foreach my $tempsample (keys(%samplenames)) {
+			if (!$blanksamples{$tempsample}) {
+				foreach my $blanksample (keys(%blanksamples)) {
+					$sample2blank{$tempsample}{$blanksample} = 1;
+				}
+			}
+		}
 	}
 	if (%ignorelist) {
 		foreach my $ignoresample (keys(%ignorelist)) {
@@ -458,6 +476,16 @@ sub readListFiles {
 	elsif ($ignorelist) {
 		foreach my $ignoresample (&readList($ignorelist)) {
 			delete($sample2blank{$ignoresample});
+		}
+	}
+	if (%blanklist || $blanklist) {
+		print(STDERR "Sample vs blank sample associtations\n");
+		foreach my $samplename (sort(keys(%sample2blank))) {
+			print(STDERR "$samplename :");
+			foreach (sort(keys(%{$sample2blank{$samplename}}))) {
+				print(STDERR "\n  $_");
+			}
+			print(STDERR "\n");
 		}
 	}
 	print(STDERR "done.\n\n");
@@ -528,6 +556,43 @@ sub saveResults {
 	}
 	if (!mkdir($outputfolder)) {
 		&errorMessage(__LINE__, "Cannot make output folder.");
+	}
+	# save table
+	{
+		my @otunames = sort({$a cmp $b} keys(%otunames));
+		my @samplenames = sort({$a cmp $b} keys(%samplenames));
+		unless (open($filehandleoutput1, "> $outputfolder/decontaminated.tsv")) {
+			&errorMessage(__LINE__, "Cannot make \"$outputfolder/decontaminated.tsv\".");
+		}
+		if ($tableformat eq 'matrix') {
+			print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
+			foreach my $samplename (@samplenames) {
+				print($filehandleoutput1 $samplename);
+				foreach my $otuname (@otunames) {
+					if ($table{$samplename}{$otuname}) {
+						print($filehandleoutput1 "\t$table{$samplename}{$otuname}");
+					}
+					else {
+						print($filehandleoutput1 "\t0");
+					}
+				}
+				print($filehandleoutput1 "\n");
+			}
+		}
+		elsif ($tableformat eq 'column') {
+			print($filehandleoutput1 "samplename\totuname\tnreads\n");
+			foreach my $samplename (@samplenames) {
+				foreach my $otuname (@otunames) {
+					if ($table{$samplename}{$otuname}) {
+						print($filehandleoutput1 "$samplename\t$otuname\t$table{$samplename}{$otuname}\n");
+					}
+					else {
+						print($filehandleoutput1 "$samplename\t$otuname\t0\n");
+					}
+				}
+			}
+		}
+		close($filehandleoutput1);
 	}
 	# read input fasta and save output fasta
 	$filehandleoutput1 = &writeFile("$outputfolder/decontaminated.fasta");
@@ -740,6 +805,9 @@ Command line options
 
 --tagjump=HALF|FULL
   Specify tag jump assumption. (default: HALF)
+
+--tableformat=COLUMN|MATRIX
+  Specify output table format. (default: MATRIX)
 
 Acceptable input file formats
 =============================

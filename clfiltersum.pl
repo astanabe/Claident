@@ -13,6 +13,7 @@ my $notulist;
 my $notuseq;
 my $samplelist;
 my $nsamplelist;
+my $taxfile;
 
 # options
 my $runname;
@@ -22,6 +23,10 @@ my $minntotalseqotu = 0;
 my $minntotalseqsample = 0;
 my $minpseqotu = 0;
 my $minpseqsample = 0;
+my %includetaxa;
+my %includetaxarestriction;
+my %excludetaxa;
+my %excludetaxarestriction;
 
 # global variables
 my $devnull = File::Spec->devnull();
@@ -34,6 +39,12 @@ my @otunames;
 my @samplenames;
 my $format;
 my %parentsample;
+my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'subphylum', 'superclass', 'class', 'subclass', 'infraclass', 'cohort', 'subcohort', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'section', 'subsection', 'series', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma', 'forma specialis', 'strain', 'isolate');
+my %taxrank;
+for (my $i = 0; $i < scalar(@taxrank); $i ++) {
+	$taxrank{$taxrank[$i]} = $i;
+}
+my %taxonomy;
 
 # file handles
 my $filehandleinput1;
@@ -48,6 +59,8 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
+	# read taxonomy file
+	&readTaxonomyFile();
 	# read list files
 	&readListFiles();
 	# read sequence files
@@ -164,6 +177,31 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+runname=(.+)$/i) {
 			$runname = $1;
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:tax|taxonomy)file=(.+)$/i) {
+			$taxfile = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+in(?:clude)?tax(?:on|a)?=(.+)$/i) {
+			my @words = split(/,/, $1);
+			for (my $j = 0; $j < scalar(@words); $j ++) {
+				if ($taxrank{$words[$j]} && $words[($j + 1)]) {
+					$includetaxarestriction{lc($words[($j + 1)])} = $taxrank{$words[$j]};
+				}
+				else {
+					$includetaxa{lc($words[$j])} = 1;
+				}
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+ex(?:clude)?tax(?:on|a)?=(.+)$/i) {
+			my @words = split(/,/, $1);
+			for (my $j = 0; $j < scalar(@words); $j ++) {
+				if ($taxrank{$words[$j]} && $words[($j + 1)]) {
+					$excludetaxarestriction{lc($words[($j + 1)])} = $taxrank{$words[$j]};
+				}
+				else {
+					$excludetaxa{lc($words[$j])} = 1;
+				}
+			}
+		}
 		else {
 			&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
 		}
@@ -201,6 +239,9 @@ sub checkVariables {
 	if ($replicatelist && !-e $replicatelist) {
 		&errorMessage(__LINE__, "\"$replicatelist\" does not exist.");
 	}
+	if ($taxfile && !-e $taxfile) {
+		&errorMessage(__LINE__, "\"$taxfile\" does not exist.");
+	}
 	# check incompatible options
 	if ($otulist && $notulist) {
 		&errorMessage(__LINE__, "The OTU list and the negative OTU list cannot be given at the same time.");
@@ -230,6 +271,45 @@ sub checkVariables {
 	if ($minpseqsample < 0 || $minpseqsample > 1) {
 		&errorMessage(__LINE__, "The minimum percentage of sample is invalid.");
 	}
+}
+
+sub readTaxonomyFile {
+	my @label;
+	unless (open($filehandleinput1, "< $taxfile")) {
+		&errorMessage(__LINE__, "Cannot read \"$taxfile\".");
+	}
+	{
+		my $lineno = 1;
+		while (<$filehandleinput1>) {
+			s/\r?\n?$//;
+			if ($lineno == 1 && /\t/) {
+				@label = split(/\t/, lc($_));
+				shift(@label);
+				foreach my $label (@label) {
+					if (!exists($taxrank{$label})) {
+						&errorMessage(__LINE__, "\"$label\" is invalid taxonomic rank.");
+					}
+				}
+			}
+			elsif (/\t/) {
+				my @entry = split(/\t/, lc($_));
+				my $otuname = shift(@entry);
+				if (scalar(@entry) == scalar(@label)) {
+					for (my $i = 0; $i < scalar(@entry); $i ++) {
+						$taxonomy{$otuname}[$taxrank{$label[$i]}] = $entry[$i];
+					}
+				}
+				else {
+					&errorMessage(__LINE__, "Input taxonomy file is invalid.");
+				}
+			}
+			else {
+				&errorMessage(__LINE__, "Input taxonomy file is invalid.");
+			}
+			$lineno ++;
+		}
+	}
+	close($filehandleinput1);
 }
 
 sub readListFiles {
@@ -375,6 +455,69 @@ sub filterColumnsRows {
 				if ($notulist{$otuname}) {
 					delete($table{$samplename}{$otuname});
 				}
+			}
+		}
+	}
+	if ($taxfile && %includetaxa) {
+		my @deleteotu;
+		foreach my $otuname (@otunames) {
+			my $hit = 0;
+			foreach my $word (keys(%includetaxa)) {
+				if (!exists($includetaxarestriction{$word})) {
+					foreach my $label (keys(%{$taxonomy{$otuname}})) {
+						if ($taxonomy{$otuname}{$label} =~ /$word/) {
+							$hit = 1;
+							last;
+						}
+					}
+					if ($hit) {
+						last;
+					}
+				}
+				elsif ($taxonomy{$otuname}[$includetaxarestriction{$word}] && $taxonomy{$otuname}[$includetaxarestriction{$word}] =~ /$word/) {
+					$hit = 1;
+					last;
+				}
+			}
+			if ($hit == 0) {
+				push(@deleteotu, $otuname);
+			}
+		}
+		foreach my $samplename (@samplenames) {
+			foreach my $otuname (@deleteotu) {
+				delete($table{$samplename}{$otuname});
+			}
+		}
+	}
+	if ($taxfile && %excludetaxa) {
+		my @deleteotu;
+		foreach my $otuname (@otunames) {
+			my $hit = 0;
+			foreach my $word (keys(%excludetaxa)) {
+				if (!exists($excludetaxarestriction{$word})) {
+					my $hit = 0;
+					foreach my $label (keys(%{$taxonomy{$otuname}})) {
+						if ($taxonomy{$otuname}{$label} =~ /$word/) {
+							$hit = 1;
+							last;
+						}
+					}
+					if ($hit) {
+						last;
+					}
+				}
+				elsif ($taxonomy{$otuname}[$excludetaxarestriction{$word}] && $taxonomy{$otuname}[$excludetaxarestriction{$word}] =~ /$word/) {
+					$hit = 1;
+					last;
+				}
+			}
+			if ($hit) {
+				push(@deleteotu, $otuname);
+			}
+		}
+		foreach my $samplename (@samplenames) {
+			foreach my $otuname (@deleteotu) {
+				delete($table{$samplename}{$otuname});
 			}
 		}
 	}
@@ -594,6 +737,15 @@ clfiltersum options inputfile outputfile
 
 Command line options
 ====================
+--taxfile=FILENAME
+  Specify output of classigntax. (default: none)
+
+--includetaxa=NAME(,NAME..)
+  Specify include taxa by scientific name. (default: none)
+
+--excludetaxa=NAME(,NAME..)
+  Specify exclude taxa by scientific name. (default: none)
+
 --replicatelist=FILENAME
   Specify the list file of PCR replicates. (default: none)
 

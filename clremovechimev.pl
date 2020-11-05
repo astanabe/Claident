@@ -15,6 +15,7 @@ my $uchimedenovo = 3;
 my $vsearchoption = " --fasta_width 0 --notrunclabels --sizein --xsize";
 my $elimborder = 1;
 my $numthreads = 1;
+my $tableformat = 'matrix';
 my $nodel;
 
 # the other global variables
@@ -439,28 +440,79 @@ sub postVSEARCH {
 	}
 	close($filehandleinput1);
 	close($filehandleoutput1);
-	$filehandleoutput1 = &writeFile("$outputfolder/nonchimeras.otu.gz");
-	$filehandleinput1 = &readFile($otufiles[0]);
+	my %table;
+	my %samplenames;
+	my %otunames;
 	{
-		my $switch = 0;
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			s/;+size=\d+;*//g;
-			if (/^>(.+)$/) {
-				if ($chimeras{$1}) {
-					$switch = 0;
+		$filehandleoutput1 = &writeFile("$outputfolder/nonchimeras.otu.gz");
+		$filehandleinput1 = &readFile($otufiles[0]);
+		{
+			my $otuname;
+			my $switch = 0;
+			while (<$filehandleinput1>) {
+				s/\r?\n?$//;
+				s/;+size=\d+;*//g;
+				if (/^>(.+)$/) {
+					$otuname = $1;
+					if ($chimeras{$otuname}) {
+						$switch = 0;
+					}
+					else {
+						$switch = 1;
+						$otunames{$otuname} = 1;
+					}
 				}
-				else {
-					$switch = 1;
+				elsif ($otuname && / SN:(\S+)/) {
+					my $samplename = $1;
+					$table{$samplename}{$otuname} ++;
+					$samplenames{$samplename} = 1;
 				}
-			}
-			if ($switch) {
-				print($filehandleoutput1 "$_\n");
+				if ($switch) {
+					print($filehandleoutput1 "$_\n");
+				}
 			}
 		}
+		close($filehandleinput1);
+		close($filehandleoutput1);
+		
 	}
-	close($filehandleinput1);
-	close($filehandleoutput1);
+	# save table
+	{
+		my @otunames = sort({$a cmp $b} keys(%otunames));
+		my @samplenames = sort({$a cmp $b} keys(%samplenames));
+		unless (open($filehandleoutput1, "> $outputfolder/nonchimeras.tsv")) {
+			&errorMessage(__LINE__, "Cannot make \"$outputfolder/nonchimeras.tsv\".");
+		}
+		if ($tableformat eq 'matrix') {
+			print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
+			foreach my $samplename (@samplenames) {
+				print($filehandleoutput1 $samplename);
+				foreach my $otuname (@otunames) {
+					if ($table{$samplename}{$otuname}) {
+						print($filehandleoutput1 "\t$table{$samplename}{$otuname}");
+					}
+					else {
+						print($filehandleoutput1 "\t0");
+					}
+				}
+				print($filehandleoutput1 "\n");
+			}
+		}
+		elsif ($tableformat eq 'column') {
+			print($filehandleoutput1 "samplename\totuname\tnreads\n");
+			foreach my $samplename (@samplenames) {
+				foreach my $otuname (@otunames) {
+					if ($table{$samplename}{$otuname}) {
+						print($filehandleoutput1 "$samplename\t$otuname\t$table{$samplename}{$otuname}\n");
+					}
+					else {
+						print($filehandleoutput1 "$samplename\t$otuname\t0\n");
+					}
+				}
+			}
+		}
+		close($filehandleoutput1);
+	}
 	unless ($nodel) {
 		unlink("$outputfolder/temp.fasta");
 	}
@@ -556,6 +608,9 @@ vsearch options end
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)
+
+--tableformat=COLUMN|MATRIX
+  Specify output table format. (default: MATRIX)
 
 Acceptable input file formats
 =============================

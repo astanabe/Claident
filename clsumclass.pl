@@ -11,7 +11,7 @@ my $outputfile;
 
 # options
 my $runname;
-my $outformat = 'Matrix';
+my $tableformat = 'matrix';
 
 # global variables
 my %table;
@@ -78,12 +78,12 @@ sub getOptions {
 		if ($ARGV[$i] =~ /^-+runname=(.+)$/i) {
 			$runname = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+(?:o|output)=(.+)$/i) {
-			if ($1 =~ /^Matrix$/i) {
-				$outformat = 'Matrix';
+		elsif ($ARGV[$i] =~ /^-+(?:o|output|tableformat)=(.+)$/i) {
+			if ($1 =~ /^matrix$/i) {
+				$tableformat = 'matrix';
 			}
-			elsif ($1 =~ /^Column$/i) {
-				$outformat = 'Column';
+			elsif ($1 =~ /^column$/i) {
+				$tableformat = 'column';
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
@@ -145,7 +145,7 @@ sub saveSummary {
 	unless (open($filehandleoutput1, "> $outputfile")) {
 		&errorMessage(__LINE__, "Cannot make \"$outputfile\".");
 	}
-	if ($outformat eq 'Matrix') {
+	if ($tableformat eq 'matrix') {
 		print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
 		foreach my $samplename (@samplenames) {
 			print($filehandleoutput1 $samplename);
@@ -160,7 +160,7 @@ sub saveSummary {
 			print($filehandleoutput1 "\n");
 		}
 	}
-	elsif ($outformat eq 'Column') {
+	elsif ($tableformat eq 'column') {
 		print($filehandleoutput1 "samplename\totuname\tnreads\n");
 		foreach my $samplename (@samplenames) {
 			foreach my $otuname (@otunames) {
@@ -218,8 +218,8 @@ clsumclass options inputfile outputfile
 
 Command line options
 ====================
---output=COLUMN|MATRIX
-  Specify output format. (default: MATRIX)
+--tableformat=COLUMN|MATRIX
+  Specify output table format. (default: MATRIX)
 
 --runname=RUNNAME
   Specify run name for replacing run name.

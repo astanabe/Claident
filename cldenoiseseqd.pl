@@ -13,6 +13,7 @@ my @samplenames;
 my $pooling = 0;
 my $seed = time^$$;
 my $numthreads = 1;
+my $tableformat = 'matrix';
 my $nodel;
 
 # input/output
@@ -416,19 +417,29 @@ sub postDADA2 {
 			unlink("$outputfolder/$samplename.fastq");
 		}
 	}
+	my %table;
+	my %samplenames;
+	my %otunames;
 	$filehandleoutput1 = &writeFile("$outputfolder/denoised.fasta");
 	$filehandleoutput2 = &writeFile("$outputfolder/denoised.otu.gz");
 	{
-		my @denoised = sort({$nseqdenoised{$b} <=> $nseqdenoised{$a}} keys(%nseqdenoised));
+		my @denoised = sort({$nseqdenoised{$b} <=> $nseqdenoised{$a} || $a cmp $b} keys(%nseqdenoised));
 		my $ndenoised = scalar(@denoised);
 		my $length = length($ndenoised);
 		my $num = 1;
 		foreach my $seq (@denoised) {
 			if ($nseqdenoised{$seq} == scalar(@{$denoised{$seq}})) {
-				printf($filehandleoutput1 ">denoised_%0*d\n", $length, $num);
+				my $otuname = sprintf("denoised_%0*d", $length, $num);
+				$otunames{$otuname} = 1;
+				print($filehandleoutput1 ">$otuname\n");
 				print($filehandleoutput1 "$seq\n");
-				printf($filehandleoutput2 ">denoised_%0*d\n", $length, $num);
+				print($filehandleoutput2 ">$otuname\n");
 				foreach my $member (@{$denoised{$seq}}) {
+					if ($member =~ / SN:(\S+)/) {
+						my $samplename = $1;
+						$table{$samplename}{$otuname} ++;
+						$samplenames{$samplename} = 1;
+					}
 					print($filehandleoutput2 "$member\n");
 				}
 			}
@@ -440,6 +451,43 @@ sub postDADA2 {
 	}
 	close($filehandleoutput2);
 	close($filehandleoutput1);
+	# save table
+	{
+		my @otunames = sort({$a cmp $b} keys(%otunames));
+		my @samplenames = sort({$a cmp $b} keys(%samplenames));
+		unless (open($filehandleoutput1, "> $outputfolder/denoised.tsv")) {
+			&errorMessage(__LINE__, "Cannot make \"$outputfolder/denoised.tsv\".");
+		}
+		if ($tableformat eq 'matrix') {
+			print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
+			foreach my $samplename (@samplenames) {
+				print($filehandleoutput1 $samplename);
+				foreach my $otuname (@otunames) {
+					if ($table{$samplename}{$otuname}) {
+						print($filehandleoutput1 "\t$table{$samplename}{$otuname}");
+					}
+					else {
+						print($filehandleoutput1 "\t0");
+					}
+				}
+				print($filehandleoutput1 "\n");
+			}
+		}
+		elsif ($tableformat eq 'column') {
+			print($filehandleoutput1 "samplename\totuname\tnreads\n");
+			foreach my $samplename (@samplenames) {
+				foreach my $otuname (@otunames) {
+					if ($table{$samplename}{$otuname}) {
+						print($filehandleoutput1 "$samplename\t$otuname\t$table{$samplename}{$otuname}\n");
+					}
+					else {
+						print($filehandleoutput1 "$samplename\t$otuname\t0\n");
+					}
+				}
+			}
+		}
+		close($filehandleoutput1);
+	}
 	print(STDERR "done.\n\n");
 }
 
@@ -545,6 +593,9 @@ Command line options
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)
+
+--tableformat=COLUMN|MATRIX
+  Specify output table format. (default: MATRIX)
 
 Acceptable input file formats
 =============================
