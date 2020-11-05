@@ -450,7 +450,7 @@ sub searchNeighborhoods {
 					if ($method =~ /^\d+,(\d+)\%$/) {
 						my $perc_identity = $1;
 						my $tempnseq = $minnnseq + 100;
-						unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807 |")) {
+						unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807 2> $devnull |")) {
 							&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
 						}
 						my $tempscore;
@@ -487,7 +487,7 @@ sub searchNeighborhoods {
 						my %neighborhoods;
 						if ($method =~ /^(\d+)\%$/) {
 							my $perc_identity = $1;
-							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc length qcovhsp stitle\" -max_target_seqs 1000000000 -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807 |")) {
+							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc length qcovhsp stitle\" -max_target_seqs 1000000000 -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807 2> $devnull |")) {
 								&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc length qcovhsp stitle\" -max_target_seqs 1000000000 -perc_identity $perc_identity -num_threads $ht -searchsp 9223372036854775807\".");
 							}
 							while (<$pipehandleinput1>) {
@@ -503,7 +503,7 @@ sub searchNeighborhoods {
 						my @tempneighborhoods = keys(%neighborhoods);
 						if ($method =~ /^\d+$/ || scalar(@tempneighborhoods) < $minnnseq) {
 							my $tempnseq = $minnnseq + 100;
-							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 |")) {
+							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 2> $devnull |")) {
 								&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
 							}
 							my $tempscore;
@@ -538,7 +538,7 @@ sub searchNeighborhoods {
 					}
 					else {
 						my %nnseq;
-						unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc evalue score sseq qcovhsp\" -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807 |")) {
+						unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc evalue score sseq qcovhsp\" -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807 2> $devnull |")) {
 							&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc evalue score sseq qcovhsp\" -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
 						}
 						while (<$pipehandleinput1>) {
@@ -602,7 +602,7 @@ sub searchNeighborhoods {
 										$nne *= 1e+2;
 									}
 									my $tempeval = sprintf("%.2e", $nne);
-									unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue $tempeval -outfmt \"6 sacc score length qcovhsp\" -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 |")) {
+									unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue $tempeval -outfmt \"6 sacc score length qcovhsp\" -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 2> $devnull |")) {
 										&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue $tempeval -outfmt \"6 sacc score length qcovhsp\" -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
 									}
 									while (<$pipehandleinput1>) {
@@ -636,7 +636,7 @@ sub searchNeighborhoods {
 									print($filehandleoutput1 "$nacc\n");
 								}
 								close($filehandleoutput1);
-								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_seqidlist \"$outputfile1.$qnum.temp/nacclist.txt\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp\" -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807 |")) {
+								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_seqidlist \"$outputfile1.$qnum.temp/nacclist.txt\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp\" -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807 2> $devnull |")) {
 									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -negative_seqidlist \"$outputfile1.$qnum.temp/nacclist.txt\" -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb1 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp\" -max_target_seqs 100 -num_threads $ht -searchsp 9223372036854775807\".");
 								}
 								my %borderlines;
@@ -674,7 +674,7 @@ sub searchNeighborhoods {
 							}
 							if ($method eq 'nnc' || $method eq 'both') {
 								my $tempeval = sprintf("%.2e", $nne);
-								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 |")) {
+								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 2> $devnull |")) {
 									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
 								}
 								my %neighborhoods;
@@ -693,7 +693,7 @@ sub searchNeighborhoods {
 								my @tempneighborhoods = keys(%neighborhoods);
 								if (scalar(@tempneighborhoods) < $minnnseq) {
 									my $tempnseq = $minnnseq + 100;
-									unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 |")) {
+									unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 2> $devnull |")) {
 										&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/nn.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
 									}
 									unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/nnblasthit.txt")) {
@@ -743,7 +743,7 @@ sub searchNeighborhoods {
 						my $borderlinee = 1e-140;
 						my $borderlinescore;
 						{
-							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -seqidlist \"$outputfile1.$qnum.temp/borderline.txt\" -out - -evalue 1000000000 -outfmt \"6 sacc evalue score length qcovhsp\" -max_target_seqs 100 -searchsp 9223372036854775807 |")) {
+							unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -seqidlist \"$outputfile1.$qnum.temp/borderline.txt\" -out - -evalue 1000000000 -outfmt \"6 sacc evalue score length qcovhsp\" -max_target_seqs 100 -searchsp 9223372036854775807 2> $devnull |")) {
 								&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -seqidlist \"$outputfile1.$qnum.temp/borderline.txt\" -out - -evalue 1000000000 -outfmt \"6 sacc evalue score length qcovhsp\" -max_target_seqs 100 -searchsp 9223372036854775807\".");
 							}
 							my %borderlines;
@@ -796,7 +796,7 @@ sub searchNeighborhoods {
 									$borderlinee *= 1e+2;
 								}
 								my $tempeval = sprintf("%.2e", $borderlinee);
-								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 |")) {
+								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807 2> $devnull |")) {
 									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue $tempeval -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs 1000000000 -num_threads $ht -searchsp 9223372036854775807\".");
 								}
 								undef(%neighborhoods);
@@ -829,7 +829,7 @@ sub searchNeighborhoods {
 							my @tempneighborhoods = keys(%neighborhoods);
 							if (scalar(@tempneighborhoods) < $minnnseq) {
 								my $tempnseq = $minnnseq + 100;
-								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 |")) {
+								unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807 2> $devnull |")) {
 									&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb2 -out - -evalue 1000000000 -outfmt \"6 sacc score length qcovhsp stitle\" -max_target_seqs $tempnseq -num_threads $ht -searchsp 9223372036854775807\".");
 								}
 								unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/qblasthit.txt")) {

@@ -10,7 +10,7 @@ my @otufiles;
 my $outputfolder;
 
 # options
-my $mode;
+my $mode = 'eliminate';
 my $tagfile;
 my $reversetagfile;
 my $reversecomplement;
@@ -239,14 +239,6 @@ sub checkVariables {
 	}
 	if (-e $outputfolder) {
 		&errorMessage(__LINE__, "\"$outputfolder\" already exists.");
-	}
-	if (!$mode) {
-		if ($tagfile && $reversetagfile) {
-			$mode = 'eliminate';
-		}
-		elsif (%blanklist || $blanklist) {
-			$mode = 'subtractmax';
-		}
 	}
 }
 
@@ -717,8 +709,7 @@ clremovecontam options inputfile outputfolder
 Command line options
 ====================
 --mode=ELIMINATE|SUBTRACTMAX
-  Specify run mode. (default: ELIMINATE for index-hopping removal, SUBTRACTMAX
-for decontamination)
+  Specify run mode. (default: ELIMINATE)
 
 --siglevel=DECIMAL
   Specify significance level for modified Thompson Tau test. (default: 0.05)
