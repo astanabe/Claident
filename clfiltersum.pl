@@ -27,6 +27,7 @@ my %includetaxa;
 my %includetaxarestriction;
 my %excludetaxa;
 my %excludetaxarestriction;
+my $tableformat;
 
 # global variables
 my $devnull = File::Spec->devnull();
@@ -37,7 +38,6 @@ my %nsamplelist;
 my %table;
 my @otunames;
 my @samplenames;
-my $format;
 my %parentsample;
 my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'subphylum', 'superclass', 'class', 'subclass', 'infraclass', 'cohort', 'subcohort', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'section', 'subsection', 'series', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma', 'forma specialis', 'strain', 'isolate');
 my %taxrank;
@@ -274,7 +274,7 @@ sub checkVariables {
 }
 
 sub readTaxonomyFile {
-	my @label;
+	my @rank;
 	unless (open($filehandleinput1, "< $taxfile")) {
 		&errorMessage(__LINE__, "Cannot read \"$taxfile\".");
 	}
@@ -283,20 +283,20 @@ sub readTaxonomyFile {
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			if ($lineno == 1 && /\t/) {
-				@label = split(/\t/, lc($_));
-				shift(@label);
-				foreach my $label (@label) {
-					if (!exists($taxrank{$label})) {
-						&errorMessage(__LINE__, "\"$label\" is invalid taxonomic rank.");
+				@rank = split(/\t/, lc($_));
+				shift(@rank);
+				foreach my $rank (@rank) {
+					if (!exists($taxrank{$rank})) {
+						&errorMessage(__LINE__, "\"$rank\" is invalid taxonomic rank.");
 					}
 				}
 			}
 			elsif (/\t/) {
-				my @entry = split(/\t/, lc($_));
+				my @entry = split(/\t/, $_);
 				my $otuname = shift(@entry);
-				if (scalar(@entry) == scalar(@label)) {
+				if (scalar(@entry) == scalar(@rank)) {
 					for (my $i = 0; $i < scalar(@entry); $i ++) {
-						$taxonomy{$otuname}[$taxrank{$label[$i]}] = $entry[$i];
+						$taxonomy{$otuname}{$taxrank{$rank[$i]}} = $entry[$i];
 					}
 				}
 				else {
@@ -361,11 +361,12 @@ sub readSequenceFiles {
 
 sub readSummary {
 	my $ncol;
+	my $format;
 	# read input file
 	$filehandleinput1 = &readFile($inputfile);
 	while (<$filehandleinput1>) {
 		s/\r?\n?$//;
-		if ($format eq 'Column') {
+		if ($format eq 'column') {
 			my @row = split(/\t/);
 			if (scalar(@row) == 3) {
 				if ($runname) {
@@ -380,7 +381,7 @@ sub readSummary {
 				&errorMessage(__LINE__, "The input file is invalid.\nThe invalid line is \"$_\".");
 			}
 		}
-		elsif ($format eq 'Matrix') {
+		elsif ($format eq 'matrix') {
 			my @row = split(/\t/);
 			if (scalar(@row) == $ncol + 1) {
 				my $samplename = shift(@row);
@@ -400,24 +401,27 @@ sub readSummary {
 			}
 		}
 		elsif (/^samplename\totuname\tnreads/i) {
-			$format = 'Column';
+			$format = 'column';
 		}
 		elsif (/^samplename\t(.+)/i) {
 			@otunames = split(/\t/, $1);
 			$ncol = scalar(@otunames);
-			$format = 'Matrix';
+			$format = 'matrix';
 		}
 		else {
 			&errorMessage(__LINE__, "The input file is invalid.");
 		}
 	}
 	close($filehandleinput1);
-	if ($format eq 'Column') {
+	if ($format eq 'column') {
 		@samplenames = sort({$a cmp $b} keys(%table));
 		foreach my $samplename (@samplenames) {
 			@otunames = sort({$a cmp $b} keys(%{$table{$samplename}}));
 			last;
 		}
+	}
+	if (!$tableformat) {
+		$tableformat = $format;
 	}
 }
 
@@ -464,8 +468,8 @@ sub filterColumnsRows {
 			my $hit = 0;
 			foreach my $word (keys(%includetaxa)) {
 				if (!exists($includetaxarestriction{$word})) {
-					foreach my $label (keys(%{$taxonomy{$otuname}})) {
-						if ($taxonomy{$otuname}{$label} =~ /$word/) {
+					foreach my $rank (keys(%{$taxonomy{$otuname}})) {
+						if ($taxonomy{$otuname}{$rank} =~ /$word/i) {
 							$hit = 1;
 							last;
 						}
@@ -474,7 +478,7 @@ sub filterColumnsRows {
 						last;
 					}
 				}
-				elsif ($taxonomy{$otuname}[$includetaxarestriction{$word}] && $taxonomy{$otuname}[$includetaxarestriction{$word}] =~ /$word/) {
+				elsif ($taxonomy{$otuname}{$includetaxarestriction{$word}} && $taxonomy{$otuname}{$includetaxarestriction{$word}} =~ /$word/i) {
 					$hit = 1;
 					last;
 				}
@@ -496,8 +500,8 @@ sub filterColumnsRows {
 			foreach my $word (keys(%excludetaxa)) {
 				if (!exists($excludetaxarestriction{$word})) {
 					my $hit = 0;
-					foreach my $label (keys(%{$taxonomy{$otuname}})) {
-						if ($taxonomy{$otuname}{$label} =~ /$word/) {
+					foreach my $rank (keys(%{$taxonomy{$otuname}})) {
+						if ($taxonomy{$otuname}{$rank} =~ /$word/i) {
 							$hit = 1;
 							last;
 						}
@@ -506,7 +510,7 @@ sub filterColumnsRows {
 						last;
 					}
 				}
-				elsif ($taxonomy{$otuname}[$excludetaxarestriction{$word}] && $taxonomy{$otuname}[$excludetaxarestriction{$word}] =~ /$word/) {
+				elsif ($taxonomy{$otuname}{$excludetaxarestriction{$word}} && $taxonomy{$otuname}{$excludetaxarestriction{$word}} =~ /$word/i) {
 					$hit = 1;
 					last;
 				}
@@ -608,7 +612,7 @@ sub saveSummary {
 	@samplenames = sort({$a cmp $b} keys(%table));
 	# save output file
 	$filehandleoutput1 = &writeFile($outputfile);
-	if ($format eq 'Matrix') {
+	if ($tableformat eq 'matrix') {
 		print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
 		foreach my $samplename (@samplenames) {
 			print($filehandleoutput1 $samplename);
@@ -623,7 +627,7 @@ sub saveSummary {
 			print($filehandleoutput1 "\n");
 		}
 	}
-	elsif ($format eq 'Column') {
+	elsif ($tableformat eq 'column') {
 		print($filehandleoutput1 "samplename\totuname\tnreads\n");
 		foreach my $samplename (@samplenames) {
 			foreach my $otuname (@otunames) {
@@ -816,6 +820,9 @@ smaller than this value at all samples, the OTU will be omitted.
 sequences of a sample / the total number of sequences of a sample is
 smaller than this value at all OTUs, the sample will be omitted.
 (default: 0)
+
+--tableformat=COLUMN|MATRIX
+  Specify output table format. (default: same as input)
 
 Acceptable input file formats
 =============================

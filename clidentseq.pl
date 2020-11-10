@@ -945,7 +945,7 @@ sub outputFile {
 			print($filehandleoutput1 ">$query\n" . join("\n", sort(keys(%{$tempaccs{$query}}))) . "\n");
 		}
 		else {
-			print($filehandleoutput1 ">$query\n0\n");
+			print($filehandleoutput1 ">$query\n");
 		}
 	}
 	close($filehandleoutput1);

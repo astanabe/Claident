@@ -339,8 +339,8 @@ my %supports;
 	print(STDERR "Identifying by using BLAST results...\n");
 	for (my $i = 0; $i < scalar(@queries); $i ++) {
 		print(STDERR "Identifying \"$queries[$i]\"...\n");
-		my $nneighborhoods = scalar(@{$query2acclist{$queries[$i]}});
-		if ($nneighborhoods) {
+		if ($query2acclist{$queries[$i]}) {
+			my $nneighborhoods = scalar(@{$query2acclist{$queries[$i]}});
 			my $result;
 			# search lower rank to upper rank
 			for (my $j = -1; $j > scalar(@taxrank) * (-1); $j --) {
