@@ -8,27 +8,27 @@ all: $(PROGRAM)
 
 classigntax: classigntax.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clblastdbcmd: clblastdbcmd.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clblastprimer: clblastprimer.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clblastseq: clblastseq.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clcalcfastqstatv: clcalcfastqstatv.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clclassseqv: clclassseqv.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clconcatpair: clconcatpairv
 	ln -s $< $@
@@ -36,119 +36,119 @@ clconcatpair: clconcatpairv
 
 clconcatpairv: clconcatpairv.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clconvrefdb: clconvrefdb.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 cldenoiseseqd: cldenoiseseqd.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clderepblastdb: clderepblastdb.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 cldivseq: cldivseq.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clelimdupacc: clelimdupacc.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clextractdupacc: clextractdupacc.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clfillassign: clfillassign.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clfilterclass: clfilterclass.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clfilterseq: clfilterseq.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clfilterseqv: clfilterseqv.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clfiltersum: clfiltersum.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clidentseq: clidentseq.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 climportfastq: climportfastq.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clmakeblastdb: clmakeblastdb.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clmakecachedb: clmakecachedb.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clmaketaxdb: clmaketaxdb.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clmaketsv: clmaketsv.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clmakeuchimedb: clmakeuchimedb.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clmakexml: clmakexml.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clmergeassign: clmergeassign.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clrecoverseqv: clrecoverseqv.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clretrieveacc: clretrieveacc.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clremovechimev: clremovechimev.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clremovecontam: clremovecontam.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clshrinkblastdb: clshrinkblastdb.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clsplitseq: clsplitseq.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clsumclass: clsumclass.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clsumtaxa: clsumtaxa.pl
 	echo '#!'$(PERL) > $@
-	$(PERL) -npe "s/buildno = '0\.2\.x'/buildno = '$(VERSION)'/" $< >> $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 install: $(PROGRAM)
 	chmod 755 $^
