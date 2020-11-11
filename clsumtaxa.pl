@@ -302,7 +302,7 @@ sub processSummary {
 		push(@otunames, 'others');
 	}
 	if ($sortkey =~ /^\d+$/) {
-		@otunames = sort({$taxonomy{$a}{$sortkey} cmp $taxonomy{$b}{$sortkey}} keys(%newotu));
+		@otunames = sort({$taxonomy{$a}{$sortkey} cmp $taxonomy{$b}{$sortkey} || $newotu{$b} <=> $newotu{$a}} keys(%newotu));
 	}
 	if ($numbering) {
 		my @newotu;
