@@ -11,7 +11,7 @@ my $vsearchoption = " --fastq_qmax 93";
 # options
 my $folder = 0;
 my $paired;
-my $maxnee = 2.0;
+my $maxnee;
 my $minlen = 0;
 my $maxlen = 99999;
 my $minqual = 0;
@@ -260,7 +260,7 @@ sub checkVariables {
 	if (-e $output && !$append) {
 		&errorMessage(__LINE__, "\"$output\" already exists.");
 	}
-	elsif ($folder && !mkdir($output)) {
+	elsif (!$append && $folder && !mkdir($output)) {
 		&errorMessage(__LINE__, 'Cannot make output folder.');
 	}
 	$minqual --;
@@ -630,7 +630,7 @@ Command line options
   Specify output format. (default: DIRECTORY)
 
 --maxnee=DECIMAL
-  Specify the maximum number of expected errors. (default: 2.0)
+  Specify the maximum number of expected errors. (default: none)
 
 --minqual=INTEGER
   Specify the minimum quality value for 3'-tail trimming. (default: 0)

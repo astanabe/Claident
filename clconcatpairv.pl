@@ -7,7 +7,7 @@ my $buildno = '0.9.x';
 my $devnull = File::Spec->devnull();
 
 # global variable
-my $vsearch5doption = " --fastq_qmax 93 --fastq_qmaxout 93 --fastq_allowmergestagger";
+my $vsearch5doption = " --fastq_qmax 93";
 
 # options
 my $folder = 0;
@@ -286,10 +286,8 @@ sub checkVariables {
 		}
 	}
 	# initialize vsearch5d options
-	if ($numthreads) {
-		$vsearch5doption .= " --threads $numthreads";
-	}
 	if ($mode eq 'ovl') {
+		$vsearch5doption .= " --fastq_qmaxout 93 --fastq_allowmergestagger";
 		if ($minqual) {
 			$vsearch5doption .= " --fastq_truncqual $minqual";
 		}
@@ -310,8 +308,8 @@ sub checkVariables {
 	elsif ($mode eq 'non') {
 		$vsearch5doption .= " --join_padgap $padding";
 		my $padqual = $padding;
-		$padqual =~ s/[ACGT]/I/g;
-		$vsearch5doption .= " --join_padgapq $padqual";
+		$padqual =~ s/[ACGT]/~/g;
+		$vsearch5doption .= " --join_padgapq \"$padqual\"";
 		$vsearch5doption .= " --fastq_join2";
 	}
 }
