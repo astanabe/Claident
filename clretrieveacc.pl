@@ -327,7 +327,7 @@ else {
 	{
 		print(STDERR "Reading names table...");
 		my $statement;
-		unless ($statement = $dbhandle->prepare("SELECT taxid, name FROM names WHERE nameclass IN 'scientific name'")) {
+		unless ($statement = $dbhandle->prepare("SELECT taxid, name FROM names WHERE nameclass='scientific name'")) {
 			&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 		}
 		unless ($statement->execute) {

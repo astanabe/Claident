@@ -1,5 +1,4 @@
 #!/bin/sh
-#$ -l nc=8
 export PATH=/usr/local/share/claident/bin:$PATH
 # search by keywords at INSD
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid4751[Organism:exp] AND 200:10000[Sequence Length] AND (ITS1[Title] OR ITS2[Title] OR "internal transcribed spacer"[Title] OR "internal transcribed spacers"[Title]) NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' fungi_ITS1.txt || exit $?
@@ -9,12 +8,12 @@ clmaketaxdb --includetaxid=4751 taxonomy fungi.taxdb || exit $?
 clretrieveacc --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=fungi.taxdb fungi_genus.txt || exit $?
 # make BLAST database
 cd blastdb || exit $?
-clblastdbcmd --blastdb=./nt --output=ACCESSION --numthreads=8 ../fungi_genus.txt fungi_genus.txt
+clblastdbcmd --blastdb=./nt --output=ACCESSION --numthreads=16 ../fungi_genus.txt fungi_genus.txt
 BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db nt -seqid_file_in fungi_genus.txt -seqid_title fungi_genus -seqid_file_out fungi_genus.bsl || exit $?
 BLASTDB=./ blastdb_aliastool -dbtype nucl -db nt -seqidlist fungi_genus.bsl -out fungi_genus -title fungi_genus || exit $?
 cd .. || exit $?
 # search by primer sequences
-clblastprimer blastn -db blastdb/fungi_genus -word_size 9 -evalue 1e-1 -perc_identity 90 -strand plus -task blastn-short -ungapped -dust no -max_target_seqs 1000000000 end --numthreads=8 --hyperthreads=8 primers_fungi_ITS.fasta fungi_ITS2.txt || exit $?
+clblastprimer blastn -db blastdb/fungi_genus -word_size 9 -evalue 1e-1 -perc_identity 90 -strand plus -task blastn-short -ungapped -dust no -max_target_seqs 1000000000 end --numthreads=16 --hyperthreads=8 primers_fungi_ITS.fasta fungi_ITS2.txt || exit $?
 # eliminate duplicate entries
 clelimdupacc fungi_ITS1.txt fungi_ITS2.txt fungi_ITS.txt || exit $?
 # extract identified sequences

@@ -1,5 +1,4 @@
 #!/bin/sh
-#$ -l nc=8
 export PATH=/usr/local/share/claident/bin:$PATH
 # search by keywords at INSD
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid33208[Organism:exp] AND 200:10000[Sequence Length] AND ("cytochrome c oxidase subunit 1"[Title] OR "cytochrome c oxydase subunit 1"[Title] OR "cytochrome c oxidase subunit I"[Title] OR "cytochrome c oxydase subunit I"[Title] OR "cytochrome oxidase subunit 1"[Title] OR "cytochrome oxydase subunit 1"[Title] OR "cytochrome oxidase subunit I"[Title] OR "cytochrome oxydase subunit I"[Title] OR COX1[Title] OR CO1[Title] OR COI[Title]) NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' animals_COX11.txt &
@@ -12,12 +11,12 @@ clmaketaxdb --includetaxid=33208 taxonomy animals.taxdb || exit $?
 clretrieveacc --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=animals.taxdb animals_genus.txt || exit $?
 # make BLAST database
 cd blastdb || exit $?
-clblastdbcmd --blastdb=./nt --output=ACCESSION --numthreads=8 ../animals_genus.txt animals_genus.txt
+clblastdbcmd --blastdb=./nt --output=ACCESSION --numthreads=16 ../animals_genus.txt animals_genus.txt
 BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db nt -seqid_file_in animals_genus.txt -seqid_title animals_genus -seqid_file_out animals_genus.bsl || exit $?
 BLASTDB=./ blastdb_aliastool -dbtype nucl -db nt -seqidlist animals_genus.bsl -out animals_genus -title animals_genus || exit $?
 cd .. || exit $?
 # search by reference sequences
-clblastseq blastn -db blastdb/animals_genus -word_size 9 -evalue 1e-5 -strand plus -task blastn -max_target_seqs 1000000000 end --output=ACCESSION --numthreads=8 --hyperthreads=8 references_animals_COX1.fasta animals_COX12.txt || exit $?
+clblastseq blastn -db blastdb/animals_genus -word_size 9 -evalue 1e-5 -strand plus -task blastn -max_target_seqs 1000000000 end --output=ACCESSION --numthreads=16 --hyperthreads=8 references_animals_COX1.fasta animals_COX12.txt || exit $?
 # eliminate duplicate entries
 clelimdupacc animals_COX11.txt animals_COX12.txt animals_COX1.txt || exit $?
 # extract identified sequences

@@ -1,5 +1,4 @@
 #!/bin/sh
-#$ -l nc=8
 export PATH=/usr/local/share/claident/bin:$PATH
 # search by keywords at INSD
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid33090[Organism:exp] AND 200:10000[Sequence Length] AND (matK[Title] OR "maturase K"[Title]) NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' plants_matK1.txt || exit $?
@@ -11,12 +10,12 @@ clmaketaxdb --includetaxid=33090 taxonomy plants.taxdb || exit $?
 clretrieveacc --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=plants.taxdb plants_genus.txt || exit $?
 # make BLAST database
 cd blastdb || exit $?
-clblastdbcmd --blastdb=./nt --output=ACCESSION --numthreads=8 ../plants_genus.txt plants_genus.txt
+clblastdbcmd --blastdb=./nt --output=ACCESSION --numthreads=16 ../plants_genus.txt plants_genus.txt
 BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db nt -seqid_file_in plants_genus.txt -seqid_title plants_genus -seqid_file_out plants_genus.bsl || exit $?
 BLASTDB=./ blastdb_aliastool -dbtype nucl -db nt -seqidlist plants_genus.bsl -out plants_genus -title plants_genus || exit $?
 cd .. || exit $?
 # search by reference sequences
-clblastseq blastn -db blastdb/plants_genus -word_size 11 -evalue 1e-15 -strand plus -task blastn -max_target_seqs 1000000000 end --output=ACCESSION --numthreads=8 --hyperthreads=8 references_plants_matK.fasta plants_matK2.txt || exit $?
+clblastseq blastn -db blastdb/plants_genus -word_size 11 -evalue 1e-15 -strand plus -task blastn -max_target_seqs 1000000000 end --output=ACCESSION --numthreads=16 --hyperthreads=8 references_plants_matK.fasta plants_matK2.txt || exit $?
 # eliminate duplicate entries
 clelimdupacc plants_matK1.txt plants_matK2.txt plants_matK.txt || exit $?
 # extract identified sequences
