@@ -16,7 +16,7 @@ BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db nt -seqid_file_in anim
 BLASTDB=./ blastdb_aliastool -dbtype nucl -db nt -seqidlist animals_genus.bsl -out animals_genus -title animals_genus || exit $?
 cd .. || exit $?
 # search by reference sequences
-clblastseq blastn -db blastdb/animals_genus -word_size 9 -evalue 1e-5 -strand plus -task blastn -max_target_seqs 1000000000 end --output=ACCESSION --numthreads=16 --hyperthreads=8 references_animals_COX1.fasta animals_COX12.txt || exit $?
+clblastseq blastn -db blastdb/animals_genus -word_size 9 -evalue 1e-5 -strand plus -task blastn -max_target_seqs 1000000000 end --output=ACCESSION --numthreads=16 --hyperthreads=16 references_animals_COX1.fasta animals_COX12.txt || exit $?
 # eliminate duplicate entries
 clelimdupacc animals_COX11.txt animals_COX12.txt animals_COX1.txt || exit $?
 # extract identified sequences

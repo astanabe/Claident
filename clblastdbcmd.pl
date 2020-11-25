@@ -177,7 +177,7 @@ sub checkVariables {
 		&errorMessage(__LINE__, "Input file does not exist.");
 	}
 	if ($outputformat eq 'FASTA') {
-		$outputformat = "\">gb\|\%a \%t\n\%s\"";
+		$outputformat = "\">\%a \%t\n\%s\"";
 	}
 	elsif ($outputformat eq 'ACCTAXID') {
 		$outputformat = "'" . '%a %T' . "'";

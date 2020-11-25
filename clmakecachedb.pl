@@ -349,26 +349,28 @@ sub retrieveSimilarSequences {
 sub runBLAST {
 	my $tempnseq = shift(@_);
 	print(STDERR "Searching similar sequences of $tempnseq sequences...\n");
-	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq\" -num_threads $numthreads -searchsp 9223372036854775807 |")) {
-		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq\" -num_threads $numthreads -searchsp 9223372036854775807\".");
+	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq stitle\" -num_threads $numthreads -searchsp 9223372036854775807 |")) {
+		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq stitle\" -num_threads $numthreads -searchsp 9223372036854775807\".");
 	}
 	local $/ = "\n";
 	while (<$pipehandleinput1>) {
-		if (/^\s*(\S+)\s+([A-Za-z0-9_]+)\s+(\d+)\s+(\S+)\s+(\S+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
+		s/\r?\n?//;
+		if (/^\s*(\S+)\s+(\S+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(.+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
 			my $prefix = $1;
-			my $acc = $2;
+			my $sacc = $2;
 			my $seq = $5;
+			my $title = $6;
 			$seq =~ s/\-//g;
 			unless (open($filehandleoutput1, ">> $outputfolder/$prefix.fasta")) {
 				&errorMessage(__LINE__, "Cannot write \"$outputfolder/$prefix.fasta\".");
 			}
-			print($filehandleoutput1 ">gb|$acc\n$seq\n");
+			print($filehandleoutput1 ">$sacc $title\n$seq\n");
 			close($filehandleoutput1);
 		}
 	}
 	close($pipehandleinput1);
 	#if ($?) {
-	#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq\" -num_threads $numthreads -searchsp 9223372036854775807\".");
+	#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq stitle\" -num_threads $numthreads -searchsp 9223372036854775807\".");
 	#}
 	unlink("$outputfolder/tempquery.fasta");
 }

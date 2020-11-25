@@ -250,7 +250,7 @@ sub constructSeqDB {
 			my $seqname = $1;
 			my $seq = uc($2);
 			$seq =~ s/[> \r\n]//g;
-			$seqname =~ /\|*(?:gb|emb|dbj)\|([A-Za-z0-9_]+)[\| ]/;
+			$seqname =~ /\|*(?:gb|emb|dbj|ref|pdb|tpd|tpe|tpg)\|([A-Za-z0-9_]+)[\| ]/;
 			my $acc = $1;
 			my $seqlen = length($seq);
 			if ($seqlen >= $minlen && $seqlen <= $maxlen) {

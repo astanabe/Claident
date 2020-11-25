@@ -632,7 +632,7 @@ sub helpMessage {
 	print(STDERR <<"_END");
 Usage
 =====
-clretrieveseqid options outputfile
+clretrieveacc options outputfile
 
 Command line options
 ====================

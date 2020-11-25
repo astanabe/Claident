@@ -226,7 +226,7 @@ sub splitInputFile {
 				$line ++;
 				if (/^>\s*(\S+)\s*/) {
 					my $seqid = $1;
-					if (exists($nacclist{$seqid}) || $seqid =~ /(?:gb|emb|dbj)\|([A-Za-z0-9_]+)/ && (exists($nacclist{$1}))) {
+					if (exists($nacclist{$seqid}) || $seqid =~ /(?:gb|emb|dbj|ref|pdb|tpd|tpe|tpg)\|([A-Za-z0-9_]+)/ && (exists($nacclist{$1})) || $seqid =~ /([A-Za-z0-9_]+)/ && (exists($nacclist{$1}))) {
 						$switch = 0;
 						next;
 					}

@@ -13,7 +13,7 @@ BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db nt -seqid_file_in fung
 BLASTDB=./ blastdb_aliastool -dbtype nucl -db nt -seqidlist fungi_genus.bsl -out fungi_genus -title fungi_genus || exit $?
 cd .. || exit $?
 # search by primer sequences
-clblastprimer blastn -db blastdb/fungi_genus -word_size 9 -evalue 1e-1 -perc_identity 90 -strand plus -task blastn-short -ungapped -dust no -max_target_seqs 1000000000 end --numthreads=16 --hyperthreads=8 primers_fungi_ITS.fasta fungi_ITS2.txt || exit $?
+clblastprimer blastn -db blastdb/fungi_genus -word_size 9 -evalue 1e-1 -perc_identity 90 -strand plus -task blastn-short -ungapped -dust no -max_target_seqs 1000000000 end --numthreads=16 --hyperthreads=16 primers_fungi_ITS.fasta fungi_ITS2.txt || exit $?
 # eliminate duplicate entries
 clelimdupacc fungi_ITS1.txt fungi_ITS2.txt fungi_ITS.txt || exit $?
 # extract identified sequences

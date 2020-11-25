@@ -22,7 +22,7 @@ cd blastdb || exit $?
 # make BLAST database
 # NT-independent
 clblastdbcmd --blastdb=./nt --output=FASTA --numthreads=16 --compress=gzip --filejoin=disable ../overall_class.txt temp_class || exit $?
-clmakeblastdb --numthreads=16 "temp_class.*.gz" overall_class || exit $?
+clmakeblastdb --numthreads=8 "temp_class.*.gz" overall_class || exit $?
 rm temp_class.*.gz || exit $?
 clblastdbcmd --blastdb=./nt --output=ACCESSION --numthreads=16 ../overall_class.txt overall_class.txt || exit $?
 clextractdupacc --workspace=disk overall_class.txt ../overall_order.txt overall_order.txt &

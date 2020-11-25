@@ -287,10 +287,10 @@ print(STDERR "done.\n\n");
 	}
 	foreach my $acc (keys(%tempseq)) {
 		if ($outputformat eq 'ACC') {
-			print($outputhandle "$acc\n");
+			print($outputhandle $acc . "\n");
 		}
 		elsif ($outputformat eq 'FASTA') {
-			print($outputhandle ">gb|$acc $temptitle{$acc}\n$tempseq{$acc}\n");
+			print($outputhandle ">$acc $temptitle{$acc}\n$tempseq{$acc}\n");
 		}
 	}
 	close($outputhandle);
