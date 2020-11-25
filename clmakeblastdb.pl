@@ -353,6 +353,12 @@ sub makeNal {
 		rename("$databases[0].nsd", "$output.nsd");
 		rename("$databases[0].nsi", "$output.nsi");
 		rename("$databases[0].nsq", "$output.nsq");
+		rename("$databases[0].ndb", "$output.ndb");
+		rename("$databases[0].nos", "$output.nos");
+		rename("$databases[0].not", "$output.not");
+		rename("$databases[0].ntf", "$output.ntf");
+		rename("$databases[0].nto", "$output.nto");
+		rename("$databases[0].nal", "$output.nal");
 	}
 	else {
 		&errorMessage(__LINE__, "Cannot find constructed databases.");
