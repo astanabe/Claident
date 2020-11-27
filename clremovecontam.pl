@@ -655,7 +655,7 @@ sub isOutlier {
 	my $mean = &mean($samplesize, @_);
 	my $stdev = &stdev($samplesize, $mean, @_);
 	my $currentdeviation = abs($currentabundance - $mean);
-	my $t = Statistics::Distributions::tdistr(($samplesize - 2), ($siglevel / 2));
+	my $t = Statistics::Distributions::tdistr(($samplesize - 2), $siglevel);
 	if ($currentdeviation > (($t * ($samplesize - 1)) / (sqrt($samplesize) * sqrt($samplesize - 2 + ($t ** 2)))) * $stdev) {
 		return(1);
 	}
