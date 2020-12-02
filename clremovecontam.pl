@@ -542,17 +542,17 @@ sub removeContaminants {
 
 sub saveResults {
 	print(STDERR "Outputing results...\n");
+	foreach my $blanksample (keys(%blanksamples)) {
+		delete($samplenames{$blanksample});
+	}
 	foreach my $otuname (keys(%otunames)) {
 		my $tempsum = 0;
-		foreach my $samplename (keys(%table)) {
+		foreach my $samplename (keys(%samplenames)) {
 			$tempsum += $table{$samplename}{$otuname};
 		}
 		if ($tempsum == 0) {
 			delete($otunames{$otuname});
 		}
-	}
-	foreach my $blanksample (keys(%blanksamples)) {
-		delete($samplenames{$blanksample});
 	}
 	if (!mkdir($outputfolder)) {
 		&errorMessage(__LINE__, "Cannot make output folder.");

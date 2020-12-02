@@ -352,7 +352,10 @@ sub checkVariables {
 		$addUMI = 1;
 	}
 	elsif (!$useNasUMI && $addUMI) {
-		&errorMessage(__LINE__, "\"addUMI\" is enabled but \"useNasUMI\" is disabled.");
+		&errorMessage(__LINE__, "\"addUMI\" is enabled but \"useNasUMI\" is disabled. This combination is invalid.");
+	}
+	if ($addUMI && $elimprimer == 0) {
+		&errorMessage(__LINE__, "\"addUMI\" is enabled but \"elimprimer\" is disabled. This combination is invalid.");
 	}
 	$minqualtag += 33;
 }
@@ -1160,12 +1163,12 @@ sub searchPrimers {
 			my $fpmismatch;
 			my $fnmismatch;
 			($fstart, $fend, $fpmismatch, $fnmismatch, $fumiseq) = &alignPrimer(substr($fseq, 0, length($primer{$tempname}) * 2), $primer{$tempname}, 0);
-			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch) {
+			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch || $useNasUMI && $fumiseq =~ /-/) {
 				next;
 			}
 			else {
 				if ($fumiseq) {
-					$fumiqual = substr($fqual, 0, length($fumiseq));
+					$fumiqual = substr($fqual, $fstart, length($fumiseq));
 				}
 				my $tempsubstr1;
 				my $tempsubstr2;
@@ -1182,12 +1185,12 @@ sub searchPrimers {
 					my $rpmismatch;
 					my $rnmismatch;
 					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq) = &alignPrimer(substr($rseq, 0, length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
-					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
+					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch || $useNasUMI && $rumiseq =~ /-/) {
 						next;
 					}
 					else {
 						if ($rumiseq) {
-							$rumiqual = substr($rqual, 0, length($rumiseq));
+							$rumiqual = substr($rqual, $rstart, length($rumiseq));
 						}
 						if ($elimprimer) {
 							substr($rseq, 0, $rend + 1, '');
@@ -1237,12 +1240,12 @@ sub searchPrimers {
 			my $fpmismatch;
 			my $fnmismatch;
 			($fstart, $fend, $fpmismatch, $fnmismatch, $fumiseq) = &alignPrimer(substr($fseq, 0, length($primer{$tempname}) * 2), $primer{$tempname}, 0);
-			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch) {
+			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch || $useNasUMI && $fumiseq =~ /-/) {
 				next;
 			}
 			else {
 				if ($fumiseq) {
-					$fumiqual = substr($fqual, 0, length($fumiseq));
+					$fumiqual = substr($fqual, $fstart, length($fumiseq));
 				}
 				my $tempsubstr1;
 				my $tempsubstr2;
@@ -1259,14 +1262,17 @@ sub searchPrimers {
 					my $rpmismatch;
 					my $rnmismatch;
 					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq) = &alignPrimer($fseq, $reverseprimer{$tempname}, $ward);
-					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
+					if ($useNasUMI && $rumiseq =~ /-/) {
+						next;
+					}
+					elsif ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 						if ($needreverseprimer) {
 							next;
 						}
 					}
 					else {
 						if ($rumiseq) {
-							$rumiqual = substr($fqual, $rstart + length($reverseprimer{$tempname}) - length($rumiseq), length($rumiseq));
+							$rumiqual = substr($fqual, $rend - length($rumiseq) + 1, length($rumiseq));
 						}
 						if ($elimprimer) {
 							substr($fseq, $rstart, length($fseq) - $rstart, '');
@@ -1283,7 +1289,10 @@ sub searchPrimers {
 					my $rpmismatch;
 					my $rnmismatch;
 					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq) = &alignPrimer(substr($fseq, -1 * length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
-					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
+					if ($useNasUMI && $rumiseq =~ /-/) {
+						next;
+					}
+					elsif ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 						if ($needreverseprimer) {
 							next;
 						}
@@ -1291,9 +1300,10 @@ sub searchPrimers {
 					else {
 						if (length($reverseprimer{$tempname}) * 2 < length($fseq)) {
 							$rstart += length($fseq) - (length($reverseprimer{$tempname}) * 2);
+							$rend += length($fseq) - (length($reverseprimer{$tempname}) * 2);
 						}
 						if ($rumiseq) {
-							$rumiqual = substr($fqual, $rstart + length($reverseprimer{$tempname}) - length($rumiseq), length($rumiseq));
+							$rumiqual = substr($fqual, $rend - length($rumiseq) + 1, length($rumiseq));
 						}
 						if ($elimprimer) {
 							substr($fseq, $rstart, length($fseq) - $rstart, '');
@@ -1360,7 +1370,8 @@ sub saveToFile {
 	}
 	if ($seqnamestyle eq 'illumina') {
 		if ($options->{'fumiseq'} && $options->{'rumiseq'}) {
-			$seqname .= ':' . $options->{'fumiseq'} . '+' . $options->{'rumiseq'};
+			my $umiseq = ':' . $options->{'fumiseq'} . '+' . $options->{'rumiseq'};
+			$seqname =~ s/ /$umiseq /;
 		}
 		elsif ($options->{'fumiseq'}) {
 			$seqname .= ':' . $options->{'fumiseq'};

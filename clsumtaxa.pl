@@ -182,7 +182,7 @@ sub readTaxonomyFile {
 				}
 			}
 			elsif (/\t/) {
-				my @entry = split(/\t/, $_);
+				my @entry = split(/\t/, $_, -1);
 				my $otuname = shift(@entry);
 				if (scalar(@entry) == scalar(@rank)) {
 					for (my $i = 0; $i < scalar(@entry); $i ++) {
