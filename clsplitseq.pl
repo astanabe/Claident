@@ -1365,7 +1365,7 @@ sub saveToFile {
 		elsif ($options->{'fumiseq'}) {
 			$seqname .= ':' . $options->{'fumiseq'};
 		}
-		if ($seqname =~ / [12]:[NY]:\d+:[0-9ACGT]+/) {
+		if ($seqname !~ / [12]:[NY]:\d+:[0-9ACGT]+/) {
 			if ($strand == 2) {
 				$seqname .= ' 2:N:0:';
 			}
