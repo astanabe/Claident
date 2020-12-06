@@ -353,20 +353,28 @@ sub filterSequences {
 			$inputfiles[0] =~ s/\.xz$//;
 			$tempfile = $inputfiles[0];
 		}
-		if ($maxqual) {
-			if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout - | $vsearch --fastq_convert - --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout - | $vsearch --fastq_convert - --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output\".");
-			}
-		}
-		else {
-			if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout $output 1> $devnull")) {
-				&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout $output\".");
-			}
+		if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout $output 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[0] --fastqout $output\".");
 		}
 		if ($tempfile) {
 			unlink($tempfile);
 		}
-		&compressFileByName($output);
+		if (-e $output && !-z $output) {
+			if ($maxqual) {
+				unless (rename($output, "$output.temp")) {
+					&errorMessage(__LINE__, "Cannot rename \"$output\" to \"$output.temp\".");
+				}
+				if (system("$vsearch --fastq_convert $output.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_convert $output.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output\".");
+				}
+				unlink("$output.temp");
+			}
+			&compressFileByName($output);
+		}
+		elsif (-e $output) {
+			unlink($output);
+			print(STDERR "Filtering has been correctly finished. But there is no passed sequence (all sequences have been filtered out).\n");
+		}
 	}
 	elsif (!$paired && $folder) {
 		my @outputfastq;
@@ -376,7 +384,7 @@ sub filterSequences {
 				$prefix =~ s/^.+\///;
 			}
 			$prefix =~ s/\.fastq(?:\.gz|\.bz2|\.xz)?$//;
-			if ($prefix !~ /__undetermined/) {
+			if ($prefix !~ /(?:__undetermined|__incompleteUMI)/) {
 				print(STDERR "Filtering \"$inputfiles[$i]\" using VSEARCH...\n");
 				my $tempfile;
 				if ($inputfiles[$i] =~ /\.xz$/) {
@@ -386,19 +394,26 @@ sub filterSequences {
 					$inputfiles[$i] =~ s/\.xz$//;
 					$tempfile = $inputfiles[$i];
 				}
-				if ($maxqual) {
-					if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout - | $vsearch --fastq_convert - --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$prefix.fastq 1> $devnull")) {
-						&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout - | $vsearch --fastq_convert - --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$prefix.fastq\".");
-					}
+				if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout $output/$prefix.fastq 1> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout $output/$prefix.fastq\".");
 				}
-				else {
-					if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout $output/$prefix.fastq 1> $devnull")) {
-						&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --fastqout $output/$prefix.fastq\".");
-					}
-				}
-				push(@outputfastq, "$output/$prefix.fastq");
 				if ($tempfile) {
 					unlink($tempfile);
+				}
+				if (-e "$output/$prefix.fastq" && !-z "$output/$prefix.fastq") {
+					if ($maxqual) {
+						unless (rename("$output/$prefix.fastq", "$output/$prefix.temp")) {
+							&errorMessage(__LINE__, "Cannot rename \"$output/$prefix.fastq\" to \"$output/$prefix.temp\".");
+						}
+						if (system("$vsearch --fastq_convert $output/$prefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$prefix.fastq 1> $devnull")) {
+							&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_convert $output/$prefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$prefix.fastq\".");
+						}
+						unlink("$output/$prefix.temp");
+					}
+					push(@outputfastq, "$output/$prefix.fastq");
+				}
+				elsif (-e "$output/$prefix.fastq") {
+					unlink("$output/$prefix.fastq");
 				}
 			}
 		}
@@ -419,7 +434,7 @@ sub filterSequences {
 				$reverseprefix =~ s/^.+\///;
 			}
 			$reverseprefix =~ s/\.fastq(?:\.gz|\.bz2|\.xz)?$//;
-			if ($forwardprefix !~ /__undetermined/ && $reverseprefix !~ /__undetermined/) {
+			if ($forwardprefix !~ /(?:__undetermined|__incompleteUMI)/ && $reverseprefix !~ /(?:__undetermined|__incompleteUMI)/) {
 				print(STDERR "Filtering \"$inputfiles[$i]\" and \"" . $inputfiles[($i + 1)] . "\" using VSEARCH...\n");
 				my @tempfiles;
 				if ($inputfiles[$i] =~ /\.xz$/) {
@@ -439,25 +454,31 @@ sub filterSequences {
 				if (system("$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$forwardprefix.fastq --fastqout_rev $output/$reverseprefix.fastq 1> $devnull")) {
 					&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption --fastq_filter $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$forwardprefix.fastq --fastqout_rev $output/$reverseprefix.fastq\".");
 				}
-				if ($maxqual) {
-					if (rename("$output/$forwardprefix.fastq", "$output/$forwardprefix.temp")) {
-						&errorMessage(__LINE__, "Cannot rename \"$output/$forwardprefix.fastq\" to \"$output/$forwardprefix.temp\".");
-					}
-					if (system("$vsearch --fastq_convert $output/$forwardprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$forwardprefix.fastq 1> $devnull")) {
-						&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_convert $output/$forwardprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$forwardprefix.fastq\".");
-					}
-					unlink("$output/$forwardprefix.temp");
-					if (rename("$output/$reverseprefix.fastq", "$output/$reverseprefix.temp")) {
-						&errorMessage(__LINE__, "Cannot rename \"$output/$reverseprefix.fastq\" to \"$output/$reverseprefix.temp\".");
-					}
-					if (system("$vsearch --fastq_convert $output/$reverseprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$reverseprefix.fastq 1> $devnull")) {
-						&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_convert $output/$reverseprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$reverseprefix.fastq\".");
-					}
-					unlink("$output/$reverseprefix.temp");
-				}
-				push(@outputfastq, "$output/$forwardprefix.fastq", "$output/$reverseprefix.fastq");
 				foreach my $tempfile (@tempfiles) {
 					unlink($tempfile);
+				}
+				if (-e "$output/$forwardprefix.fastq" && !-z "$output/$forwardprefix.fastq" && -e "$output/$reverseprefix.fastq" && !-z "$output/$reverseprefix.fastq") {
+					if ($maxqual) {
+						unless (rename("$output/$forwardprefix.fastq", "$output/$forwardprefix.temp")) {
+							&errorMessage(__LINE__, "Cannot rename \"$output/$forwardprefix.fastq\" to \"$output/$forwardprefix.temp\".");
+						}
+						if (system("$vsearch --fastq_convert $output/$forwardprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$forwardprefix.fastq 1> $devnull")) {
+							&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_convert $output/$forwardprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$forwardprefix.fastq\".");
+						}
+						unlink("$output/$forwardprefix.temp");
+						unless (rename("$output/$reverseprefix.fastq", "$output/$reverseprefix.temp")) {
+							&errorMessage(__LINE__, "Cannot rename \"$output/$reverseprefix.fastq\" to \"$output/$reverseprefix.temp\".");
+						}
+						if (system("$vsearch --fastq_convert $output/$reverseprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$reverseprefix.fastq 1> $devnull")) {
+							&errorMessage(__LINE__, "Cannot run \"$vsearch --fastq_convert $output/$reverseprefix.temp --fastq_qmax 93 --fastq_qmaxout $maxqual --fastqout $output/$reverseprefix.fastq\".");
+						}
+						unlink("$output/$reverseprefix.temp");
+					}
+					push(@outputfastq, "$output/$forwardprefix.fastq", "$output/$reverseprefix.fastq");
+				}
+				elsif (-e "$output/$forwardprefix.fastq" && -e "$output/$reverseprefix.fastq") {
+					unlink("$output/$forwardprefix.fastq");
+					unlink("$output/$reverseprefix.fastq");
 				}
 			}
 		}

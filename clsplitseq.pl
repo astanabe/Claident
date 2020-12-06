@@ -1163,7 +1163,7 @@ sub searchPrimers {
 			my $fpmismatch;
 			my $fnmismatch;
 			($fstart, $fend, $fpmismatch, $fnmismatch, $fumiseq) = &alignPrimer(substr($fseq, 0, length($primer{$tempname}) * 2), $primer{$tempname}, 0);
-			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch || $useNasUMI && $fumiseq =~ /-/) {
+			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch) {
 				next;
 			}
 			else {
@@ -1185,7 +1185,7 @@ sub searchPrimers {
 					my $rpmismatch;
 					my $rnmismatch;
 					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq) = &alignPrimer(substr($rseq, 0, length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
-					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch || $useNasUMI && $rumiseq =~ /-/) {
+					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 						next;
 					}
 					else {
@@ -1240,7 +1240,7 @@ sub searchPrimers {
 			my $fpmismatch;
 			my $fnmismatch;
 			($fstart, $fend, $fpmismatch, $fnmismatch, $fumiseq) = &alignPrimer(substr($fseq, 0, length($primer{$tempname}) * 2), $primer{$tempname}, 0);
-			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch || $useNasUMI && $fumiseq =~ /-/) {
+			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch) {
 				next;
 			}
 			else {
@@ -1262,10 +1262,7 @@ sub searchPrimers {
 					my $rpmismatch;
 					my $rnmismatch;
 					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq) = &alignPrimer($fseq, $reverseprimer{$tempname}, $ward);
-					if ($useNasUMI && $rumiseq =~ /-/) {
-						next;
-					}
-					elsif ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
+					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 						if ($needreverseprimer) {
 							next;
 						}
@@ -1289,10 +1286,7 @@ sub searchPrimers {
 					my $rpmismatch;
 					my $rnmismatch;
 					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq) = &alignPrimer(substr($fseq, -1 * length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
-					if ($useNasUMI && $rumiseq =~ /-/) {
-						next;
-					}
-					elsif ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
+					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 						if ($needreverseprimer) {
 							next;
 						}
@@ -1349,6 +1343,9 @@ sub saveToFile {
 	if ($options->{'primername'}) {
 		$samplename .= '__' . $options->{'primername'};
 	}
+	if ($options->{'fumiseq'} =~ /-/ || $options->{'rumiseq'} =~ /-/) {
+		$samplename .= '__incompleteUMI';
+	}
 	my $filenamesuffix;
 	if ($strand == 1) {
 		$filenamesuffix = ".forward";
@@ -1371,12 +1368,23 @@ sub saveToFile {
 	if ($seqnamestyle eq 'illumina') {
 		if ($options->{'fumiseq'} && $options->{'rumiseq'}) {
 			my $umiseq = ':' . $options->{'fumiseq'} . '+' . $options->{'rumiseq'};
-			$seqname =~ s/ /$umiseq /;
+			if ($seqname =~ / /) {
+				$seqname =~ s/ /$umiseq /;
+			}
+			else {
+				$seqname .= $umiseq;
+			}
 		}
 		elsif ($options->{'fumiseq'}) {
-			$seqname .= ':' . $options->{'fumiseq'};
+			my $umiseq = ':' . $options->{'fumiseq'};
+			if ($seqname =~ / /) {
+				$seqname =~ s/ /$umiseq /;
+			}
+			else {
+				$seqname .= $umiseq;
+			}
 		}
-		if ($seqname !~ / [12]:[NY]:\d+:[0-9ACGT]+/) {
+		if ($seqname !~ / [12]:[NY]:\d+:(?:\d+|[ACGT]+|[ACGT]+\+[ACGT]+)$/ || $seqname =~ s/ 1:N:0:0$//) {
 			if ($strand == 2) {
 				$seqname .= ' 2:N:0:';
 			}
@@ -1390,20 +1398,17 @@ sub saveToFile {
 				$seqname .= '1';
 			}
 		}
-		$seqname .= " SN:$samplename";
 	}
-	elsif ($seqnamestyle eq 'other') {
-		if ($options->{'fumiseq'} && $options->{'rumiseq'}) {
-			$seqname .= ' UMI:' . $options->{'fumiseq'} . '+' . $options->{'rumiseq'};
-		}
-		elsif ($options->{'fumiseq'}) {
-			$seqname .= ' UMI:' . $options->{'fumiseq'};
-		}
-		if ($options->{'tagseq'}) {
-			$seqname .= ' MID:' . $options->{'tagseq'};
-		}
-		$seqname .= " SN:$samplename";
+	if ($options->{'fumiseq'} && $options->{'rumiseq'}) {
+		$seqname .= ' UMI:' . $options->{'fumiseq'} . '+' . $options->{'rumiseq'};
 	}
+	elsif ($options->{'fumiseq'}) {
+		$seqname .= ' UMI:' . $options->{'fumiseq'};
+	}
+	if ($options->{'tagseq'}) {
+		$seqname .= ' MID:' . $options->{'tagseq'};
+	}
+	$seqname .= " SN:$samplename";
 	if ($addUMI) {
 		if ($strand == 0) {
 			print($filehandleoutput1 "\@$seqname\n" . $options->{'fumiseq'} . "$nucseq" . $options->{'rumiseq'} . "\n+\n" . $options->{'fumiqual'} . "$qualseq" . $options->{'rumiqual'} . "\n");

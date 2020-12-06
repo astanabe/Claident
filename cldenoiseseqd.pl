@@ -144,7 +144,11 @@ sub checkVariables {
 				my @temp = sort(glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
 				for (my $i = 0; $i < scalar(@temp); $i ++) {
 					if (-e $temp[$i]) {
-						push(@newinputfiles, $temp[$i]);
+						my $prefix = $temp[$i];
+						$prefix =~ s/^.*\///;
+						if ($prefix !~ /(?:__undetermined|__incompleteUMI)/) {
+							push(@newinputfiles, $temp[$i]);
+						}
 					}
 					else {
 						&errorMessage(__LINE__, "The input files \"$temp[$i]\" is invalid.");
@@ -152,7 +156,11 @@ sub checkVariables {
 				}
 			}
 			elsif (-e $inputfile) {
-				push(@newinputfiles, $inputfile);
+				my $prefix = $inputfile;
+				$prefix =~ s/^.*\///;
+				if ($prefix !~ /(?:__undetermined|__incompleteUMI)/) {
+					push(@newinputfiles, $inputfile);
+				}
 			}
 			else {
 				&errorMessage(__LINE__, "The input file \"$inputfile\" is invalid.");

@@ -340,7 +340,13 @@ sub concatenateSequences {
 		foreach my $tempfile (@tempfiles) {
 			unlink($tempfile);
 		}
-		&compressFileByName($output);
+		if (-e $output && !-z $output) {
+			&compressFileByName($output);
+		}
+		elsif (-e $output) {
+			unlink($output);
+			print(STDERR "Concatenation has been correctly finished. But there is no concatenated sequence.\n");
+		}
 	}
 	else {
 		my @outputfastq;
@@ -370,9 +376,14 @@ sub concatenateSequences {
 				if (system("$vsearch5d$vsearch5doption $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$prefix.fastq 1> $devnull")) {
 					&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearch5doption $inputfiles[$i] --reverse " . $inputfiles[($i + 1)] . " --fastqout $output/$prefix.fastq\".");
 				}
-				push(@outputfastq, "$output/$prefix.fastq");
 				foreach my $tempfile (@tempfiles) {
 					unlink($tempfile);
+				}
+				if (-e "$output/$prefix.fastq" && !-z "$output/$prefix.fastq") {
+					push(@outputfastq, "$output/$prefix.fastq");
+				}
+				elsif (-e "$output/$prefix.fastq") {
+					unlink("$output/$prefix.fastq");
 				}
 			}
 		}
