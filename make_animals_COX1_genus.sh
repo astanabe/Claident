@@ -8,7 +8,7 @@ cat animals_mitogenomes.txt >> animals_COX11.txt || exit $?
 # make taxonomy database
 clmaketaxdb --includetaxid=33208 taxonomy animals.taxdb || exit $?
 # search by keywords at taxdb
-clretrieveacc --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=animals.taxdb animals_genus.txt || exit $?
+clretrieveacc --maxrank=genus --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=animals.taxdb animals_genus.txt || exit $?
 # make BLAST database
 cd blastdb || exit $?
 clblastdbcmd --blastdb=./nt --output=ACCESSION --numthreads=16 ../animals_genus.txt animals_genus.txt
@@ -20,10 +20,10 @@ clblastseq blastn -db blastdb/animals_genus -word_size 9 -evalue 1e-5 -strand pl
 # eliminate duplicate entries
 clelimdupacc animals_COX11.txt animals_COX12.txt animals_COX1.txt || exit $?
 # extract identified sequences
-clretrieveacc --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --acclist=animals_COX1.txt --taxdb=animals.taxdb animals_COX1_genus.txt &
-clretrieveacc --maxrank=species --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --acclist=animals_COX1.txt --taxdb=animals.taxdb animals_COX1_species_wsp.txt &
-clretrieveacc --maxrank=species --ngword='species, sp\.$,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=animals_COX1.txt --taxdb=animals.taxdb animals_COX1_species.txt &
-clretrieveacc --maxrank=species --ngword='species, sp\.,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=animals_COX1.txt --taxdb=animals.taxdb animals_COX1_species_wosp.txt &
+clretrieveacc --maxrank=genus --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=animals_COX1.txt --taxdb=animals.taxdb animals_COX1_genus.txt &
+clretrieveacc --maxrank=species --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=animals_COX1.txt --taxdb=animals.taxdb animals_COX1_species_wsp.txt &
+clretrieveacc --maxrank=species --ngword='species, sp\.$,^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=animals_COX1.txt --taxdb=animals.taxdb animals_COX1_species.txt &
+clretrieveacc --maxrank=species --ngword='species, sp\.,^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=animals_COX1.txt --taxdb=animals.taxdb animals_COX1_species_wosp.txt &
 wait
 # make BLAST database
 cd blastdb || exit $?

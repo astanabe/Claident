@@ -5,10 +5,10 @@ clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid2759[Organism:exp
 # make taxonomy database
 clmaketaxdb --acclist=eukaryota_LSU.txt taxonomy eukaryota_LSU_temp.taxdb || exit $?
 # extract identified sequences
-clretrieveacc --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=eukaryota_LSU_temp.taxdb eukaryota_LSU_genus.txt &
-clretrieveacc --maxrank=species --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=eukaryota_LSU_temp.taxdb eukaryota_LSU_species_wsp.txt &
-clretrieveacc --maxrank=species --ngword='species, sp\.$,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=eukaryota_LSU_temp.taxdb eukaryota_LSU_species.txt &
-clretrieveacc --maxrank=species --ngword='species, sp\.,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=eukaryota_LSU_temp.taxdb eukaryota_LSU_species_wosp.txt &
+clretrieveacc --maxrank=genus --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=eukaryota_LSU_temp.taxdb eukaryota_LSU_genus.txt &
+clretrieveacc --maxrank=species --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=eukaryota_LSU_temp.taxdb eukaryota_LSU_species_wsp.txt &
+clretrieveacc --maxrank=species --ngword='species, sp\.$,^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=eukaryota_LSU_temp.taxdb eukaryota_LSU_species.txt &
+clretrieveacc --maxrank=species --ngword='species, sp\.,^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=eukaryota_LSU_temp.taxdb eukaryota_LSU_species_wosp.txt &
 wait
 # make BLAST database
 cd blastdb || exit $?

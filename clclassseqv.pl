@@ -8,7 +8,7 @@ my $devnull = File::Spec->devnull();
 
 # options
 my $numthreads = 1;
-my $vsearchoption = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sizeorder --qmask none --fulldp --cluster_size';
+my $vsearchoption = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --sizein --xsize --sizeorder --clusterout_sort --qmask none --fulldp --cluster_size';
 my $paddinglen = 0;
 my $minovllen = 0;
 my $tableformat = 'matrix';
@@ -314,7 +314,7 @@ sub runVSEARCH {
 	}
 	else {
 		if (system("$vsearch$vsearchoption $outputfolder/concatenated.fasta --threads $numthreads --centroids $outputfolder/temp.fasta --uc $outputfolder/temp.uc --mincols $tempminovllen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption $outputfolder/concatenated.fasta --clusterout_sort --threads $numthreads --centroids $outputfolder/temp.fasta --uc $outputfolder/temp.uc --mincols $tempminovllen\".");
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption $outputfolder/concatenated.fasta --threads $numthreads --centroids $outputfolder/temp.fasta --uc $outputfolder/temp.uc --mincols $tempminovllen\".");
 		}
 	}
 	&convertUCtoOTUMembers("$outputfolder/temp.fasta", "$outputfolder/temp.uc", "$outputfolder/clustered.fasta", "$outputfolder/clustered.otu.gz", "$outputfolder/concatenated.otu.gz");

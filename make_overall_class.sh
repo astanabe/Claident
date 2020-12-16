@@ -5,18 +5,18 @@ clmaketaxdb --includetaxid=2,2157 taxonomy prokaryota.taxdb &
 clmaketaxdb taxonomy overall_temp.taxdb &
 wait
 # extract xx-level identified sequences
-clretrieveacc --excludetaxid=12908,28384 --maxrank=class --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=overall_temp.taxdb overall_class.txt &
-clretrieveacc --excludetaxid=12908,28384 --maxrank=order --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=overall_temp.taxdb overall_order.txt &
-clretrieveacc --excludetaxid=12908,28384 --maxrank=family --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=overall_temp.taxdb overall_family.txt &
-clretrieveacc --excludetaxid=12908,28384 --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=overall_temp.taxdb overall_genus.txt &
-clretrieveacc --excludetaxid=12908,28384 --maxrank=species --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=overall_temp.taxdb overall_species_wsp.txt &
-clretrieveacc --excludetaxid=12908,28384 --maxrank=species --ngword='species, sp\.$,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=overall_temp.taxdb overall_species.txt &
-clretrieveacc --excludetaxid=12908,28384 --maxrank=species --ngword='species, sp\.,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=overall_temp.taxdb overall_species_wosp.txt &
+clretrieveacc --excludetaxid=12908,28384 --maxrank=class --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=overall_temp.taxdb overall_class.txt &
+clretrieveacc --excludetaxid=12908,28384 --maxrank=order --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=overall_temp.taxdb overall_order.txt &
+clretrieveacc --excludetaxid=12908,28384 --maxrank=family --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=overall_temp.taxdb overall_family.txt &
+clretrieveacc --excludetaxid=12908,28384 --maxrank=genus --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=overall_temp.taxdb overall_genus.txt &
+clretrieveacc --excludetaxid=12908,28384 --maxrank=species --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=overall_temp.taxdb overall_species_wsp.txt &
+clretrieveacc --excludetaxid=12908,28384 --maxrank=species --ngword='species, sp\.$,^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=overall_temp.taxdb overall_species.txt &
+clretrieveacc --excludetaxid=12908,28384 --maxrank=species --ngword='species, sp\.,^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=overall_temp.taxdb overall_species_wosp.txt &
 wait
-clretrieveacc --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=prokaryota.taxdb prokaryota_all_genus.txt &
-clretrieveacc --maxrank=species --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=prokaryota.taxdb prokaryota_all_species_wsp.txt &
-clretrieveacc --maxrank=species --ngword='species, sp\.$,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=prokaryota.taxdb prokaryota_all_species.txt &
-clretrieveacc --maxrank=species --ngword='species, sp\.,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=prokaryota.taxdb prokaryota_all_species_wosp.txt &
+clretrieveacc --maxrank=genus --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=prokaryota.taxdb prokaryota_all_genus.txt &
+clretrieveacc --maxrank=species --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=prokaryota.taxdb prokaryota_all_species_wsp.txt &
+clretrieveacc --maxrank=species --ngword='species, sp\.$,^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=prokaryota.taxdb prokaryota_all_species.txt &
+clretrieveacc --maxrank=species --ngword='species, sp\.,^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=prokaryota.taxdb prokaryota_all_species_wosp.txt &
 wait
 cd blastdb || exit $?
 # make BLAST database

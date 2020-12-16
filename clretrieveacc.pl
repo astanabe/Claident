@@ -60,6 +60,7 @@ my $acclist;
 my $nacclist;
 my $maxrank;
 my $minrank;
+my $additional;
 my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'subphylum', 'superclass', 'class', 'subclass', 'infraclass', 'cohort', 'subcohort', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'section', 'subsection', 'series', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma', 'forma specialis', 'strain', 'isolate');
 my %taxrank;
 for (my $i = 0; $i < scalar(@taxrank); $i ++) {
@@ -132,6 +133,18 @@ for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 		}
 		else {
 			&errorMessage(__LINE__, "Invalid rank \"$rank\".");
+		}
+	}
+	elsif ($ARGV[$i] =~ /^-+(?:additional|additionalfiltering|addfilter)=(.+)$/i) {
+		my $value = $1;
+		if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+			$additional = 1;
+		}
+		elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+			$additional = 0;
+		}
+		else {
+			&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 		}
 	}
 	else {
@@ -337,9 +350,7 @@ else {
 		while (my @row = $statement->fetchrow_array) {
 			$row[1] = lc($row[1]);
 			push(@{$taxon2taxid{$row[1]}}, $row[0]);
-			if (%keywords || %ngwords) {
-				push(@{$taxid2taxon{$row[0]}}, $row[1]);
-			}
+			push(@{$taxid2taxon{$row[0]}}, $row[1]);
 			if ($lineno % 10000 == 0) {
 				print(STDERR '.');
 			}
@@ -484,7 +495,6 @@ else {
 		}
 		print(STDERR "done.\n\n");
 	}
-	undef(%taxid2taxon);
 	# delete taxids by excludetaxid
 	if (%excludetaxid) {
 		print(STDERR "Deleting by excludetaxid...");
@@ -522,6 +532,34 @@ else {
 		}
 		print(STDERR "done.\n\n");
 	}
+	# additional filtering
+	if ($additional) {
+		print(STDERR "Applying additional filtering...");
+		foreach my $taxid (keys(%includetaxid)) {
+			if ($ranks{$taxid} == $taxrank{'species'}) {
+				my $pass = 1;
+				foreach my $taxon (@{$taxid2taxon{$taxid}}) {
+					if ($taxon =~ / sp\./) {
+						$pass = 0;
+						last;
+					}
+				}
+				if ($pass == 0) {
+					foreach my $parentid (&getParents($taxid)) {
+						if ($includetaxid{$parentid}) {
+							$pass = 1;
+							last;
+						}
+					}
+					if ($pass == 0) {
+						delete($includetaxid{$taxid});
+					}
+				}
+			}
+		}
+		print(STDERR "done.\n\n");
+	}
+	undef(%taxid2taxon);
 	undef(%daughters);
 	undef(%parents);
 	undef(%ranks);
@@ -617,6 +655,21 @@ else {
 			&deleteParents($parents{$daughterid});
 		}
 	}
+	sub getParents {
+		my $daughterid = shift(@_);
+		if ($parents{$daughterid}) {
+			my @parents = &getParents($parents{$daughterid});
+			if (@parents) {
+				return($parents{$daughterid}, @parents);
+			}
+			else {
+				return($parents{$daughterid});
+			}
+		}
+		else {
+			return();
+		}
+	}
 }
 
 # error message
@@ -673,6 +726,10 @@ conditions. (default: none)
 
 --minrank=RANK
   Specify minimum taxonomic rank. (default: none)
+
+--additional=ENABLE|DISABLE
+  Specify whether additional filtering will be applied or not.
+(default: DISABLE)
 
 --timeout=INTEGER
   Specify timeout limit for NCBI access by seconds. (default: 300)

@@ -1384,7 +1384,7 @@ sub saveToFile {
 				$seqname .= $umiseq;
 			}
 		}
-		if ($seqname !~ / [12]:[NY]:\d+:(?:\d+|[ACGT]+|[ACGT]+\+[ACGT]+)$/ || $seqname =~ s/ 1:N:0:0$//) {
+		if ($seqname !~ / [12]:[NY]:\d+:(?:\d+|[ACGT]+|[ACGT]+\+[ACGT]+)$/ || $seqname =~ s/ [12]:N:0:\d+$//) {
 			if ($strand == 2) {
 				$seqname .= ' 2:N:0:';
 			}

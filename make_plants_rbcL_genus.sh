@@ -6,7 +6,7 @@ cat plants_cpgenomes.txt >> plants_rbcL1.txt || exit $?
 # make taxonomy database
 #clmaketaxdb --includetaxid=33090 taxonomy plants.taxdb || exit $?
 # search by keywords at taxdb
-#clretrieveacc --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --taxdb=plants.taxdb plants_genus.txt || exit $?
+#clretrieveacc --maxrank=genus --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=plants.taxdb plants_genus.txt || exit $?
 # make BLAST database
 #cd blastdb || exit $?
 #clblastdbcmd --blastdb=./nt --output=ACCESSION --numthreads=16 ../plants_genus.txt plants_genus.txt
@@ -18,10 +18,10 @@ clblastseq blastn -db blastdb/plants_genus -word_size 11 -evalue 1e-15 -strand p
 # eliminate duplicate entries
 clelimdupacc plants_rbcL1.txt plants_rbcL2.txt plants_rbcL.txt || exit $?
 # extract identified sequences
-clretrieveacc --maxrank=genus --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --acclist=plants_rbcL.txt --taxdb=plants.taxdb plants_rbcL_genus.txt &
-clretrieveacc --maxrank=species --ngword=environmental,uncultured,unclassified,unidentified,metagenome,metagenomic --acclist=plants_rbcL.txt --taxdb=plants.taxdb plants_rbcL_species_wsp.txt &
-clretrieveacc --maxrank=species --ngword='species, sp\.$,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=plants_rbcL.txt --taxdb=plants.taxdb plants_rbcL_species.txt &
-clretrieveacc --maxrank=species --ngword='species, sp\.,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=plants_rbcL.txt --taxdb=plants.taxdb plants_rbcL_species_wosp.txt &
+clretrieveacc --maxrank=genus --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=plants_rbcL.txt --taxdb=plants.taxdb plants_rbcL_genus.txt &
+clretrieveacc --maxrank=species --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=plants_rbcL.txt --taxdb=plants.taxdb plants_rbcL_species_wsp.txt &
+clretrieveacc --maxrank=species --ngword='species, sp\.$,^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=plants_rbcL.txt --taxdb=plants.taxdb plants_rbcL_species.txt &
+clretrieveacc --maxrank=species --ngword='species, sp\.,^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=plants_rbcL.txt --taxdb=plants.taxdb plants_rbcL_species_wosp.txt &
 wait
 # make BLAST database
 cd blastdb || exit $?
