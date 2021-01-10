@@ -23,7 +23,8 @@ sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -
 wait
 cd .. || exit $?
 # minimize taxdb
-clmaketaxdb --acclist=blastdb/fungi_all_genus.txt taxonomy fungi_all_genus.taxdb || exit $?
+clelimdupacc blastdb/fungi_all_genus.txt blastdb/fungi_all_species_wsp.txt blastdb/fungi_all_genus.temp || exit $?
+clmaketaxdb --acclist=blastdb/fungi_all_genus.temp taxonomy fungi_all_genus.taxdb || exit $?
 ln -s fungi_all_genus.taxdb fungi_all_species_wsp.taxdb || exit $?
 ln -s fungi_all_genus.taxdb fungi_all_species.taxdb || exit $?
 ln -s fungi_all_genus.taxdb fungi_all_species_wosp.taxdb || exit $?

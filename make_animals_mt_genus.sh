@@ -24,8 +24,9 @@ sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -
 sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -seqid_file_in animals_mt_species_wosp.txt -seqid_title animals_mt_species_wosp -seqid_file_out animals_mt_species_wosp.bsl; BLASTDB=./ blastdb_aliastool -dbtype nucl -db overall_class -seqidlist animals_mt_species_wosp.bsl -out animals_mt_species_wosp -title animals_mt_species_wosp" &
 wait
 cd .. || exit $?
-# minimize taxdb
-clmaketaxdb --acclist=blastdb/animals_mt_genus.txt taxonomy animals_mt_genus.taxdb || exit $?
+# make taxdb
+clelimdupacc blastdb/animals_mt_genus.txt blastdb/animals_mt_species_wsp.txt blastdb/animals_mt_genus.temp || exit $?
+clmaketaxdb --acclist=blastdb/animals_mt_genus.temp taxonomy animals_mt_genus.taxdb || exit $?
 ln -s animals_mt_genus.taxdb animals_mt_species_wsp.taxdb || exit $?
 ln -s animals_mt_genus.taxdb animals_mt_species.taxdb || exit $?
 ln -s animals_mt_genus.taxdb animals_mt_species_wosp.taxdb || exit $?

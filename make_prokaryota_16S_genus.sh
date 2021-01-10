@@ -25,7 +25,8 @@ sh -c "BLASTDB=./ blastdb_aliastool -seqid_dbtype nucl -seqid_db overall_class -
 wait
 cd .. || exit $?
 # minimize taxdb
-clmaketaxdb --acclist=blastdb/prokaryota_16S_genus.txt taxonomy prokaryota_16S_genus.taxdb
+clelimdupacc blastdb/prokaryota_16S_genus.txt blastdb/prokaryota_16S_species_wsp.txt blastdb/prokaryota_16S_genus.temp || exit $?
+clmaketaxdb --acclist=blastdb/prokaryota_16S_genus.temp taxonomy prokaryota_16S_genus.taxdb
 ln -s prokaryota_16S_genus.taxdb prokaryota_16S_species_wsp.taxdb || exit $?
 ln -s prokaryota_16S_genus.taxdb prokaryota_16S_species.taxdb || exit $?
 ln -s prokaryota_16S_genus.taxdb prokaryota_16S_species_wosp.taxdb || exit $?

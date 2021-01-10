@@ -26,9 +26,12 @@ my $taglength;
 my %reversetag;
 my $reversetaglength;
 my %blanklist;
-my %ignorelist;
+my %ignoresamplelist;
+my %ignoreotulist;
 my $blanklist;
-my $ignorelist;
+my $ignoresamplelist;
+my $ignoreotulist;
+my $ignoreotuseq;
 my %samplenames;
 my %sample2blank;
 my %blanksamples;
@@ -141,17 +144,29 @@ sub getOptions {
 				$blanklist{$temp} = 1;
 			}
 		}
-		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:sample|samples)?=(.+)$/i) {
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:sample|samples)=(.+)$/i) {
 			my @temp = split(',', $1);
 			foreach my $temp (@temp) {
-				$ignorelist{$temp} = 1;
+				$ignoresamplelist{$temp} = 1;
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:otu|otus)=(.+)$/i) {
+			my @temp = split(',', $1);
+			foreach my $temp (@temp) {
+				$ignoreotulist{$temp} = 1;
 			}
 		}
 		elsif ($ARGV[$i] =~ /^-+blanklist=(.+)$/i) {
 			$blanklist = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)list=(.+)$/i) {
-			$ignorelist = $1;
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:sample|samples)list=(.+)$/i) {
+			$ignoresamplelist = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:otu|otus)list=(.+)$/i) {
+			$ignoreotulist = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:otu|otus)seq=(.+)$/i) {
+			$ignoreotuseq = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:tag|tagfile|t|index1|index1file)=(.+)$/i) {
 			$tagfile = $1;
@@ -240,8 +255,23 @@ sub checkVariables {
 	if (%blanklist && $blanklist) {
 		&errorMessage(__LINE__, "Both blank sample list and blank sample file were given.");
 	}
-	if (%ignorelist && $ignorelist) {
+	if (%ignoresamplelist && $ignoresamplelist) {
 		&errorMessage(__LINE__, "Both ignoring sample list and ignoring sample file were given.");
+	}
+	if (%ignoreotulist && $ignoreotulist) {
+		&errorMessage(__LINE__, "Both ignoring otu list and ignoring otu file were given.");
+	}
+	if (%ignoreotulist && $ignoreotuseq) {
+		&errorMessage(__LINE__, "Both ignoring otu list and ignoring otu sequence file were given.");
+	}
+	if ($ignoreotulist && $ignoreotuseq) {
+		&errorMessage(__LINE__, "Both ignoring otu file and ignoring otu sequence file were given.");
+	}
+	if ($ignoreotulist && !-e $ignoreotulist) {
+		&errorMessage(__LINE__, "\"$ignoreotulist\" does not exist.");
+	}
+	if ($ignoreotuseq && !-e $ignoreotuseq) {
+		&errorMessage(__LINE__, "\"$ignoreotuseq\" does not exist.");
 	}
 	if (($tagfile || $reversetagfile) && (%blanklist || $blanklist)) {
 		&errorMessage(__LINE__, "Removal of index-hopping and contamination cannot be applied at the same time.");
@@ -468,14 +498,24 @@ sub readListFiles {
 			}
 		}
 	}
-	if (%ignorelist) {
-		foreach my $ignoresample (keys(%ignorelist)) {
+	if (%ignoresamplelist) {
+		foreach my $ignoresample (keys(%ignoresamplelist)) {
 			delete($sample2blank{$ignoresample});
 		}
 	}
-	elsif ($ignorelist) {
-		foreach my $ignoresample (&readList($ignorelist)) {
+	elsif ($ignoresamplelist) {
+		foreach my $ignoresample (&readList($ignoresamplelist)) {
 			delete($sample2blank{$ignoresample});
+		}
+	}
+	if ($ignoreotulist) {
+		foreach my $ignoreotu (&readList($ignoreotulist)) {
+			$ignoreotulist{$ignoreotu} = 1;
+		}
+	}
+	if ($ignoreotuseq) {
+		foreach my $ignoreotu (&readSeq($ignoreotuseq)) {
+			$ignoreotulist{$ignoreotu} = 1;
 		}
 	}
 	if (%blanklist || $blanklist) {
@@ -504,35 +544,52 @@ sub readList {
 	return(@list);
 }
 
+sub readSeq {
+	my $seqfile = shift(@_);
+	my @list;
+	$filehandleinput1 = &readFile($seqfile);
+	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
+		if (/^> *(.+)/) {
+			my $seqname = $1;
+			push(@list, $seqname);
+		}
+	}
+	close($filehandleinput1);
+	return(@list);
+}
+
 sub removeContaminants {
 	print(STDERR "Detecting and removing contaminants...\n");
 	foreach my $samplename (keys(%sample2blank)) {
 		foreach my $otuname (keys(%{$table{$samplename}})) {
-			my @nseqblank;
-			foreach my $blanksample (keys(%{$sample2blank{$samplename}})) {
-				if ($table{$blanksample}{$otuname} > 0) {
-					push(@nseqblank, $table{$blanksample}{$otuname});
+			if (!defined($ignoreotulist{$otuname})) {
+				my @nseqblank;
+				foreach my $blanksample (keys(%{$sample2blank{$samplename}})) {
+					if ($table{$blanksample}{$otuname} > 0) {
+						push(@nseqblank, $table{$blanksample}{$otuname});
+					}
 				}
-			}
-			if ($table{$samplename}{$otuname} > 0 && @nseqblank) {
-				my $tempmax = &max(@nseqblank);
-				if ($table{$samplename}{$otuname} > $tempmax) {
-					if (scalar(@nseqblank) > 1) {
-						if (isOutlier($table{$samplename}{$otuname}, @nseqblank)) {
-							if ($mode eq 'subtractmax') {
-								$table{$samplename}{$otuname} -= $tempmax;
+				if ($table{$samplename}{$otuname} > 0 && @nseqblank) {
+					my $tempmax = &max(@nseqblank);
+					if ($table{$samplename}{$otuname} > $tempmax) {
+						if (scalar(@nseqblank) > 1) {
+							if (isOutlier($table{$samplename}{$otuname}, @nseqblank)) {
+								if ($mode eq 'subtractmax') {
+									$table{$samplename}{$otuname} -= $tempmax;
+								}
+							}
+							else {
+								$table{$samplename}{$otuname} = 0;
 							}
 						}
-						else {
-							$table{$samplename}{$otuname} = 0;
+						elsif ($mode eq 'subtractmax') {
+							$table{$samplename}{$otuname} -= $tempmax;
 						}
 					}
-					elsif ($mode eq 'subtractmax') {
-						$table{$samplename}{$otuname} -= $tempmax;
+					else {
+						$table{$samplename}{$otuname} = 0;
 					}
-				}
-				else {
-					$table{$samplename}{$otuname} = 0;
 				}
 			}
 		}
@@ -785,11 +842,20 @@ Command line options
 --blanklist=FILENAME
   Specify file name of blank sample list. (default: none)
 
---ignore=SAMPLENAME,...,SAMPLENAME
+--ignoresample=SAMPLENAME,...,SAMPLENAME
   Specify ignoring sample names. (default: none)
 
---ignorelist=FILENAME
+--ignoresamplelist=FILENAME
   Specify file name of ignoring sample list. (default: none)
+
+--ignoreotu=SAMPLENAME,...,SAMPLENAME
+  Specify ignoring otu names. (default: none)
+
+--ignoreotulist=FILENAME
+  Specify file name of ignoring otu list. (default: none)
+
+--ignoreotuseq=FILENAME
+  Specify file name of ignoring otu list. (default: none)
 
 -t, --tagfile=FILENAME
   Specify tag list file name. (default: none)

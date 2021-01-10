@@ -288,7 +288,7 @@ sub retrieveSimilarSequences {
 	}
 	my $nseq = 0;
 	while (<$filehandleinput1>) {
-		if (/^>.+\r?\n?$/) {
+		if (/^>\s*(\S[^\r\n]*)\r?\n?$/) {
 			$nseq ++;
 		}
 	}

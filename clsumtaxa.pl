@@ -276,15 +276,24 @@ sub processSummary {
 			}
 		}
 		else {
-			&errorMessage(__LINE__, "Taxonomic rank \"$taxrank[$targetrank]\" of \"$otuname\" is empty. Please fill blanks before summarizing taxa.");
+			$otu2newotu{$otuname} = $otuname;
+			$newotu{$otuname} = 0;
+			if ($sortkey =~ /^\d+$/) {
+				$taxonomy{$otuname}{$sortkey} = $otuname;
+			}
 		}
 	}
 	if (%otu2newotu) {
 		foreach my $samplename (@samplenames) {
 			foreach my $otuname (@otunames) {
-				$table{$samplename}{$otu2newotu{$otuname}} += $table{$samplename}{$otuname};
-				$newotu{$otu2newotu{$otuname}} += $table{$samplename}{$otuname};
-				delete($table{$samplename}{$otuname});
+				if ($taxonomy{$otuname}{$targetrank}) {
+					$table{$samplename}{$otu2newotu{$otuname}} += $table{$samplename}{$otuname};
+					$newotu{$otu2newotu{$otuname}} += $table{$samplename}{$otuname};
+					delete($table{$samplename}{$otuname});
+				}
+				else {
+					$newotu{$otu2newotu{$otuname}} += $table{$samplename}{$otuname};
+				}
 			}
 		}
 	}
