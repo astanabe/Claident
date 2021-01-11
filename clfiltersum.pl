@@ -274,42 +274,44 @@ sub checkVariables {
 }
 
 sub readTaxonomyFile {
-	my @rank;
-	unless (open($filehandleinput1, "< $taxfile")) {
-		&errorMessage(__LINE__, "Cannot read \"$taxfile\".");
-	}
-	{
-		my $lineno = 1;
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			if ($lineno == 1 && /\t/) {
-				@rank = split(/\t/, lc($_));
-				shift(@rank);
-				foreach my $rank (@rank) {
-					if (!exists($taxrank{$rank})) {
-						&errorMessage(__LINE__, "\"$rank\" is invalid taxonomic rank.");
+	if ($taxfile) {
+		my @rank;
+		unless (open($filehandleinput1, "< $taxfile")) {
+			&errorMessage(__LINE__, "Cannot read \"$taxfile\".");
+		}
+		{
+			my $lineno = 1;
+			while (<$filehandleinput1>) {
+				s/\r?\n?$//;
+				if ($lineno == 1 && /\t/) {
+					@rank = split(/\t/, lc($_));
+					shift(@rank);
+					foreach my $rank (@rank) {
+						if (!exists($taxrank{$rank})) {
+							&errorMessage(__LINE__, "\"$rank\" is invalid taxonomic rank.");
+						}
 					}
 				}
-			}
-			elsif (/\t/) {
-				my @entry = split(/\t/, $_, -1);
-				my $otuname = shift(@entry);
-				if (scalar(@entry) == scalar(@rank)) {
-					for (my $i = 0; $i < scalar(@entry); $i ++) {
-						$taxonomy{$otuname}{$taxrank{$rank[$i]}} = $entry[$i];
+				elsif (/\t/) {
+					my @entry = split(/\t/, $_, -1);
+					my $otuname = shift(@entry);
+					if (scalar(@entry) == scalar(@rank)) {
+						for (my $i = 0; $i < scalar(@entry); $i ++) {
+							$taxonomy{$otuname}{$taxrank{$rank[$i]}} = $entry[$i];
+						}
+					}
+					else {
+						&errorMessage(__LINE__, "Input taxonomy file is invalid.");
 					}
 				}
 				else {
 					&errorMessage(__LINE__, "Input taxonomy file is invalid.");
 				}
+				$lineno ++;
 			}
-			else {
-				&errorMessage(__LINE__, "Input taxonomy file is invalid.");
-			}
-			$lineno ++;
 		}
+		close($filehandleinput1);
 	}
-	close($filehandleinput1);
 }
 
 sub readListFiles {
