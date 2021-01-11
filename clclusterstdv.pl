@@ -8,11 +8,12 @@ my $devnull = File::Spec->devnull();
 
 # options
 my $numthreads = 1;
-my $vsearchoption = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --qmask none --dbmask none --fulldp --usearch_global';
+my $vsearchoption = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --qmask none --dbmask none --fulldp --maxaccepts 0 --maxrejects 0 --uc_allhits --usearch_global';
 my $paddinglen = 0;
 my $minovllen = 0;
 my $tableformat = 'matrix';
 my $nodel;
+my $minident = 0.9;
 
 # input/output
 my $outputfolder;
@@ -92,7 +93,8 @@ sub getOptions {
 	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 		if ($ARGV[$i] =~ /^-+(?:min(?:imum)?ident(?:ity|ities)?|m)=(.+)$/i) {
 			if (($1 > 0.8 && $1 <= 1) || $1 == 0) {
-				$vsearchoption = " --id $1" . $vsearchoption;
+				$minident = $1;
+				$vsearchoption = " --id " . ($minident - 0.2) . $vsearchoption;
 			}
 			else {
 				&errorMessage(__LINE__, "The minimum identity threshold is invalid.");
@@ -193,6 +195,9 @@ sub checkVariables {
 		}
 		@inputfiles = @newinputfiles;
 	}
+	if (scalar(@inputfiles) > 1) {
+		&errorMessage(__LINE__, "This command accepts only 1 input file.");
+	}
 	if (-e $outputfolder) {
 		&errorMessage(__LINE__, "\"$outputfolder\" already exists.");
 	}
@@ -200,7 +205,7 @@ sub checkVariables {
 		&errorMessage(__LINE__, "Cannot make output folder.");
 	}
 	if ($vsearchoption !~ / -+id \d+/) {
-		$vsearchoption = " --id 0.90" . $vsearchoption;
+		$vsearchoption = " --id 0.7" . $vsearchoption;
 	}
 	if ($vsearchoption !~ /-+strand (plus|both)/i) {
 		$vsearchoption = ' --strand plus' . $vsearchoption;
@@ -257,10 +262,8 @@ sub checkVariables {
 sub makeConcatenatedFiles {
 	$filehandleoutput1 = &writeFile("$outputfolder/concatenated.otu.gz");
 	$filehandleoutput2 = &writeFile("$outputfolder/concatenated.fasta");
-	my $num = 1;
 	for (my $i = 0; $i < scalar(@inputfiles); $i ++) {
 		$filehandleinput1 = &readFile($otufiles[$i]);
-		my %replace;
 		my %otumembers;
 		{
 			my $otuname;
@@ -269,12 +272,9 @@ sub makeConcatenatedFiles {
 				s/;size=\d+;*//g;
 				if (/^>(.+)$/) {
 					$otuname = $1;
-					s/$otuname/temp_$num/;
-					$replace{$otuname} = "temp_$num";
-					$num ++;
 				}
 				elsif ($otuname && /^([^>].*)$/) {
-					push(@{$otumembers{$replace{$otuname}}}, $1);
+					push(@{$otumembers{$otuname}}, $1);
 				}
 				else {
 					&errorMessage(__LINE__, "\"$otufiles[$i]\" is invalid.");
@@ -289,11 +289,7 @@ sub makeConcatenatedFiles {
 			s/;size=\d+;*//g;
 			if (/^>(.+)$/) {
 				my $otuname = $1;
-				if ($replace{$otuname} && @{$otumembers{$replace{$otuname}}}) {
-					my $size = scalar(@{$otumembers{$replace{$otuname}}});
-					s/$otuname/$replace{$otuname}/;
-				}
-				else {
+				unless (exists($otumembers{$otuname})) {
 					&errorMessage(__LINE__, "\"$inputfiles[$i]\" is invalid.");
 				}
 			}
@@ -315,16 +311,19 @@ sub runVSEARCH {
 		$tempminovllen = $minovllen;
 	}
 	if ($paddinglen > 0) {
-		if (system("$vsearch5d$vsearchoption $stdseq --db $outputfolder/concatenated.fasta --idoffset $paddinglen --threads $numthreads --dbnotmatched $outputfolder/notmatched.fasta --uc $outputfolder/matched.uc --mincols $tempminovllen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption $stdseq --db $outputfolder/concatenated.fasta --idoffset $paddinglen --threads $numthreads --dbnotmatched $outputfolder/notmatched.fasta --uc $outputfolder/matched.uc --mincols $tempminovllen\".");
+		if (system("$vsearch5d$vsearchoption $stdseq --db $outputfolder/concatenated.fasta --idoffset $paddinglen --threads $numthreads --notmatched $outputfolder/notmatched.fasta --uc $outputfolder/matched.uc --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch5d$vsearchoption $stdseq --db $outputfolder/concatenated.fasta --idoffset $paddinglen --threads $numthreads --notmatched $outputfolder/notmatched.fasta --uc $outputfolder/matched.uc --mincols $tempminovllen\".");
 		}
 	}
 	else {
-		if (system("$vsearch$vsearchoption $stdseq --db $outputfolder/concatenated.fasta --threads $numthreads --dbnotmatched $outputfolder/notmatched.fasta --uc $outputfolder/matched.uc --mincols $tempminovllen 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption $stdseq --db $outputfolder/concatenated.fasta --threads $numthreads --dbnotmatched $outputfolder/notmatched.fasta --uc $outputfolder/matched.uc --mincols $tempminovllen\".");
+		if (system("$vsearch$vsearchoption $stdseq --db $outputfolder/concatenated.fasta --threads $numthreads --notmatched $outputfolder/notmatched.fasta --uc $outputfolder/matched.uc --mincols $tempminovllen 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$vsearch$vsearchoption $stdseq --db $outputfolder/concatenated.fasta --threads $numthreads --notmatched $outputfolder/notmatched.fasta --uc $outputfolder/matched.uc --mincols $tempminovllen\".");
 		}
 	}
-	&convertUCtoOTUMembers("$outputfolder/notmatched.fasta", "$outputfolder/matched.uc", "$outputfolder/stdclustered.fasta", "$outputfolder/stdclustered.otu.gz", "$outputfolder/concatenated.otu.gz");
+	if (-e "$outputfolder/notmatched.fasta" && !-z "$outputfolder/notmatched.fasta") {
+		print(STDERR "WARNING!: There are unmatched internal standard. This is weird. Please check standard sequence and data.\n");
+	}
+	&convertUCtoOTUMembers("$outputfolder/concatenated.fasta", "$outputfolder/matched.uc", "$outputfolder/stdclustered.fasta", "$outputfolder/stdclustered.otu.gz", "$outputfolder/concatenated.otu.gz");
 	unless ($nodel) {
 		unlink("$outputfolder/concatenated.fasta");
 		unlink("$outputfolder/concatenated.otu.gz");
@@ -359,23 +358,66 @@ sub convertUCtoOTUMembers {
 		close($filehandleinput1);
 	}
 	$filehandleinput1 = &readFile($tempuc);
-	while (<$filehandleinput1>) {
-		s/\r?\n?$//;
-		s/;+size=\d+;*//g;
-		my @row = split(/\t/, $_);
-		if ($row[0] eq 'H') {
-			if (exists($otumembers{$row[9]})) {
-				foreach my $member (@{$otumembers{$row[9]}}) {
-					push(@{$otumembers{$row[8]}}, $member);
+	{
+		my %replace;
+		while (<$filehandleinput1>) {
+			s/\r?\n?$//;
+			s/;+size=\d+;*//g;
+			my @row = split(/\t/, $_);
+			if ($row[0] eq 'H') {
+				if (exists($otumembers{$row[9]})) {
+					my $alnlen = 0;
+					my $diff = 0;
+					if ($row[7] eq '=') {
+						$alnlen = $row[2];
+						$diff = 0;
+					}
+					else {
+						my @temp = $row[7] =~ /\d*[MDI]/g;
+						my @compaln;
+						my @compalc;
+						for (my $i = 0; $i < scalar(@temp); $i ++) {
+							$compaln[$i] = $temp[$i];
+							$compaln[$i] =~ s/[MDI]$//;
+							if ($compaln[$i] eq '') {
+								$compaln[$i] = 1;
+							}
+							$compalc[$i] = $temp[$i];
+							$compalc[$i] =~ s/^\d*//;
+						}
+						foreach (@compaln) {
+							$alnlen += $_;
+						}
+						$diff = int(($alnlen * (1 - ($row[3] / 100))) + 0.5);
+						for (my $i = 0; $i < scalar(@compalc); $i ++) {
+							if ($compalc[$i] eq 'D' || $compalc[$i] eq 'I') {
+								$diff = $diff - $compaln[$i] + 1;
+							}
+						}
+					}
+					my $pident = (($alnlen - $diff) / $alnlen);
+					if ($pident >= $minident) {
+						$replace{$row[9]}{$row[8]} = $pident;
+					}
 				}
-				delete($otumembers{$row[9]});
+				else {
+					&errorMessage(__LINE__, "\"$tempuc\" is invalid.");
+				}
 			}
 			else {
 				&errorMessage(__LINE__, "\"$tempuc\" is invalid.");
 			}
 		}
-		else {
-			&errorMessage(__LINE__, "\"$tempuc\" is invalid.");
+		foreach my $from (keys(%replace)) {
+			foreach my $to (sort({$replace{$from}{$b} <=> $replace{$from}{$a}} keys(%{$replace{$from}}))) {
+				if (exists($otumembers{$from})) {
+					foreach my $member (@{$otumembers{$from}}) {
+						push(@{$otumembers{$to}}, $member);
+					}
+					delete($otumembers{$from});
+					last;
+				}
+			}
 		}
 	}
 	close($filehandleinput1);
@@ -387,7 +429,6 @@ sub convertUCtoOTUMembers {
 		my @otumembers = sort({scalar(@{$otumembers{$b}}) <=> scalar(@{$otumembers{$a}}) || $a cmp $b} keys(%otumembers));
 		my $notumembers = scalar(@otumembers);
 		my $length = length($notumembers);
-		my $num = 1;
 		foreach my $centroid (@otumembers) {
 			$otunames{$centroid} = 1;
 			print($filehandleoutput1 ">$centroid\n");
@@ -399,22 +440,50 @@ sub convertUCtoOTUMembers {
 				}
 				print($filehandleoutput1 "$member\n");
 			}
-			$num ++;
 		}
 	}
 	close($filehandleoutput1);
 	$filehandleoutput1 = &writeFile($outfasta);
 	$filehandleinput1 = &readFile($stdseq);
-	while (<$filehandleinput1>) {
-		s/\r?\n?$//;
-		print($filehandleoutput1 "$_\n");
+	{
+		my $otuname;
+		my $switch = 0;
+		while (<$filehandleinput1>) {
+			s/\r?\n?$//;
+			if (/^>(.+)$/) {
+				my $otuname = $1;
+				if (exists($otumembers{$otuname})) {
+					$switch = 1;
+				}
+				else {
+					$switch = 0;
+				}
+			}
+			if ($switch) {
+				print($filehandleoutput1 "$_\n");
+			}
+		}
 	}
 	close($filehandleinput1);
 	$filehandleinput1 = &readFile($tempfasta);
-	while (<$filehandleinput1>) {
-		s/\r?\n?$//;
-		s/;size=\d+;*//g;
-		print($filehandleoutput1 "$_\n");
+	{
+		my $otuname;
+		my $switch = 0;
+		while (<$filehandleinput1>) {
+			s/\r?\n?$//;
+			if (/^>(.+)$/) {
+				my $otuname = $1;
+				if (exists($otumembers{$otuname})) {
+					$switch = 1;
+				}
+				else {
+					$switch = 0;
+				}
+			}
+			if ($switch) {
+				print($filehandleoutput1 "$_\n");
+			}
+		}
 	}
 	close($filehandleinput1);
 	close($filehandleoutput1);

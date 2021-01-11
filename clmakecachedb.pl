@@ -29,6 +29,9 @@ my $makeblastdb;
 # global variables
 my $blastdbpath;
 my $root = getcwd();
+my %ignoreotulist;
+my $ignoreotulist;
+my $ignoreotuseq;
 
 # file handles
 my $filehandleinput1;
@@ -45,7 +48,7 @@ sub main {
 	# check variable consistency
 	&checkVariables();
 	# read negative accession list file
-	&readNegativeAccessionList();
+	&readListFiles();
 	# make output directory
 	if (!-e $outputfolder && !mkdir($outputfolder)) {
 		&errorMessage(__LINE__, 'Cannot make output folder.');
@@ -113,6 +116,18 @@ sub getOptions {
 			foreach my $nacc (split(/,/, $1)) {
 				$nacclist{$nacc} = 1;
 			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:otu|otus)=(.+)$/i) {
+			my @temp = split(',', $1);
+			foreach my $temp (@temp) {
+				$ignoreotulist{$temp} = 1;
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:otu|otus)list=(.+)$/i) {
+			$ignoreotulist = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:otu|otus)seq=(.+)$/i) {
+			$ignoreotuseq = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
 			$numthreads = $1;
@@ -257,7 +272,8 @@ sub checkVariables {
 	}
 }
 
-sub readNegativeAccessionList {
+sub readListFiles {
+	print(STDERR "Reading several lists...\n");
 	if ($nacclist) {
 		unless (open($filehandleinput1, "< $nacclist")) {
 			&errorMessage(__LINE__, "Cannot open \"$nacclist\".");
@@ -279,6 +295,45 @@ sub readNegativeAccessionList {
 		close($filehandleoutput1);
 		$nacclist = " -negative_seqidlist $outputfolder/nacclist.txt";
 	}
+	if ($ignoreotulist) {
+		foreach my $ignoreotu (&readList($ignoreotulist)) {
+			$ignoreotulist{$ignoreotu} = 1;
+		}
+	}
+	if ($ignoreotuseq) {
+		foreach my $ignoreotu (&readSeq($ignoreotuseq)) {
+			$ignoreotulist{$ignoreotu} = 1;
+		}
+	}
+	print(STDERR "done.\n\n");
+}
+
+sub readList {
+	my $listfile = shift(@_);
+	my @list;
+	$filehandleinput1 = &readFile($listfile);
+	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
+		s/\t.+//;
+		push(@list, $_);
+	}
+	close($filehandleinput1);
+	return(@list);
+}
+
+sub readSeq {
+	my $seqfile = shift(@_);
+	my @list;
+	$filehandleinput1 = &readFile($seqfile);
+	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
+		if (/^> *(.+)/) {
+			my $seqname = $1;
+			push(@list, $seqname);
+		}
+	}
+	close($filehandleinput1);
+	return(@list);
 }
 
 sub retrieveSimilarSequences {
@@ -289,7 +344,12 @@ sub retrieveSimilarSequences {
 	my $nseq = 0;
 	while (<$filehandleinput1>) {
 		if (/^>\s*(\S[^\r\n]*)\r?\n?$/) {
-			$nseq ++;
+			my $query = $1;
+			$query =~ s/\s+$//;
+			$query =~ s/;+size=\d+;*//g;
+			if (!exists($ignoreotulist{$query})) {
+				$nseq ++;
+			}
 		}
 	}
 	close($filehandleinput1);
@@ -317,24 +377,26 @@ sub retrieveSimilarSequences {
 				my $sequence = $2;
 				$query =~ s/\s+$//;
 				$query =~ s/;+size=\d+;*//g;
-				$qnum ++;
-				$sequence =~ s/[> \r\n]//g;
-				push(@queries, $query);
-				my @seq = $sequence =~ /\S/g;
-				my $qlen = scalar(@seq);
-				if ($qlen < $minlen) {
-					next;
-				}
-				# output an entry
-				unless (open($filehandleoutput1, ">> $outputfolder/tempquery.fasta")) {
-					&errorMessage(__LINE__, "Cannot make \"$outputfolder/tempquery.fasta\".");
-				}
-				print($filehandleoutput1 ">query$qnum\n");
-				print($filehandleoutput1 join('', @seq) . "\n");
-				close($filehandleoutput1);
-				# search similar sequences
-				if (scalar(@queries) % $nseqpersearch == 0) {
-					&runBLAST($nseqpersearch);
+				if (!exists($ignoreotulist{$query})) {
+					$qnum ++;
+					$sequence =~ s/[> \r\n]//g;
+					push(@queries, $query);
+					my @seq = $sequence =~ /\S/g;
+					my $qlen = scalar(@seq);
+					if ($qlen < $minlen) {
+						next;
+					}
+					# output an entry
+					unless (open($filehandleoutput1, ">> $outputfolder/tempquery.fasta")) {
+						&errorMessage(__LINE__, "Cannot make \"$outputfolder/tempquery.fasta\".");
+					}
+					print($filehandleoutput1 ">query$qnum\n");
+					print($filehandleoutput1 join('', @seq) . "\n");
+					close($filehandleoutput1);
+					# search similar sequences
+					if (scalar(@queries) % $nseqpersearch == 0) {
+						&runBLAST($nseqpersearch);
+					}
 				}
 			}
 		}
@@ -426,6 +488,32 @@ sub makeBLASTDB {
 	print(STDERR "done.\n\n");
 }
 
+sub readFile {
+	my $filehandle;
+	my $filename = shift(@_);
+	if ($filename =~ /\.gz$/i) {
+		unless (open($filehandle, "gzip -dc $filename 2> $devnull |")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	elsif ($filename =~ /\.bz2$/i) {
+		unless (open($filehandle, "bzip2 -dc $filename 2> $devnull |")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	elsif ($filename =~ /\.xz$/i) {
+		unless (open($filehandle, "xz -dc $filename 2> $devnull |")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	else {
+		unless (open($filehandle, "< $filename")) {
+			&errorMessage(__LINE__, "Cannot open \"$filename\".");
+		}
+	}
+	return($filehandle);
+}
+
 # error message
 sub errorMessage {
 	my $lineno = shift(@_);
@@ -456,6 +544,15 @@ blastn options end
 
 --negativeacc=accession(,accession..)
   Specify negative accessions.
+
+--ignoreotu=SAMPLENAME,...,SAMPLENAME
+  Specify ignoring otu names. (default: none)
+
+--ignoreotulist=FILENAME
+  Specify file name of ignoring otu list. (default: none)
+
+--ignoreotuseq=FILENAME
+  Specify file name of ignoring otu list. (default: none)
 
 --minlen=INTEGER
   Specify minimum length of query sequence. (default: 50)
