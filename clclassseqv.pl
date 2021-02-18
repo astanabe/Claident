@@ -25,6 +25,11 @@ my $vsearch5d;
 
 # global variables
 my $root = getcwd();
+my %ignoreotulist;
+my $ignoreotulist;
+my $ignoreotuseq;
+my %ignoreotumembers;
+my %ignoreotuseq;
 
 # file handles
 my $filehandleinput1;
@@ -47,6 +52,8 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
+	# read negative seqids list file
+	&readListFiles();
 	# make concatenated files
 	&makeConcatenatedFiles();
 	# run assembling
@@ -124,6 +131,18 @@ sub getOptions {
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
 			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:otu|otus)=(.+)$/i) {
+			my @temp = split(',', $1);
+			foreach my $temp (@temp) {
+				$ignoreotulist{$temp} = 1;
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:otu|otus)list=(.+)$/i) {
+			$ignoreotulist = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:ignore|ignoring)(?:otu|otus)seq=(.+)$/i) {
+			$ignoreotuseq = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+nodel$/i) {
 			$nodel = 1;
@@ -247,6 +266,49 @@ sub checkVariables {
 	}
 }
 
+sub readListFiles {
+	print(STDERR "Reading several lists...\n");
+	if ($ignoreotulist) {
+		foreach my $ignoreotu (&readList($ignoreotulist)) {
+			$ignoreotulist{$ignoreotu} = 1;
+		}
+	}
+	if ($ignoreotuseq) {
+		foreach my $ignoreotu (&readSeq($ignoreotuseq)) {
+			$ignoreotulist{$ignoreotu} = 1;
+		}
+	}
+	print(STDERR "done.\n\n");
+}
+
+sub readList {
+	my $listfile = shift(@_);
+	my @list;
+	$filehandleinput1 = &readFile($listfile);
+	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
+		s/\t.+//;
+		push(@list, $_);
+	}
+	close($filehandleinput1);
+	return(@list);
+}
+
+sub readSeq {
+	my $seqfile = shift(@_);
+	my @list;
+	$filehandleinput1 = &readFile($seqfile);
+	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
+		if (/^> *(.+)/) {
+			my $seqname = $1;
+			push(@list, $seqname);
+		}
+	}
+	close($filehandleinput1);
+	return(@list);
+}
+
 sub makeConcatenatedFiles {
 	$filehandleoutput1 = &writeFile("$outputfolder/concatenated.otu.gz");
 	$filehandleoutput2 = &writeFile("$outputfolder/concatenated.fasta");
@@ -262,35 +324,58 @@ sub makeConcatenatedFiles {
 				s/;size=\d+;*//g;
 				if (/^>(.+)$/) {
 					$otuname = $1;
-					s/$otuname/temp_$num/;
-					$replace{$otuname} = "temp_$num";
-					$num ++;
+					if (exists($ignoreotulist{$otuname})) {
+						next;
+					}
+					else {
+						s/$otuname/temp_$num/;
+						$replace{$otuname} = "temp_$num";
+						$num ++;
+					}
 				}
-				elsif ($otuname && /^([^>].*)$/) {
+				elsif ($otuname && exists($ignoreotulist{$otuname}) && /^([^>].*)$/) {
+					push(@{$ignoreotumembers{$otuname}}, $1);
+				}
+				elsif ($otuname && !exists($ignoreotulist{$otuname}) && /^([^>].*)$/) {
 					push(@{$otumembers{$replace{$otuname}}}, $1);
 				}
 				else {
 					&errorMessage(__LINE__, "\"$otufiles[$i]\" is invalid.");
 				}
-				print($filehandleoutput1 "$_\n");
+				if ($otuname && !exists($ignoreotulist{$otuname})) {
+					print($filehandleoutput1 "$_\n");
+				}
 			}
 		}
 		close($filehandleinput1);
 		$filehandleinput1 = &readFile($inputfiles[$i]);
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			s/;size=\d+;*//g;
-			if (/^>(.+)$/) {
-				my $otuname = $1;
-				if ($replace{$otuname} && @{$otumembers{$replace{$otuname}}}) {
-					my $size = scalar(@{$otumembers{$replace{$otuname}}});
-					s/$otuname/$replace{$otuname};size=$size;/;
+		{
+			my $otuname;
+			while (<$filehandleinput1>) {
+				s/\r?\n?$//;
+				s/;size=\d+;*//g;
+				if (/^>(.+)$/) {
+					$otuname = $1;
+					if (exists($ignoreotulist{$otuname})) {
+						next;
+					}
+					elsif ($replace{$otuname} && @{$otumembers{$replace{$otuname}}}) {
+						my $size = scalar(@{$otumembers{$replace{$otuname}}});
+						s/$otuname/$replace{$otuname};size=$size;/;
+					}
+					else {
+						&errorMessage(__LINE__, "\"$inputfiles[$i]\" is invalid.");
+					}
 				}
-				else {
-					&errorMessage(__LINE__, "\"$inputfiles[$i]\" is invalid.");
+				elsif ($otuname && exists($ignoreotulist{$otuname}) && /^([^>].*)$/) {
+					my $tempseq = $1;
+					$tempseq =~ s/[^A-Za-z]//g;
+					$ignoreotuseq{$otuname} .= $tempseq;
+				}
+				if ($otuname && !exists($ignoreotulist{$otuname})) {
+					print($filehandleoutput2 "$_\n");
 				}
 			}
-			print($filehandleoutput2 "$_\n");
 		}
 		close($filehandleinput1);
 	}
@@ -579,6 +664,15 @@ Command line options
 
 --tableformat=COLUMN|MATRIX
   Specify output table format. (default: MATRIX)
+
+--ignoreotu=SAMPLENAME,...,SAMPLENAME
+  Specify ignoring otu names. (default: none)
+
+--ignoreotulist=FILENAME
+  Specify file name of ignoring otu list. (default: none)
+
+--ignoreotuseq=FILENAME
+  Specify file name of ignoring otu list. (default: none)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)
