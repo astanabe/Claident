@@ -246,7 +246,15 @@ sub checkVariables {
 		elsif ($paired) {
 			&errorMessage(__LINE__, "The input files are invalid. Paired-end and single-end sequences cannot be mixed.");
 		}
-		@inputfiles = @newinputfiles;
+		if (@newinputfiles) {
+			@inputfiles = @newinputfiles;
+		}
+		elsif (@tempinputfiles) {
+			@inputfiles = @tempinputfiles;
+		}
+		else {
+			&errorMessage(__LINE__, "The input files are invalid.");
+		}
 		if (scalar(@inputfiles) > 1) {
 			$folder = 1;
 		}

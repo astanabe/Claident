@@ -469,6 +469,19 @@ sub convertUCtoOTUMembers {
 	my %otunames;
 	my %replace;
 	$filehandleoutput1 = &writeFile($outotufile);
+	if (%ignoreotumembers) {
+		foreach my $otuname (sort({scalar(@{$ignoreotumembers{$b}}) <=> scalar(@{$ignoreotumembers{$a}}) || $a cmp $b} keys(%ignoreotumembers))) {
+			print($filehandleoutput1 ">$otuname\n");
+			foreach my $member (@{$ignoreotumembers{$otuname}}) {
+				if ($member =~ / SN:(\S+)/) {
+					my $samplename = $1;
+					$table{$samplename}{$otuname} ++;
+					$samplenames{$samplename} = 1;
+				}
+				print($filehandleoutput1 "$member\n");
+			}
+		}
+	}
 	{
 		my @otumembers = sort({scalar(@{$otumembers{$b}}) <=> scalar(@{$otumembers{$a}}) || $a cmp $b} keys(%otumembers));
 		my $notumembers = scalar(@otumembers);
@@ -476,7 +489,7 @@ sub convertUCtoOTUMembers {
 		my $num = 1;
 		foreach my $centroid (@otumembers) {
 			my $otuname = sprintf("otu_%0*d", $length, $num);
-			$otunames{$otuname} = 1;
+			$otunames{$otuname} = scalar(@{$otumembers{$centroid}});
 			$replace{$centroid} = $otuname;
 			print($filehandleoutput1 ">$otuname\n");
 			foreach my $member (@{$otumembers{$centroid}}) {
@@ -492,6 +505,11 @@ sub convertUCtoOTUMembers {
 	}
 	close($filehandleoutput1);
 	$filehandleoutput1 = &writeFile($outfasta);
+	if (%ignoreotuseq) {
+		foreach my $otuname (sort({scalar(@{$ignoreotumembers{$b}}) <=> scalar(@{$ignoreotumembers{$a}}) || $a cmp $b} keys(%ignoreotuseq))) {
+			print($filehandleoutput1 ">$otuname\n" . $ignoreotuseq{$otuname} . "\n");
+		}
+	}
 	$filehandleinput1 = &readFile($tempfasta);
 	while (<$filehandleinput1>) {
 		s/\r?\n?$//;
@@ -511,7 +529,7 @@ sub convertUCtoOTUMembers {
 	close($filehandleoutput1);
 	# save table
 	{
-		my @otunames = sort({$a cmp $b} keys(%otunames));
+		my @otunames = (sort({scalar(@{$ignoreotumembers{$b}}) <=> scalar(@{$ignoreotumembers{$a}}) || $a cmp $b} keys(%ignoreotumembers)), sort({$otunames{$b} <=> $otunames{$a} || $a cmp $b} keys(%otunames)));
 		my @samplenames = sort({$a cmp $b} keys(%samplenames));
 		unless (open($filehandleoutput1, "> $outputfolder/clustered.tsv")) {
 			&errorMessage(__LINE__, "Cannot make \"$outputfolder/clustered.tsv\".");

@@ -14,6 +14,7 @@ my $mode = 'eliminate';
 my $tagfile;
 my $reversetagfile;
 my $reversecomplement;
+my $maxpjump;
 my $siglevel = 0.05;
 my $tagjump = 'half';
 my $tableformat = 'matrix';
@@ -138,6 +139,9 @@ sub getOptions {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+max(?:imum)?(?:r|rate|p|percentage)(?:jump|hop|hopping)=(.+)$/i) {
+			$maxpjump = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+blank(?:sample|samples)?=(.+)$/i) {
 			my @temp = split(',', $1);
 			foreach my $temp (@temp) {
@@ -249,6 +253,9 @@ sub checkVariables {
 		}
 		@inputfiles = @newinputfiles;
 	}
+	if ($maxpjump > 0.5) {
+		&errorMessage(__LINE__, "The minimum percentage threshold for reads is invalid.");
+	}
 	if (scalar(@inputfiles) > 1) {
 		&errorMessage(__LINE__, "Too many inputs were given.");
 	}
@@ -274,7 +281,7 @@ sub checkVariables {
 		&errorMessage(__LINE__, "\"$ignoreotuseq\" does not exist.");
 	}
 	if (($tagfile || $reversetagfile) && (%blanklist || $blanklist)) {
-		&errorMessage(__LINE__, "Removal of index-hopping and contamination cannot be applied at the same time.");
+		&errorMessage(__LINE__, "Removal of tag-jump and contamination cannot be applied at the same time.");
 	}
 	if ($tagfile && !$reversetagfile || !$tagfile && $reversetagfile) {
 		&errorMessage(__LINE__, "Both forward and reverse tags (dual index) must be given.");
@@ -395,7 +402,7 @@ sub readTags {
 		my @temptags = sort(keys(%temptags));
 		my @tempreversetags = sort(keys(%tempreversetags));
 		if (@temptags && @tempreversetags) {
-			print(STDERR "Sample vs noncritical misidentified sample associtations\n");
+			print(STDERR "Sample vs contaminant source sample associtations\n");
 			if ($tagjump eq 'half') {
 				my %halfjump;
 				my %reversehalfjump;
@@ -405,6 +412,10 @@ sub readTags {
 						if (!exists($tag{$tagseq})) {
 							push(@{$halfjump{$temptag}}, $tagseq);
 							push(@{$reversehalfjump{$tempreversetag}}, $tagseq);
+						}
+						elsif ($maxpjump > 0) {
+							push(@{$halfjump{$temptag}}, $tag{$tagseq});
+							push(@{$reversehalfjump{$tempreversetag}}, $tag{$tagseq});
 						}
 					}
 				}
@@ -419,7 +430,9 @@ sub readTags {
 									if ($tag eq $tag{$tagseq}) {
 										foreach my $blanktag (@{$halfjump{$temptag}}, @{$reversehalfjump{$tempreversetag}}) {
 											$sample2blank{$samplename}{"$runname\__$blanktag\__$primer"} = 1;
-											$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
+											if ($blanktag =~ /^[ACGT]+\+[ACGT]+$/) {
+												$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
+											}
 										}
 									}
 								}
@@ -432,13 +445,18 @@ sub readTags {
 				foreach my $temptag (@temptags) {
 					foreach my $tempreversetag (@tempreversetags) {
 						my $tagseq = "$temptag+$tempreversetag";
-						if (!exists($tag{$tagseq})) {
-							foreach my $samplename (keys(%samplenames)) {
-								my @temp = split(/__/, $samplename);
-								if (scalar(@temp) == 3) {
-									my ($runname, $tag, $primer) = @temp;
-									$sample2blank{$samplename}{"$runname\__$tagseq\__$primer"} = 1;
-									$blanksamples{"$runname\__$tagseq\__$primer"} = 1;
+						foreach my $samplename (keys(%samplenames)) {
+							my @temp = split(/__/, $samplename);
+							if (scalar(@temp) == 3) {
+								my ($runname, $tag, $primer) = @temp;
+								if ($tag !~ /^[ACGT]+\+[ACGT]+$/) {
+									if (!exists($tag{$tagseq})) {
+										$sample2blank{$samplename}{"$runname\__$tagseq\__$primer"} = 1;
+										$blanksamples{"$runname\__$tagseq\__$primer"} = 1;
+									}
+									elsif ($maxpjump > 0) {
+										$sample2blank{$samplename}{"$runname\__$tag{$tagseq}\__$primer"} = 1;
+									}
 								}
 							}
 						}
@@ -561,37 +579,69 @@ sub readSeq {
 
 sub removeContaminants {
 	print(STDERR "Detecting and removing contaminants...\n");
-	foreach my $samplename (keys(%sample2blank)) {
+	my %newtable;
+	foreach my $samplename (keys(%table)) {
 		foreach my $otuname (keys(%{$table{$samplename}})) {
-			if (!defined($ignoreotulist{$otuname})) {
-				my @nseqblank;
-				foreach my $blanksample (keys(%{$sample2blank{$samplename}})) {
-					if ($table{$blanksample}{$otuname} > 0) {
-						push(@nseqblank, $table{$blanksample}{$otuname});
-					}
-				}
-				if ($table{$samplename}{$otuname} > 0 && @nseqblank) {
-					my $tempmax = &max(@nseqblank);
-					if ($table{$samplename}{$otuname} > $tempmax) {
-						if (scalar(@nseqblank) > 1) {
-							if (isOutlier($table{$samplename}{$otuname}, @nseqblank)) {
-								if ($mode eq 'subtractmax') {
-									$table{$samplename}{$otuname} -= $tempmax;
-								}
-							}
-							else {
-								$table{$samplename}{$otuname} = 0;
-							}
-						}
-						elsif ($mode eq 'subtractmax') {
-							$table{$samplename}{$otuname} -= $tempmax;
+			$newtable{$samplename}{$otuname} = $table{$samplename}{$otuname};
+		}
+	}
+	if ($maxpjump > 0) {
+		foreach my $samplename (keys(%sample2blank)) {
+			foreach my $otuname (keys(%{$table{$samplename}})) {
+				if (!defined($ignoreotulist{$otuname})) {
+					my $sum = 0;
+					foreach my $blanksample (keys(%{$sample2blank{$samplename}})) {
+						if ($table{$blanksample}{$otuname} > 0) {
+							$sum += $table{$blanksample}{$otuname};
 						}
 					}
-					else {
-						$table{$samplename}{$otuname} = 0;
+					if ($table{$samplename}{$otuname} > 0 && $sum) {
+						if ($table{$samplename}{$otuname} <= ($sum * $maxpjump)) {
+							$newtable{$samplename}{$otuname} = 0;
+						}
 					}
 				}
 			}
+		}
+	}
+	else {
+		foreach my $samplename (keys(%sample2blank)) {
+			foreach my $otuname (keys(%{$table{$samplename}})) {
+				if (!defined($ignoreotulist{$otuname})) {
+					my @nseqblank;
+					foreach my $blanksample (keys(%{$sample2blank{$samplename}})) {
+						if ($table{$blanksample}{$otuname} > 0) {
+							push(@nseqblank, $table{$blanksample}{$otuname});
+						}
+					}
+					if ($table{$samplename}{$otuname} > 0 && @nseqblank) {
+						my $tempmax = &max(@nseqblank);
+						if ($table{$samplename}{$otuname} > $tempmax) {
+							if (scalar(@nseqblank) > 1) {
+								if (isOutlier($table{$samplename}{$otuname}, @nseqblank)) {
+									if ($mode eq 'subtractmax') {
+										$newtable{$samplename}{$otuname} -= $tempmax;
+									}
+								}
+								else {
+									$newtable{$samplename}{$otuname} = 0;
+								}
+							}
+							elsif ($mode eq 'subtractmax') {
+								$newtable{$samplename}{$otuname} -= $tempmax;
+							}
+						}
+						else {
+							$newtable{$samplename}{$otuname} = 0;
+						}
+					}
+				}
+			}
+		}
+	}
+	foreach my $samplename (keys(%newtable)) {
+		foreach my $otuname (keys(%{$newtable{$samplename}})) {
+			$table{$samplename}{$otuname} = $newtable{$samplename}{$otuname};
 		}
 	}
 	print(STDERR "done.\n\n");
@@ -835,6 +885,9 @@ Command line options
 
 --siglevel=DECIMAL
   Specify significance level for modified Thompson Tau test. (default: 0.05)
+
+--maxpjump=DECIMAL
+  Specify the maximum percentage threshold of tag jump. (default: none)
 
 --blank=SAMPLENAME,...,SAMPLENAME
   Specify blank sample names. (default: none)
