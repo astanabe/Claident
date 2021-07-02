@@ -411,8 +411,8 @@ sub retrieveSimilarSequences {
 sub runBLAST {
 	my $tempnseq = shift(@_);
 	print(STDERR "Searching similar sequences of $tempnseq sequences...\n");
-	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq stitle\" -num_threads $numthreads -searchsp 9223372036854775807 |")) {
-		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq stitle\" -num_threads $numthreads -searchsp 9223372036854775807\".");
+	unless (open($pipehandleinput1, "BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq stitle\" -num_threads $numthreads -mt_mode 1 -searchsp 9223372036854775807 |")) {
+		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq stitle\" -num_threads $numthreads -mt_mode 1 -searchsp 9223372036854775807\".");
 	}
 	local $/ = "\n";
 	while (<$pipehandleinput1>) {
@@ -432,7 +432,7 @@ sub runBLAST {
 	}
 	close($pipehandleinput1);
 	#if ($?) {
-	#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq stitle\" -num_threads $numthreads -searchsp 9223372036854775807\".");
+	#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq stitle\" -num_threads $numthreads -mt_mode 1 -searchsp 9223372036854775807\".");
 	#}
 	unlink("$outputfolder/tempquery.fasta");
 }
