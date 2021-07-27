@@ -5,7 +5,7 @@ clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid33090[Organism:ex
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid33090[Organism:exp] AND "complete genome"[Title] AND chloroplast[Filter] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' plants_cpgenomes.txt || exit $?
 cat plants_cpgenomes.txt >> plants_matK1.txt || exit $?
 # make taxonomy database
-clmaketaxdb --includetaxid=33090 taxonomy plants.taxdb || exit $?
+#clmaketaxdb --includetaxid=33090 taxonomy plants.taxdb || exit $?
 # search by keywords at taxdb
 clretrieveacc --maxrank=genus --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=plants.taxdb plants_genus.txt || exit $?
 # make BLAST database

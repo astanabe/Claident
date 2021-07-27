@@ -3,7 +3,7 @@ export PATH=/usr/local/share/claident/bin:$PATH
 # search by keywords at INSD
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid33090[Organism:exp] AND chloroplast[Filter] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' plants_cp.txt || exit $?
 # make taxonomy database
-#clmaketaxdb --includetaxid=33090 taxonomy plants.taxdb || exit $?
+clmaketaxdb --includetaxid=33090 taxonomy plants.taxdb || exit $?
 # extract identified sequences
 clretrieveacc --maxrank=genus --additional=enable --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=plants_cp.txt --taxdb=plants.taxdb plants_cp_genus.txt &
 clretrieveacc --maxrank=species --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=plants_cp.txt --taxdb=plants.taxdb plants_cp_species_wsp.txt &
