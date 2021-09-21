@@ -5,7 +5,8 @@ my $buildno = '0.9.x';
 
 # options
 my $targetrank;
-my $numbering;
+my $numbering = 1;
+my $fuseotu = 1;
 my $topN;
 my $tableformat;
 my $sortkey = 'abundance';
@@ -125,6 +126,18 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
 				$numbering = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+fuseotu=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$fuseotu = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$fuseotu = 0;
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -269,6 +282,9 @@ sub processSummary {
 		if ($taxonomy{$otuname}{$targetrank}) {
 			my $taxon = $taxonomy{$otuname}{$targetrank};
 			$taxon =~ s/ /_/g;
+			unless ($fuseotu) {
+				$taxon = $otuname . ':' . $taxon;
+			}
 			$otu2newotu{$otuname} = $taxon;
 			$newotu{$taxon} = 0;
 			if ($sortkey =~ /^\d+$/) {
@@ -440,6 +456,9 @@ Command line options
 
 --targetrank=RANK
   Specify target taxonomic rank. (default: species)
+
+--fuseotu=ENABLE|DISABLE
+  Specify whether OTU will be fused or not. (default:ENABLE)
 
 --numbering=ENABLE|DISABLE
   Specify whether number need to be added to head of otunames ot not.

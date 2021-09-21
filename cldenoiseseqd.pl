@@ -288,14 +288,14 @@ sub runDADA2 {
 	print($filehandleoutput1 "ranseed <- $seed\n");
 	print($filehandleoutput1 "numthreads <- $numthreads\n");
 	print($filehandleoutput1 "outputfolder <- \"$outputfolder\"\n");
-	if ($pooling == 1) {
+	if ($pooling eq 'pseudo') {
+		print($filehandleoutput1 "pooling <- \"pseudo\"\n");
+	}
+	elsif ($pooling == 1) {
 		print($filehandleoutput1 "pooling <- T\n");
 	}
 	elsif ($pooling == 0) {
 		print($filehandleoutput1 "pooling <- F\n");
-	}
-	elsif ($pooling eq 'pseudo') {
-		print($filehandleoutput1 "pooling <- \"pseudo\"\n");
 	}
 	print($filehandleoutput1 <<'_END');
 library(dada2)
