@@ -11,6 +11,7 @@ my $reverseprimerfile;
 my $reversecomplement;
 my $elimprimer = 1;
 my $seqnamestyle = 'illumina';
+my $outputjump = 1;
 my $truncateN = 0;
 my $useNasUMI = 0;
 my $addUMI;
@@ -184,6 +185,18 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
 				$elimprimer = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+output(?:jump|hop)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$outputjump = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$outputjump = 0;
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -549,22 +562,24 @@ sub readTags {
 			print(STDERR $reversetag{$_} . " : " . $_ . "\n");
 		}
 	}
-	my @temptags = sort(keys(%temptags));
-	my @tempreversetags = sort(keys(%tempreversetags));
-	if (@temptags && @tempreversetags) {
-		print(STDERR "Possible jumped tag combinations\n");
-		my @jumpedtag;
-		foreach my $temptag (@temptags) {
-			foreach my $tempreversetag (@tempreversetags) {
-				my $tagseq = "$temptag+$tempreversetag";
-				if (!exists($tag{$tagseq})) {
-					$tag{$tagseq} = $tagseq;
-					push(@jumpedtag, $tagseq);
+	if ($outputjump) {
+		my @temptags = sort(keys(%temptags));
+		my @tempreversetags = sort(keys(%tempreversetags));
+		if (@temptags && @tempreversetags) {
+			print(STDERR "Possible jumped tag combinations\n");
+			my @jumpedtag;
+			foreach my $temptag (@temptags) {
+				foreach my $tempreversetag (@tempreversetags) {
+					my $tagseq = "$temptag+$tempreversetag";
+					if (!exists($tag{$tagseq})) {
+						$tag{$tagseq} = $tagseq;
+						push(@jumpedtag, $tagseq);
+					}
 				}
 			}
-		}
-		foreach (@jumpedtag) {
-			print(STDERR $tag{$_} . " : " . $_ . "\n");
+			foreach (@jumpedtag) {
+				print(STDERR $tag{$_} . " : " . $_ . "\n");
+			}
 		}
 	}
 	if ($tagfile || $reversetagfile) {
@@ -1883,6 +1898,10 @@ will be searched. (default: off)
 --needreverseprimer
   If this option is specified, unmatched sequence to reverse primer will not be
 output. (default: off)
+
+--outputjump=ENABLE|DISABLE
+  Specify whether tag-jumped (index-hopped) combination samples will be output
+or not. (default: ENABLE)
 
 --truncateN=ENABLE|DISABLE
   Specify truncate Ns of 5'-end of primer or not. (default: DISABLE)
