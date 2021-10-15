@@ -138,7 +138,7 @@ if ($queryfile) {
 			my $name = $1;
 			my $query = uc($2);
 			$name =~ s/\s+$//;
-			$query =~ s/[> \r\n]//g;
+			$query =~ s/[>\s\r\n]//g;
 			$query{$query} = $name;
 		}
 	}
@@ -194,7 +194,7 @@ if (-e $qualfile) {
 			my $taxon = $1;
 			my $sequence = uc($2);
 			$taxon =~ s/\s+$//;
-			$sequence =~ s/[> \r\n]//g;
+			$sequence =~ s/[>\s\r\n]//g;
 			my @qual;
 			if (-e $qualfile) {
 				local $/ = "\n>";

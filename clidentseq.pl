@@ -1,5 +1,8 @@
 use strict;
 use File::Spec;
+use DBI;
+use Math::BaseCnv;
+Math::BaseCnv::dig('m64');
 
 my $buildno = '0.9.x';
 
@@ -28,6 +31,7 @@ my $numthreads = 1;
 my $inputfile;
 my $outputfile1;
 my $outputfile2;
+my $identdb;
 
 # commands
 my $blastn;
@@ -43,6 +47,7 @@ my $ignoreotuseq;
 my $filehandleinput1;
 my $filehandleoutput1;
 my $pipehandleinput1;
+my $dbhandle;
 
 &main();
 
@@ -107,6 +112,9 @@ sub getOptions {
 		}
 		elsif ($ARGV[$i] =~ /^blastn?$/i) {
 			$blastmode = 1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:identdb|idb)=(.+)$/i) {
+			$identdb = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:blastdb|bdb)=(.+)$/i) {
 			my @blastdb = split(/,/, $1);
@@ -216,6 +224,9 @@ sub checkVariables {
 	}
 	if (!-e $inputfile) {
 		&errorMessage(__LINE__, "Input file does not exist.");
+	}
+	if ($identdb && !-e $identdb) {
+		&errorMessage(__LINE__, "Specified ident database does not exist.");
 	}
 	while (glob("$outputfile1.*.*")) {
 		if (/^$outputfile1\..+\.temp$/) {
@@ -449,12 +460,12 @@ sub searchNeighborhoods {
 		while (<$filehandleinput1>) {
 			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
 				my $query = $1;
-				my $sequence = $2;
+				my $sequence = uc($2);
 				$query =~ s/\s+$//;
 				$query =~ s/;+size=\d+;*//g;
 				if (!exists($ignoreotulist{$query})) {
 					$qnum ++;
-					$sequence =~ s/[> \r\n]//g;
+					$sequence =~ s/[>\s\r\n]//g;
 					push(@queries, $query);
 					if (my $pid = fork()) {
 						$child ++;
@@ -473,6 +484,47 @@ sub searchNeighborhoods {
 					else {
 						print(STDERR "Searching neighborhoods of sequence $qnum...\n");
 						local $/ = "\n";
+						{
+							unless (mkdir("$outputfile1.$qnum.temp")) {
+								&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp\".");
+							}
+							# output an entry
+							unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/query.fasta")) {
+								&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp/query.fasta\".");
+							}
+							print($filehandleoutput1 ">query$qnum\n$sequence\n");
+							close($filehandleoutput1);
+						}
+						my $qlen = length($sequence);
+						if ($qlen < $minlen) {
+							exit;
+						}
+						# check identdb
+						if ($identdb) {
+							my $tempseq = $sequence;
+							$tempseq =~ tr/CGT/BCD/;
+							$tempseq = cnv($tempseq, 4, 62);
+							my $existornot;
+							unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '')) {
+								&errorMessage(__LINE__, "Cannot connect database.");
+							}
+							my $statement;
+							unless ($statement = $dbhandle->prepare("SELECT acc FROM base62_acc WHERE base62 IN ('" . $tempseq . "')")) {
+								&errorMessage(__LINE__, "Cannot prepare SQL statement.");
+							}
+							unless ($statement->execute) {
+								&errorMessage(__LINE__, "Cannot execute SELECT.");
+							}
+							while (my @row = $statement->fetchrow_array) {
+								$existornot = $row[0];
+								last;
+							}
+							$dbhandle->disconnect;
+							if ($existornot) {
+								exit;
+							}
+						}
+						# check cachedb
 						if (-d $blastdb1 && $blastdb1 eq $blastdb2) {
 							if (-e "$blastdb1/query$qnum.nsq") {
 								$blastdb1 = "$blastdb1/query$qnum";
@@ -481,24 +533,6 @@ sub searchNeighborhoods {
 							else {
 								exit;
 							}
-						}
-						my $qlen;
-						{
-							my @seq = $sequence =~ /\S/g;
-							$qlen = scalar(@seq);
-							if ($qlen < $minlen) {
-								exit;
-							}
-							unless (mkdir("$outputfile1.$qnum.temp")) {
-								&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp\".");
-							}
-							# output an entry
-							unless (open($filehandleoutput1, "> $outputfile1.$qnum.temp/query.fasta")) {
-								&errorMessage(__LINE__, "Cannot make \"$outputfile1.$qnum.temp/query.fasta\".");
-							}
-							print($filehandleoutput1 ">query$qnum\n");
-							print($filehandleoutput1 join('', @seq) . "\n");
-							close($filehandleoutput1);
 						}
 						# search nearest-neighbor
 						my $nne = 1e-140;
@@ -980,10 +1014,51 @@ sub makeOutputFile {
 sub outputFile {
 	my $listfile = shift(@_);
 	my $outputfile = shift(@_);
-	my %tempaccs;
-	# retrieve blast results
+	if ($identdb) {
+		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '')) {
+			&errorMessage(__LINE__, "Cannot connect database.");
+		}
+	}
+	$filehandleoutput1 = &writeFile($outputfile);
 	for (my $i = 0; $i < scalar(@queries); $i ++) {
-		if (-e "$outputfile1.$i.temp/$listfile") {
+		my %tempaccs;
+		my $tempseq;
+		# retrieve query sequence
+		if (-e "$outputfile1.$i.temp/query.fasta") {
+			local $/ = "\n>";
+			unless (open($filehandleinput1, "< $outputfile1.$i.temp/query.fasta")) {
+				&errorMessage(__LINE__, "Cannot read \"$outputfile1.$i.temp/query.fasta\".");
+			}
+			while (<$filehandleinput1>) {
+				if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+					my $query = $1;
+					my $sequence = $2;
+					$query =~ s/\s+$//;
+					$sequence =~ s/[>\s\r\n]//g;
+					$sequence =~ tr/CGT/BCD/;
+					$tempseq = cnv($sequence, 4, 62);
+				}
+			}
+			close($filehandleinput1);
+		}
+		else {
+			&errorMessage(__LINE__, "\"$outputfile1.$i.temp/query.fasta\" does not exist.");
+		}
+		# retrieve from database
+		if ($identdb) {
+			my $statement;
+			unless ($statement = $dbhandle->prepare("SELECT acc FROM base62_acc WHERE base62 IN ('" . $tempseq . "')")) {
+				&errorMessage(__LINE__, "Cannot prepare SQL statement.");
+			}
+			unless ($statement->execute) {
+				&errorMessage(__LINE__, "Cannot execute SELECT.");
+			}
+			while (my @row = $statement->fetchrow_array) {
+				$tempaccs{$queries[$i]}{$row[0]} = 1;
+			}
+		}
+		# retrieve blast results
+		if (!$tempaccs{$queries[$i]} && -e "$outputfile1.$i.temp/$listfile") {
 			unless (open($filehandleinput1, "< $outputfile1.$i.temp/$listfile")) {
 				&errorMessage(__LINE__, "Cannot read \"$outputfile1.$i.temp/$listfile\".");
 			}
@@ -994,18 +1069,18 @@ sub outputFile {
 			}
 			close($filehandleinput1);
 		}
-	}
-	# save results to output file
-	$filehandleoutput1 = &writeFile($outputfile);
-	foreach my $query (@queries) {
-		if ($tempaccs{$query}) {
-			print($filehandleoutput1 ">$query\n" . join("\n", sort(keys(%{$tempaccs{$query}}))) . "\n");
+		# save results to output file
+		if ($tempaccs{$queries[$i]}) {
+			print($filehandleoutput1 ">$queries[$i];base62=$tempseq\n" . join("\n", sort(keys(%{$tempaccs{$queries[$i]}}))) . "\n");
 		}
 		else {
-			print($filehandleoutput1 ">$query\n");
+			print($filehandleoutput1 ">$queries[$i];base62=$tempseq\n");
 		}
 	}
 	close($filehandleoutput1);
+	if ($identdb) {
+		$dbhandle->disconnect;
+	}
 }
 
 sub writeFile {
@@ -1081,6 +1156,9 @@ blastn options end
   Specify commandline options for blastn.
 (default: -task dc-megablast -word_size 11 -template_type coding_and_optimal
 -template_length 16)
+
+--idb, --identdb=FILENAME
+  Specify file name of ident database. (default: none)
 
 --bdb, --blastdb=BLASTDB(,BLASTDB)
   Specify name of BLAST database or cache database. (default: none)

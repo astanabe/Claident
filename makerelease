@@ -1,0 +1,19 @@
+for f in cl*.pl
+do
+	perl -wc $f || exit $?
+done
+
+t=`TZ=JST-9 date +%Y.%m.%d`
+perl -i.bak -npe "s/^VERSION := 0\.9\.\d\d\d\d\.\d\d\.\d\d/VERSION := 0.9.$t/" Makefile
+
+mv claident-0.9.*.zip oldfiles/
+rm -rf claident-0.9.*
+mkdir claident-0.9.$t
+cp cl*.pl claident-0.9.$t/
+cp *.sh claident-0.9.$t/
+cp *.fasta claident-0.9.$t/
+cp LICENSE claident-0.9.$t/
+cp Makefile claident-0.9.$t/
+cp README.md claident-0.9.$t/
+
+zip -r -9 -y -X claident-0.9.$t.zip claident-0.9.$t

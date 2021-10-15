@@ -249,7 +249,7 @@ sub constructSeqDB {
 		if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
 			my $seqname = $1;
 			my $seq = uc($2);
-			$seq =~ s/[> \r\n]//g;
+			$seq =~ s/[>\s\r\n]//g;
 			$seqname =~ /\|*(?:gb|emb|dbj|ref|pdb|tpd|tpe|tpg)\|([A-Za-z0-9_]+)[\| ]/;
 			my $acc = $1;
 			my $seqlen = length($seq);

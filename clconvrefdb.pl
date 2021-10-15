@@ -345,7 +345,7 @@ sub readFASTAmakeTaxDB {
 				my $seqname = $1;
 				my $sequence = $2;
 				$seqname =~ s/${separator}?\s*$//;
-				$sequence =~ s/[> \r\n]//g;
+				$sequence =~ s/[>\s\r\n]//g;
 				$tempacc ++;
 				my $acc = $accprefix . &convNumber2Accession($tempacc);
 				print($filehandleoutput1 ">gb|$acc $seqname\n$sequence\n");

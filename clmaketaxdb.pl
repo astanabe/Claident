@@ -60,6 +60,7 @@ my %includetaxa;
 my %excludetaxa;
 my %includetaxid;
 my %excludetaxid;
+my $excluderefseq = 1;
 my $acclist;
 my $workspace = 'MEMORY';
 # get other arguments
@@ -82,6 +83,18 @@ for (my $i = 0; $i < scalar(@ARGV) - 2; $i ++) {
 	elsif ($ARGV[$i] =~ /^-+ex(?:clude)?tax(?:on|a)?id=(.+)$/i) {
 		foreach my $taxid (split(/,/, $1)) {
 			$excludetaxid{$taxid} = 1;
+		}
+	}
+	elsif ($ARGV[$i] =~ /^-+excluderefseq=(.+)$/i) {
+		my $value = $1;
+		if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+			$excluderefseq = 1;
+		}
+		elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+			$excluderefseq = 0;
+		}
+		else {
+			&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 		}
 	}
 	elsif ($ARGV[$i] =~ /^-+(?:acc|accession|seqid)list=(.+)$/i) {
@@ -202,17 +215,19 @@ if ($acclist) {
 		while (<$inputhandle>) {
 			my @columns = split(/\s+/, $_);
 			$columns[0] =~ s/\.\d+$//;
-			unless ($accsstatement->execute($columns[0])) {
-				&errorMessage(__LINE__, "Cannot execute SELECT.");
-			}
-			while (my @row = $accsstatement->fetchrow_array) {
-				if ($row[0] == $columns[0]) {
-					$includetaxid{$columns[1]} = 1;
-					unless ($statement->execute($columns[0], $columns[1])) {
-						&errorMessage(__LINE__, "Cannot execute INSERT.");
-					}
+			if (!$excluderefseq || $columns[0] !~ /_/) {
+				unless ($accsstatement->execute($columns[0])) {
+					&errorMessage(__LINE__, "Cannot execute SELECT.");
 				}
-				last;
+				while (my @row = $accsstatement->fetchrow_array) {
+					if ($row[0] == $columns[0]) {
+						$includetaxid{$columns[1]} = 1;
+						unless ($statement->execute($columns[0], $columns[1])) {
+							&errorMessage(__LINE__, "Cannot execute INSERT.");
+						}
+					}
+					last;
+				}
 			}
 			if ($lineno % 1000000 == 0) {
 				print(STDERR '.');
@@ -398,17 +413,19 @@ if (!$acclist) {
 	while (<$inputhandle>) {
 		my @columns = split(/\s+/, $_);
 		$columns[0] =~ s/\.\d+$//;
-		if ($includetaxid{$columns[1]} || !%includetaxid) {
-			unless ($statement->execute($columns[0], $columns[1])) {
-				&errorMessage(__LINE__, "Cannot insert \"$columns[0], $columns[1]\".");
+		if (!$excluderefseq || $columns[0] !~ /_/) {
+			if ($includetaxid{$columns[1]} || !%includetaxid) {
+				unless ($statement->execute($columns[0], $columns[1])) {
+					&errorMessage(__LINE__, "Cannot insert \"$columns[0], $columns[1]\".");
+				}
+				if ($nentries % 1000000 == 0) {
+					# commit SQL transaction
+					$dbhandle->do('COMMIT;');
+					# begin SQL transaction
+					$dbhandle->do('BEGIN;');
+				}
+				$nentries ++;
 			}
-			if ($nentries % 1000000 == 0) {
-				# commit SQL transaction
-				$dbhandle->do('COMMIT;');
-				# begin SQL transaction
-				$dbhandle->do('BEGIN;');
-			}
-			$nentries ++;
 		}
 		if ($lineno % 1000000 == 0) {
 			print(STDERR '.');
@@ -592,6 +609,10 @@ Command line options
 
 --excludetaxid=ID(,ID..)
   Specify exclude taxa by NCBI taxonomy ID. (default: none)
+
+--excluderefseq=ENABLE|DISABLE
+  Specify whether RefSeq accession exclusion will be applied or not.
+(default: ENABLE)
 
 --acclist=FILENAME
   Specify file name of accession list. (default: none)

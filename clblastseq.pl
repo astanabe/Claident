@@ -217,7 +217,7 @@ unless (open($inputhandle, "< $inputfile")) {
 			my $sequence = $2;
 			$query =~ s/\s+$//;
 			$qnum ++;
-			$sequence =~ s/[> \r\n]//g;
+			$sequence =~ s/[>\s\r\n]//g;
 			push(@queries, $query);
 			if (my $pid = fork()) {
 				$child ++;

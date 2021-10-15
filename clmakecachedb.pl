@@ -379,7 +379,7 @@ sub retrieveSimilarSequences {
 				$query =~ s/;+size=\d+;*//g;
 				if (!exists($ignoreotulist{$query})) {
 					$qnum ++;
-					$sequence =~ s/[> \r\n]//g;
+					$sequence =~ s/[>\s\r\n]//g;
 					push(@queries, $query);
 					my @seq = $sequence =~ /\S/g;
 					my $qlen = scalar(@seq);
@@ -415,6 +415,7 @@ sub runBLAST {
 		&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption$nacclist -query $outputfolder/tempquery.fasta -db $blastdb -out - -evalue 1000000000 -outfmt \"6 qseqid sacc length qcovhsp sseq stitle\" -num_threads $numthreads -searchsp 9223372036854775807\".");
 	}
 	local $/ = "\n";
+	my %dupcheck;
 	while (<$pipehandleinput1>) {
 		s/\r?\n?//;
 		if (/^\s*(\S+)\s+(\S+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(.+)/ && $3 >= $minalnlen && $4 >= $minalnpcov) {
@@ -423,11 +424,14 @@ sub runBLAST {
 			my $seq = $5;
 			my $title = $6;
 			$seq =~ s/\-//g;
-			unless (open($filehandleoutput1, ">> $outputfolder/$prefix.fasta")) {
-				&errorMessage(__LINE__, "Cannot write \"$outputfolder/$prefix.fasta\".");
+			if (!$dupcheck{$prefix}{$sacc}) {
+				unless (open($filehandleoutput1, ">> $outputfolder/$prefix.fasta")) {
+					&errorMessage(__LINE__, "Cannot write \"$outputfolder/$prefix.fasta\".");
+				}
+				print($filehandleoutput1 ">$sacc $title\n$seq\n");
+				close($filehandleoutput1);
+				$dupcheck{$prefix}{$sacc} = 1;
 			}
-			print($filehandleoutput1 ">$sacc $title\n$seq\n");
-			close($filehandleoutput1);
 		}
 	}
 	close($pipehandleinput1);

@@ -50,6 +50,7 @@ my %keywordsrestriction;
 my @ngwords;
 my %ngwords;
 my %ngwordsrestriction;
+my $excluderefseq = 1;
 my %includetaxa;
 my %includetaxarestriction;
 my %excludetaxa;
@@ -133,6 +134,18 @@ for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 		}
 		else {
 			&errorMessage(__LINE__, "Invalid rank \"$rank\".");
+		}
+	}
+	elsif ($ARGV[$i] =~ /^-+excluderefseq=(.+)$/i) {
+		my $value = $1;
+		if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+			$excluderefseq = 1;
+		}
+		elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+			$excluderefseq = 0;
+		}
+		else {
+			&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 		}
 	}
 	elsif ($ARGV[$i] =~ /^-+(?:additional|additionalfiltering|addfilter)=(.+)$/i) {
@@ -264,8 +277,15 @@ unless ($taxdb) {
 				}
 			}
 			foreach (split(/\n/,$res->content)) {
-				if (/<Id>([A-Za-z0-9_]+)(?:\.\d+)?<\/Id>/i) {
-					print($outputhandle "$1\n");
+				if ($excluderefseq) {
+					if (/<Id>([A-Za-z0-9]+)(?:\.\d+)?<\/Id>/i) {
+						print($outputhandle "$1\n");
+					}
+				}
+				else {
+					if (/<Id>([A-Za-z0-9_]+)(?:\.\d+)?<\/Id>/i) {
+						print($outputhandle "$1\n");
+					}
 				}
 			}
 			close($outputhandle);
@@ -287,8 +307,15 @@ unless ($taxdb) {
 					}
 				}
 				foreach (split(/\n/,$res->content)) {
-					if (/<Id>([A-Za-z0-9_]+)(?:\.\d+)?<\/Id>/i) {
-						print($outputhandle "$1\n");
+					if ($excluderefseq) {
+						if (/<Id>([A-Za-z0-9]+)(?:\.\d+)?<\/Id>/i) {
+							print($outputhandle "$1\n");
+						}
+					}
+					else {
+						if (/<Id>([A-Za-z0-9_]+)(?:\.\d+)?<\/Id>/i) {
+							print($outputhandle "$1\n");
+						}
 					}
 				}
 				close($outputhandle);
@@ -619,7 +646,9 @@ else {
 		}
 		my $lineno = 1;
 		while (my @row = $statement->fetchrow_array) {
-			print($outputhandle "$row[0]\n");
+			if (!$excluderefseq || $row[0] !~ /_/) {
+				print($outputhandle "$row[0]\n");
+			}
 			if ($lineno % 100000 == 0) {
 				print(STDERR '.');
 			}
@@ -726,6 +755,10 @@ conditions. (default: none)
 
 --minrank=RANK
   Specify minimum taxonomic rank. (default: none)
+
+--excluderefseq=ENABLE|DISABLE
+  Specify whether RefSeq accession exclusion will be applied or not.
+(default: ENABLE)
 
 --additional=ENABLE|DISABLE
   Specify whether additional filtering will be applied or not.
