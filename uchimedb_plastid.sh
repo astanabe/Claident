@@ -1,7 +1,7 @@
 export PATH=/usr/local/share/claident/bin:$PATH
 
-clretrievegi --keywords='"ddbj embl genbank"[Filter] AND (plastid[Filter] AND 100000:9999999[Sequence Length])' plastid.txt || exit $?
-clretrievegi --keywords='"ddbj embl genbank"[Filter] AND (txid1117[Organism:exp] AND "complete genome"[Title])' cyanobacteria.txt || exit $?
+clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (plastid[Filter] AND 100000:9999999[Sequence Length])' plastid.txt || exit $?
+clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid1117[Organism:exp] AND "complete genome"[Title])' cyanobacteria.txt || exit $?
 pgretrieveseq --output=GenBank --database=nucleotide plastid.txt plastid.gb || exit $?
 pgretrieveseq --output=GenBank --database=nucleotide cyanobacteria.txt cyanobacteria.gb || exit $?
 
