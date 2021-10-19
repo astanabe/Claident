@@ -212,40 +212,41 @@ unless (open($inputhandle, "< $inputfile")) {
 	$? = 0;
 	local $/ = "\n>";
 	while (<$inputhandle>) {
-		if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+		if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 			my $query = $1;
 			my $sequence = $2;
 			$query =~ s/\s+$//;
 			$qnum ++;
 			$sequence =~ s/[>\s\r\n]//g;
 			push(@queries, $query);
-			if (my $pid = fork()) {
-				$child ++;
-				if ($child == $numthreads) {
-					if (wait == -1) {
-						$child = 0;
-					} else {
-						$child --;
+			if ($sequence) {
+				if (my $pid = fork()) {
+					$child ++;
+					if ($child == $numthreads) {
+						if (wait == -1) {
+							$child = 0;
+						} else {
+							$child --;
+						}
 					}
+					if ($?) {
+						&errorMessage(__LINE__);
+					}
+					next;
 				}
-				if ($?) {
-					&errorMessage(__LINE__);
+				else {
+					print(STDERR "Running blastn for sequence $qnum...\n");
+					my $pipehandle;
+					unless (open($pipehandle, "| BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sacc sseq stitle\" -num_threads $ht 2> $devnull 1> $devnull")) {
+						&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sacc sseq stitle\" -num_threads $ht\".");
+					}
+					print($pipehandle ">query$qnum\n$sequence\n");
+					close($pipehandle);
+					if ($?) {
+						&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sacc sseq stitle\" -num_threads $ht\".");
+					}
+					exit;
 				}
-				next;
-			}
-			else {
-				print(STDERR "Running blastn for sequence $qnum...\n");
-				my @seq = $sequence =~ /\S/g;
-				my $pipehandle;
-				unless (open($pipehandle, "| BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sacc sseq stitle\" -num_threads $ht 2> $devnull 1> $devnull")) {
-					&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sacc sseq stitle\" -num_threads $ht\".");
-				}
-				print($pipehandle ">query$qnum\n" . join('', @seq) . "\n");
-				close($pipehandle);
-				if ($?) {
-					&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query - -out $outputfile.$qnum -outfmt \"6 sacc sseq stitle\" -num_threads $ht\".");
-				}
-				exit;
 			}
 		}
 	}

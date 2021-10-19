@@ -184,7 +184,7 @@ sub constructSeqDB {
 	my $seqno = 1;
 	my $nentries = 1;
 	while (<$filehandleinput1>) {
-		if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+		if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 			my $seqname = $1;
 			my $seq = uc($2);
 			$seq =~ s/[>\s\r\n]//g;

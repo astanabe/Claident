@@ -452,21 +452,45 @@ sub searchNeighborhoods {
 	print(STDERR "Searching neighborhoods...\n");
 	$filehandleinput1 = &readFile($inputfile);
 	{
+		if ($identdb) {
+			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {AutoInactiveDestroy => 1})) {
+				&errorMessage(__LINE__, "Cannot connect database.");
+			}
+		}
 		my $qnum = -1;
 		my $child = 0;
 		$| = 1;
 		$? = 0;
 		local $/ = "\n>";
 		while (<$filehandleinput1>) {
-			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+			if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 				my $query = $1;
 				my $sequence = uc($2);
 				$query =~ s/\s+$//;
 				$query =~ s/;+size=\d+;*//g;
-				if (!exists($ignoreotulist{$query})) {
+				if ($sequence && !exists($ignoreotulist{$query})) {
 					$qnum ++;
 					$sequence =~ s/[>\s\r\n]//g;
 					push(@queries, $query);
+					# check identdb
+					my $existornot;
+					if ($identdb) {
+						my $tempseq = $sequence;
+						$tempseq =~ tr/CGT/BCD/;
+						$tempseq = cnv($tempseq, 4, 62);
+						my $statement;
+						unless ($statement = $dbhandle->prepare("SELECT acc FROM base62_acc WHERE base62 IN ('" . $tempseq . "')")) {
+							&errorMessage(__LINE__, "Cannot prepare SQL statement.");
+						}
+						unless ($statement->execute) {
+							&errorMessage(__LINE__, "Cannot execute SELECT.");
+						}
+						while (my @row = $statement->fetchrow_array) {
+							$existornot = 1;
+							last;
+						}
+					}
+					# search neighborhoods in parallel
 					if (my $pid = fork()) {
 						$child ++;
 						if ($child == $numthreads) {
@@ -500,29 +524,8 @@ sub searchNeighborhoods {
 							exit;
 						}
 						# check identdb
-						if ($identdb) {
-							my $tempseq = $sequence;
-							$tempseq =~ tr/CGT/BCD/;
-							$tempseq = cnv($tempseq, 4, 62);
-							my $existornot;
-							unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '')) {
-								&errorMessage(__LINE__, "Cannot connect database.");
-							}
-							my $statement;
-							unless ($statement = $dbhandle->prepare("SELECT acc FROM base62_acc WHERE base62 IN ('" . $tempseq . "')")) {
-								&errorMessage(__LINE__, "Cannot prepare SQL statement.");
-							}
-							unless ($statement->execute) {
-								&errorMessage(__LINE__, "Cannot execute SELECT.");
-							}
-							while (my @row = $statement->fetchrow_array) {
-								$existornot = $row[0];
-								last;
-							}
-							$dbhandle->disconnect;
-							if ($existornot) {
-								exit;
-							}
+						if ($existornot) {
+							exit;
 						}
 						# check cachedb
 						if (-d $blastdb1 && $blastdb1 eq $blastdb2) {
@@ -966,6 +969,9 @@ sub searchNeighborhoods {
 				}
 			}
 		}
+		if ($identdb) {
+			$dbhandle->disconnect;
+		}
 	}
 	close($filehandleinput1);
 	# join
@@ -1030,7 +1036,7 @@ sub outputFile {
 				&errorMessage(__LINE__, "Cannot read \"$outputfile1.$i.temp/query.fasta\".");
 			}
 			while (<$filehandleinput1>) {
-				if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+				if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 					my $query = $1;
 					my $sequence = $2;
 					$query =~ s/\s+$//;
@@ -1070,7 +1076,7 @@ sub outputFile {
 			close($filehandleinput1);
 		}
 		# save results to output file
-		if ($tempaccs{$queries[$i]}) {
+		if ($tempaccs{$queries[$i]} && $tempaccs{$queries[$i]}{0} != 1) {
 			print($filehandleoutput1 ">$queries[$i];base62=$tempseq\n" . join("\n", sort(keys(%{$tempaccs{$queries[$i]}}))) . "\n");
 		}
 		else {

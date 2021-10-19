@@ -246,29 +246,31 @@ sub constructSeqDB {
 	my $seqno = 1;
 	my $nentries = 1;
 	while (<$filehandleinput1>) {
-		if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+		if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 			my $seqname = $1;
 			my $seq = uc($2);
 			$seq =~ s/[>\s\r\n]//g;
-			$seqname =~ /\|*(?:gb|emb|dbj|ref|pdb|tpd|tpe|tpg)\|([A-Za-z0-9_]+)[\| ]/;
-			my $acc = $1;
-			my $seqlen = length($seq);
-			if ($seqlen >= $minlen && $seqlen <= $maxlen) {
-				unless ($statement->execute($acc, $seq, $seqname)) {
-					&errorMessage(__LINE__, "Cannot insert \"$acc, $seq, $seqname\".");
+			if ($seq) {
+				$seqname =~ /\|*(?:gb|emb|dbj|ref|pdb|tpd|tpe|tpg)\|([A-Za-z0-9_]+)[\| ]/;
+				my $acc = $1;
+				my $seqlen = length($seq);
+				if ($seqlen >= $minlen && $seqlen <= $maxlen) {
+					unless ($statement->execute($acc, $seq, $seqname)) {
+						&errorMessage(__LINE__, "Cannot insert \"$acc, $seq, $seqname\".");
+					}
+					if ($nentries % 100000 == 0) {
+						# commit SQL transaction
+						$seqdbhandle->do('COMMIT;');
+						# begin SQL transaction
+						$seqdbhandle->do('BEGIN;');
+					}
+					$nentries ++;
 				}
-				if ($nentries % 100000 == 0) {
-					# commit SQL transaction
-					$seqdbhandle->do('COMMIT;');
-					# begin SQL transaction
-					$seqdbhandle->do('BEGIN;');
+				elsif ($dellongseq == 0 && $seqlen > $maxlen) {
+					$filehandleoutput1 = &writeFile($outputfile);
+					print($filehandleoutput1 ">$seqname\n$seq\n");
+					close($filehandleoutput1);
 				}
-				$nentries ++;
-			}
-			elsif ($dellongseq == 0 && $seqlen > $maxlen) {
-				$filehandleoutput1 = &writeFile($outputfile);
-				print($filehandleoutput1 ">$seqname\n$seq\n");
-				close($filehandleoutput1);
 			}
 		}
 		if ($seqno % 100000 == 0) {

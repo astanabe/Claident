@@ -341,24 +341,26 @@ sub readFASTAmakeTaxDB {
 		$? = 0;
 		local $/ = "\n>";
 		while (<$filehandleinput1>) {
-			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+			if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 				my $seqname = $1;
 				my $sequence = $2;
 				$seqname =~ s/${separator}?\s*$//;
 				$sequence =~ s/[>\s\r\n]//g;
-				$tempacc ++;
-				my $acc = $accprefix . &convNumber2Accession($tempacc);
-				print($filehandleoutput1 ">gb|$acc $seqname\n$sequence\n");
-				if ($seqname !~ /${separator}/ && $seqname =~ /^ta?xid[:=](\d+)$/i) {
-					$acc2taxid{$acc} = $1;
-				}
-				elsif ($taxon2taxid{$seqname}) {
-					$acc2taxid{$acc} = $taxon2taxid{$seqname};
-				}
-				else {
-					$temptaxid ++;
-					$taxon2taxid{$seqname} = $temptaxid;
-					$acc2taxid{$acc} = $temptaxid;
+				if ($sequence) {
+					$tempacc ++;
+					my $acc = $accprefix . &convNumber2Accession($tempacc);
+					print($filehandleoutput1 ">gb|$acc $seqname\n$sequence\n");
+					if ($seqname !~ /${separator}/ && $seqname =~ /^ta?xid[:=](\d+)$/i) {
+						$acc2taxid{$acc} = $1;
+					}
+					elsif ($taxon2taxid{$seqname}) {
+						$acc2taxid{$acc} = $taxon2taxid{$seqname};
+					}
+					else {
+						$temptaxid ++;
+						$taxon2taxid{$seqname} = $temptaxid;
+						$acc2taxid{$acc} = $temptaxid;
+					}
 				}
 			}
 			if ($lineno % 10000 == 0) {

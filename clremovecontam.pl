@@ -344,52 +344,56 @@ sub readTags {
 		}
 		local $/ = "\n>";
 		while (<$filehandleinput1>) {
-			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+			if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 				my $name = $1;
 				my $tag = uc($2);
-				$name =~ s/\s+$//;
-				if ($name =~ /__/) {
-					&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use \"__\" in tag name.");
-				}
-				elsif ($name =~ /^[ACGT]+$/ || $name =~ /^[ACGT]+[\-\+][ACGT]+$/) {
-					&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use nucleotide sequence as tag name.");
-				}
-				$tag =~ s/[^A-Z]//sg;
-				if ($tag =~ /[^ACGT]/) {
-					&errorMessage(__LINE__, "\"$tag\" is invalid tag. Do not use degenerate character in tag.");
-				}
-				if ($taglength && $taglength != length($tag)) {
-					&errorMessage(__LINE__, "All tags must have same length.");
-				}
-				else {
-					$taglength = length($tag);
-				}
-				my $line = readline($filehandleinput2);
-				if ($line =~ /^>?\s*(\S[^\r\n]*)\r?\n(.+)\r?\n?/s) {
-					my $reversetag = uc($2);
-					$reversetag =~ s/[^A-Z]//sg;
-					if ($reversetag =~ /[^ACGT]/) {
-						&errorMessage(__LINE__, "\"$reversetag\" is invalid tag. Do not use degenerate character in tag.");
+				if ($tag) {
+					$name =~ s/\s+$//;
+					if ($name =~ /__/) {
+						&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use \"__\" in tag name.");
 					}
-					if ($reversecomplement) {
-						$reversetag = &reversecomplement($reversetag);
+					elsif ($name =~ /^[ACGT]+$/ || $name =~ /^[ACGT]+[\-\+][ACGT]+$/) {
+						&errorMessage(__LINE__, "\"$name\" is invalid name. Do not use nucleotide sequence as tag name.");
 					}
-					if ($reversetaglength && $reversetaglength != length($reversetag)) {
-						&errorMessage(__LINE__, "All reverse tags must have same length.");
+					$tag =~ s/[^A-Z]//sg;
+					if ($tag =~ /[^ACGT]/) {
+						&errorMessage(__LINE__, "\"$tag\" is invalid tag. Do not use degenerate character in tag.");
+					}
+					if ($taglength && $taglength != length($tag)) {
+						&errorMessage(__LINE__, "All tags must have same length.");
 					}
 					else {
-						$reversetaglength = length($reversetag);
+						$taglength = length($tag);
 					}
-					$temptags{$tag} = 1;
-					$tempreversetags{$reversetag} = 1;
-					$tag .= '+' . $reversetag;
-				}
-				if (exists($tag{$tag})) {
-					&errorMessage(__LINE__, "Tag \"$tag ($name)\" is doubly used in \"$tagfile\".");
-				}
-				else {
-					$tag{$tag} = $name;
-					push(@tag, $tag);
+					my $line = readline($filehandleinput2);
+					if ($line =~ /^>?\s*(\S[^\r\n]*)\r?\n(.*)\r?\n?/s) {
+						my $reversetag = uc($2);
+						$reversetag =~ s/[^A-Z]//sg;
+						if ($reversetag) {
+							if ($reversetag =~ /[^ACGT]/) {
+								&errorMessage(__LINE__, "\"$reversetag\" is invalid tag. Do not use degenerate character in tag.");
+							}
+							if ($reversecomplement) {
+								$reversetag = &reversecomplement($reversetag);
+							}
+							if ($reversetaglength && $reversetaglength != length($reversetag)) {
+								&errorMessage(__LINE__, "All reverse tags must have same length.");
+							}
+							else {
+								$reversetaglength = length($reversetag);
+							}
+							$temptags{$tag} = 1;
+							$tempreversetags{$reversetag} = 1;
+							$tag .= '+' . $reversetag;
+						}
+					}
+					if (exists($tag{$tag})) {
+						&errorMessage(__LINE__, "Tag \"$tag ($name)\" is doubly used in \"$tagfile\".");
+					}
+					else {
+						$tag{$tag} = $name;
+						push(@tag, $tag);
+					}
 				}
 			}
 		}

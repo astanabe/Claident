@@ -134,12 +134,14 @@ if ($queryfile) {
 	}
 	local $/ = "\n>";
 	while (<$queryfilehandle>) {
-		if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+		if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 			my $name = $1;
 			my $query = uc($2);
 			$name =~ s/\s+$//;
 			$query =~ s/[>\s\r\n]//g;
-			$query{$query} = $name;
+			if ($query) {
+				$query{$query} = $name;
+			}
 		}
 	}
 	close($queryfilehandle);
@@ -190,101 +192,103 @@ if (-e $qualfile) {
 {
 	local $/ = "\n>";
 	while (<$inputhandle>) {
-		if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+		if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 			my $taxon = $1;
 			my $sequence = uc($2);
 			$taxon =~ s/\s+$//;
 			$sequence =~ s/[>\s\r\n]//g;
-			my @qual;
-			if (-e $qualfile) {
-				local $/ = "\n>";
-				my $qualline = readline($qualhandle);
-				if ($qualline =~ /^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
-					my $temp = $1;
-					my $qual = $2;
-					$temp =~ s/\s+$//;
-					if ($temp eq $taxon) {
-						@qual = $qual =~ /\d+/g;
-					}
-				}
-				else {
-					&errorMessage(__LINE__, "The quality file is invalid.");
-				}
-			}
-			my @seq = $sequence =~ /\S/g;
-			my $seq = join('', @seq);
-			my @borderpos;
-			my $hit = 0;
-			foreach my $query (keys(%query)) {
-				my ($start, $end, $pmismatch, $nmismatch) = &searchQuery($query, $seq);
-				if ((!defined($maxnmismatch) || $nmismatch <= $maxnmismatch) && $pmismatch <= $maxpmismatch) {
-					$hit = 1;
-					if ($border eq 'start') {
-						push(@borderpos, $start);
-					}
-					elsif ($border eq 'end') {
-						push(@borderpos, ($end + 1));
+			if ($sequence) {
+				my @qual;
+				if (-e $qualfile) {
+					local $/ = "\n>";
+					my $qualline = readline($qualhandle);
+					if ($qualline =~ /^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
+						my $temp = $1;
+						my $qual = $2;
+						$temp =~ s/\s+$//;
+						if ($temp eq $taxon) {
+							@qual = $qual =~ /\d+/g;
+						}
 					}
 					else {
-						push(@borderpos, $start);
-						push(@borderpos, ($end + 1));
-					}
-					last;
-				}
-			}
-			# output an entry
-			my $formerseq;
-			my $formerqual;
-			my $latterseq;
-			my $latterqual;
-			if (scalar(@borderpos) == 1) {
-				$latterseq = join('', splice(@seq, $borderpos[0]));
-				if (@qual) {
-					$latterqual = join(' ', splice(@qual, $borderpos[0]));
-				}
-			}
-			elsif (scalar(@borderpos) == 2) {
-				$latterseq = join('', splice(@seq, $borderpos[1]));
-				splice(@seq, $borderpos[0]);
-				if (@qual) {
-					$latterqual = join(' ', splice(@qual, $borderpos[1]));
-					splice(@qual, $borderpos[0])
-				}
-			}
-			$formerseq = join('', @seq);
-			if (@qual) {
-				$formerqual = join(' ', @qual);
-			}
-			if ($makedummy) {
-				if (!$formerseq) {
-					$formerseq = 'A';
-				}
-				elsif (!$latterseq) {
-					$latterseq = 'A';
-				}
-				if (@qual) {
-					if (!$formerqual) {
-						$formerqual = 20;
-					}
-					elsif (!$latterqual) {
-						$latterqual = 20;
+						&errorMessage(__LINE__, "The quality file is invalid.");
 					}
 				}
-			}
-			if ($nohit eq 'eliminate' && $hit == 0) {
-				next;
-			}
-			print($outputhandle1 ">$taxon\n");
-			print($outputhandle1 "$formerseq\n");
-			if (@qual) {
-				print($outqualhandle1 ">$taxon\n");
-				print($outqualhandle1 "$formerqual\n");
-			}
-			print($outputhandle2 ">$taxon\n");
-			print($outputhandle2 "$latterseq\n");
-			if (@qual) {
-				print($outqualhandle2 ">$taxon\n");
-				print($outqualhandle2 "$latterqual\n");
+				my @seq = $sequence =~ /\S/g;
+				my $seq = join('', @seq);
+				my @borderpos;
+				my $hit = 0;
+				foreach my $query (keys(%query)) {
+					my ($start, $end, $pmismatch, $nmismatch) = &searchQuery($query, $seq);
+					if ((!defined($maxnmismatch) || $nmismatch <= $maxnmismatch) && $pmismatch <= $maxpmismatch) {
+						$hit = 1;
+						if ($border eq 'start') {
+							push(@borderpos, $start);
+						}
+						elsif ($border eq 'end') {
+							push(@borderpos, ($end + 1));
+						}
+						else {
+							push(@borderpos, $start);
+							push(@borderpos, ($end + 1));
+						}
+						last;
+					}
+				}
+				# output an entry
+				my $formerseq;
+				my $formerqual;
+				my $latterseq;
+				my $latterqual;
+				if (scalar(@borderpos) == 1) {
+					$latterseq = join('', splice(@seq, $borderpos[0]));
+					if (@qual) {
+						$latterqual = join(' ', splice(@qual, $borderpos[0]));
+					}
+				}
+				elsif (scalar(@borderpos) == 2) {
+					$latterseq = join('', splice(@seq, $borderpos[1]));
+					splice(@seq, $borderpos[0]);
+					if (@qual) {
+						$latterqual = join(' ', splice(@qual, $borderpos[1]));
+						splice(@qual, $borderpos[0])
+					}
+				}
+				$formerseq = join('', @seq);
+				if (@qual) {
+					$formerqual = join(' ', @qual);
+				}
+				if ($makedummy) {
+					if (!$formerseq) {
+						$formerseq = 'A';
+					}
+					elsif (!$latterseq) {
+						$latterseq = 'A';
+					}
+					if (@qual) {
+						if (!$formerqual) {
+							$formerqual = 20;
+						}
+						elsif (!$latterqual) {
+							$latterqual = 20;
+						}
+					}
+				}
+				if ($nohit eq 'eliminate' && $hit == 0) {
+					next;
+				}
+				print($outputhandle1 ">$taxon\n");
+				print($outputhandle1 "$formerseq\n");
+				if (@qual) {
+					print($outqualhandle1 ">$taxon\n");
+					print($outqualhandle1 "$formerqual\n");
+				}
+				print($outputhandle2 ">$taxon\n");
+				print($outputhandle2 "$latterseq\n");
+				if (@qual) {
+					print($outqualhandle2 ">$taxon\n");
+					print($outqualhandle2 "$latterqual\n");
+				}
 			}
 		}
 	}

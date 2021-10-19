@@ -1,6 +1,9 @@
 use strict;
 use File::Spec;
 use Cwd 'getcwd';
+use DBI;
+use Math::BaseCnv;
+Math::BaseCnv::dig('m64');
 
 my $buildno = '0.9.x';
 
@@ -21,6 +24,7 @@ my $minnseq = 500;
 # input/output
 my $inputfile;
 my $outputfolder;
+my $identdb;
 
 # commands
 my $blastn;
@@ -37,6 +41,7 @@ my $ignoreotuseq;
 my $filehandleinput1;
 my $filehandleoutput1;
 my $pipehandleinput1;
+my $dbhandle;
 
 &main();
 
@@ -106,6 +111,9 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^blastn?$/i) {
 			$blastmode = 1;
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:identdb|idb)=(.+)$/i) {
+			$identdb = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+(?:blastdb|bdb)=(.+)$/i) {
 			$blastdb = $1;
 		}
@@ -162,6 +170,9 @@ sub checkVariables {
 	}
 	if (!-e $inputfile) {
 		&errorMessage(__LINE__, "Input file does not exist.");
+	}
+	if ($identdb && !-e $identdb) {
+		&errorMessage(__LINE__, "Specified ident database does not exist.");
 	}
 	if ($minalnpcov < 0 || $minalnpcov > 1) {
 		&errorMessage(__LINE__, "Minimum percentage of alignment length of center vs neighborhoods is invalid.");
@@ -368,30 +379,55 @@ sub retrieveSimilarSequences {
 		&errorMessage(__LINE__, "Cannot open \"$inputfile\".");
 	}
 	{
+		if ($identdb) {
+			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '')) {
+				&errorMessage(__LINE__, "Cannot connect database.");
+			}
+		}
 		my $qnum = -1;
 		local $/ = "\n>";
 		my @queries;
 		while (<$filehandleinput1>) {
-			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+			if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 				my $query = $1;
 				my $sequence = $2;
 				$query =~ s/\s+$//;
 				$query =~ s/;+size=\d+;*//g;
-				if (!exists($ignoreotulist{$query})) {
+				if ($sequence && !exists($ignoreotulist{$query})) {
 					$qnum ++;
 					$sequence =~ s/[>\s\r\n]//g;
 					push(@queries, $query);
-					my @seq = $sequence =~ /\S/g;
-					my $qlen = scalar(@seq);
+					# check identdb
+					my $existornot;
+					if ($identdb) {
+						my $tempseq = $sequence;
+						$tempseq =~ tr/CGT/BCD/;
+						$tempseq = cnv($tempseq, 4, 62);
+						my $statement;
+						unless ($statement = $dbhandle->prepare("SELECT acc FROM base62_acc WHERE base62 IN ('" . $tempseq . "')")) {
+							&errorMessage(__LINE__, "Cannot prepare SQL statement.");
+						}
+						unless ($statement->execute) {
+							&errorMessage(__LINE__, "Cannot execute SELECT.");
+						}
+						while (my @row = $statement->fetchrow_array) {
+							$existornot = 1;
+							last;
+						}
+					}
+					my $qlen = length($sequence);
 					if ($qlen < $minlen) {
+						next;
+					}
+					# check identdb
+					if ($existornot) {
 						next;
 					}
 					# output an entry
 					unless (open($filehandleoutput1, ">> $outputfolder/tempquery.fasta")) {
 						&errorMessage(__LINE__, "Cannot make \"$outputfolder/tempquery.fasta\".");
 					}
-					print($filehandleoutput1 ">query$qnum\n");
-					print($filehandleoutput1 join('', @seq) . "\n");
+					print($filehandleoutput1 ">query$qnum\n$sequence\n");
 					close($filehandleoutput1);
 					# search similar sequences
 					if (scalar(@queries) % $nseqpersearch == 0) {
@@ -399,6 +435,9 @@ sub retrieveSimilarSequences {
 					}
 				}
 			}
+		}
+		if ($identdb) {
+			$dbhandle->disconnect;
 		}
 		if (-e "$outputfolder/tempquery.fasta") {
 			&runBLAST(scalar(@queries) % $nseqpersearch);

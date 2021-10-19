@@ -119,7 +119,7 @@ sub makeIdentDB {
 		$filehandleinput1 = &readFile($inputfile);
 		local $/ = "\n>";
 		while (<$filehandleinput1>) {
-			if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+			if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 				my $query = $1;
 				my $accs = $2;
 				$accs =~ s/[> \t]//g;
@@ -127,8 +127,7 @@ sub makeIdentDB {
 				$query =~ /;base62=([A-Za-z0-9]+)/;
 				my $tempseq = $1;
 				my @accs = split(/\r?\n/, $accs);
-				if (@accs) {
-					@accs = sort(@accs);
+				if ($tempseq) {
 					# check duplication
 					{
 						my $statement;
@@ -141,9 +140,17 @@ sub makeIdentDB {
 						my $existref = $statement->fetchall_arrayref([0]);
 						my $nhit = scalar(@{$existref});
 						if ($nhit != 0) {
-							@{$existref} = sort(@{$existref});
-							if ($nhit != scalar(@accs) || "@accs" ne "@{$existref}") {
+							if ($nhit != scalar(@accs)) {
 								&errorMessage(__LINE__, "Duplicate sequence $tempseq is detected, but accessions are not identical.");
+							}
+							else {
+								@accs = sort(@accs);
+								@{$existref} = sort(@{$existref});
+								for (my $i = 0; $i < scalar(@accs); $i ++) {
+									if ($accs[$i] ne $existref->[$i]) {
+										&errorMessage(__LINE__, "Duplicate sequence $tempseq is detected, but accessions are not identical.");
+									}
+								}
 							}
 						}
 					}
@@ -155,18 +162,25 @@ sub makeIdentDB {
 						}
 						# begin SQL transaction
 						$dbhandle->do('BEGIN;');
-						my $nentries = 1;
-						foreach my $acc (@accs) {
-							unless ($statement->execute($tempseq, $acc)) {
+						if (@accs) {
+							my $nentries = 1;
+							foreach my $acc (@accs) {
+								unless ($statement->execute($tempseq, $acc)) {
+									&errorMessage(__LINE__, "Cannot execute INSERT.");
+								}
+								if ($nentries % 1000 == 0) {
+									# commit SQL transaction
+									$dbhandle->do('COMMIT;');
+									# begin SQL transaction
+									$dbhandle->do('BEGIN;');
+								}
+								$nentries ++;
+							}
+						}
+						else {
+							unless ($statement->execute($tempseq, 0)) {
 								&errorMessage(__LINE__, "Cannot execute INSERT.");
 							}
-							if ($nentries % 1000 == 0) {
-								# commit SQL transaction
-								$dbhandle->do('COMMIT;');
-								# begin SQL transaction
-								$dbhandle->do('BEGIN;');
-							}
-							$nentries ++;
 						}
 						# commit SQL transaction
 						$dbhandle->do('COMMIT;');

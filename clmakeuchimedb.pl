@@ -226,9 +226,9 @@ sub deleteChimericSequences {
 			}
 			local $/ = "\n>";
 			while (<$filehandleinput1>) {
-				if (/^>?\s*(\S[^\r\n]*)\r?\n(.+)/s) {
+				if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 					my $seqname = $1;
-					my $sequence = $2;
+					my $sequence = uc($2);
 					my @sequence = $sequence =~ /[a-zA-Z]/g;
 					print($filehandleoutput1 ">$seqname\n" . join('', &reversecomplement(@sequence)) . "\n");
 				}
