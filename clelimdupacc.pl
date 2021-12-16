@@ -78,7 +78,7 @@ for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 # make new temporary database and connect
 my $tempdbhandle;
 if ($workspace eq 'MEMORY') {
-	unless ($tempdbhandle = DBI->connect("dbi:SQLite:dbname=:memory:", '', '')) {
+	unless ($tempdbhandle = DBI->connect("dbi:SQLite:dbname=:memory:", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot make database.");
 	}
 }
@@ -86,7 +86,7 @@ else {
 	if (-e "$outputfile.tempdb") {
 		&errorMessage(__LINE__, "\"$outputfile.tempdb\" already exists.");
 	}
-	unless ($tempdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.tempdb", '', '')) {
+	unless ($tempdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.tempdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot make database.");
 	}
 }

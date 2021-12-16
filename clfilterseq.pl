@@ -27,18 +27,37 @@ my $minpreplicate = 1;
 my $minnpositive = 1;
 my $minppositive = 0;
 my $numthreads = 1;
+my $targetrank;
+my $numbering = 1;
+my $fuseotu = 1;
+my $topN;
 
 # Input/Output
 my @inputfiles;
 my $output;
 my $otufile;
 my $replicatelist;
+my $taxfile;
+my $otulist;
+my $otuseq;
+my $notulist;
+my $notuseq;
 
 # other variables
 my $devnull = File::Spec->devnull();
 my $format;
 my %members;
 my %eliminate;
+my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'subphylum', 'superclass', 'class', 'subclass', 'infraclass', 'cohort', 'subcohort', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'section', 'subsection', 'series', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma', 'forma specialis', 'strain', 'isolate');
+my %taxrank;
+for (my $i = 0; $i < scalar(@taxrank); $i ++) {
+	$taxrank{$taxrank[$i]} = $i;
+}
+my %taxonomy;
+my %otu2newotu;
+my %newotu2otu;
+my %otulist;
+my %notulist;
 
 # file handles
 my $filehandleinput1;
@@ -54,6 +73,12 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
+	# read list files
+	&readListFiles();
+	# read sequence files
+	&readSequenceFiles();
+	# read taxonomy file
+	&readTaxonomyFile();
 	# read otufile
 	&readMembers();
 	# recognize file format
@@ -110,6 +135,30 @@ sub getOptions {
 			foreach my $ngword (split(/,/, $ngwords)) {
 				$ngwords{$ngword} = 1;
 			}
+		}
+		elsif ($ARGV[$i] =~ /^-+otu=(.+)$/i) {
+			my @temp = split(',', $1);
+			foreach my $temp (@temp) {
+				$otulist{$temp} = 1;
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+n(?:egative)?otu=(.+)$/i) {
+			my @temp = split(',', $1);
+			foreach my $temp (@temp) {
+				$notulist{$temp} = 1;
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+otulist=(.+)$/i) {
+			$otulist = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+n(?:egative)?otulist=(.+)$/i) {
+			$notulist = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+otuseq=(.+)$/i) {
+			$otuseq = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+n(?:egative)?otuseq=(.+)$/i) {
+			$notuseq = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:c|converse)$/i) {
 			$converse = 1;
@@ -198,6 +247,45 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+runname=(.+)$/i) {
 			$runname = $1;
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:tax|taxonomy)file=(.+)$/i) {
+			$taxfile = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:target)?(?:tax|taxonomy)?(?:unit|rank|level)=(.+)$/i) {
+			my $taxrank = $1;
+			if ($taxrank{$taxrank}) {
+				$targetrank = $taxrank{$taxrank};
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+numbering=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$numbering = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$numbering = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+fuseotu=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$fuseotu = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$fuseotu = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+topN=(\d+)$/i) {
+			$topN = $1;
+		}
 		else {
 			my @temp = glob($ARGV[$i]);
 			if (scalar(@temp) > 0) {
@@ -243,8 +331,41 @@ sub checkVariables {
 	if ($otufile && !-e $otufile) {
 		&errorMessage(__LINE__, "\"$otufile\" does not exist.");
 	}
+	if ($otulist && !-e $otulist) {
+		&errorMessage(__LINE__, "\"$otulist\" does not exist.");
+	}
+	if ($notulist && !-e $notulist) {
+		&errorMessage(__LINE__, "\"$notulist\" does not exist.");
+	}
+	if ($otuseq && !-e $otuseq) {
+		&errorMessage(__LINE__, "\"$otuseq\" does not exist.");
+	}
+	if ($notuseq && !-e $notuseq) {
+		&errorMessage(__LINE__, "\"$notuseq\" does not exist.");
+	}
+	if ($otulist && $notulist) {
+		&errorMessage(__LINE__, "The OTU list and the negative OTU list cannot be given at the same time.");
+	}
+	if ($otulist && $notuseq) {
+		&errorMessage(__LINE__, "The OTU list and the negative OTU sequence cannot be given at the same time.");
+	}
+	if ($otuseq && $notulist) {
+		&errorMessage(__LINE__, "The OTU sequence and the negative OTU list cannot be given at the same time.");
+	}
+	if ($otuseq && $notuseq) {
+		&errorMessage(__LINE__, "The OTU sequence and the negative OTU sequence cannot be given at the same time.");
+	}
+	if (%otulist && %notulist) {
+		&errorMessage(__LINE__, "The OTU list and the negative OTU list cannot be given at the same time.");
+	}
 	if ($replicatelist && !-e $replicatelist) {
 		&errorMessage(__LINE__, "\"$replicatelist\" does not exist.");
+	}
+	if ($taxfile && !-e $taxfile) {
+		&errorMessage(__LINE__, "\"$taxfile\" does not exist.");
+	}
+	if (!$targetrank) {
+		$targetrank = $taxrank{'species'};
 	}
 	if (($minnseq || $replicatelist) && !$otufile) {
 		my $prefix = $inputfiles[0];
@@ -286,27 +407,76 @@ sub checkVariables {
 	}
 }
 
-sub readMembers {
-	# read OTU file
-	if ($otufile && $minnseq) {
-		$filehandleinput1 = &readFile($otufile);
-		my $otuname;
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			s/;+size=\d+;*//g;
-			if (/^>(.+)$/) {
-				$otuname = $1;
-			}
-			elsif ($otuname && /^([^>].*)$/) {
-				$members{$otuname} ++;
-			}
-			else {
-				&errorMessage(__LINE__, "\"$otufile\" is invalid.");
+sub readListFiles {
+	if ($otulist) {
+		foreach my $otu (&readList($otulist)) {
+			$otulist{$otu} = 1;
+		}
+	}
+	elsif ($notulist) {
+		foreach my $otu (&readList($notulist)) {
+			$notulist{$otu} = 1;
+		}
+	}
+}
+
+sub readSequenceFiles {
+	if ($otuseq) {
+		foreach my $otu (&readSeq($otuseq)) {
+			$otulist{$otu} = 1;
+		}
+	}
+	elsif ($notuseq) {
+		foreach my $otu (&readSeq($notuseq)) {
+			$notulist{$otu} = 1;
+		}
+	}
+}
+
+sub readTaxonomyFile {
+	if ($taxfile) {
+		my @rank;
+		unless (open($filehandleinput1, "< $taxfile")) {
+			&errorMessage(__LINE__, "Cannot read \"$taxfile\".");
+		}
+		{
+			my $lineno = 1;
+			while (<$filehandleinput1>) {
+				s/\r?\n?$//;
+				if ($lineno == 1 && /\t/) {
+					@rank = split(/\t/, lc($_));
+					shift(@rank);
+					foreach my $rank (@rank) {
+						if (!exists($taxrank{$rank})) {
+							&errorMessage(__LINE__, "\"$rank\" is invalid taxonomic rank.");
+						}
+					}
+				}
+				elsif (/\t/) {
+					my @entry = split(/\t/, $_, -1);
+					my $otuname = shift(@entry);
+					if (scalar(@entry) == scalar(@rank)) {
+						for (my $i = 0; $i < scalar(@entry); $i ++) {
+							$taxonomy{$otuname}{$taxrank{$rank[$i]}} = $entry[$i];
+						}
+					}
+					else {
+						&errorMessage(__LINE__, "Input taxonomy file is invalid.");
+					}
+				}
+				else {
+					&errorMessage(__LINE__, "Input taxonomy file is invalid.");
+				}
+				$lineno ++;
 			}
 		}
 		close($filehandleinput1);
 	}
-	elsif ($otufile && $replicatelist) {
+}
+
+sub readMembers {
+	# read OTU file
+	if ($otufile && ($replicatelist || $taxfile)) {
 		# read OTU file and store
 		my %table;
 		my %otusum;
@@ -340,42 +510,105 @@ sub readMembers {
 			}
 		}
 		close($filehandleinput1);
-		# read replicatelist
-		my %replicate;
-		$filehandleinput1 = &readFile($replicatelist);
-		while (<$filehandleinput1>) {
-			s/\r?\n?$//;
-			my @temp = split(/\t/, $_);
-			for (my $i = 0; $i < scalar(@temp); $i ++) {
-				push(@{$replicate{$temp[0]}}, $temp[$i]);
+		if ($replicatelist) {
+			# read replicatelist
+			my %replicate;
+			$filehandleinput1 = &readFile($replicatelist);
+			while (<$filehandleinput1>) {
+				s/\r?\n?$//;
+				my @temp = split(/\t/, $_);
+				for (my $i = 0; $i < scalar(@temp); $i ++) {
+					push(@{$replicate{$temp[0]}}, $temp[$i]);
+				}
 			}
-		}
-		close($filehandleinput1);
-		# determine whether chimeric OTU or not within sample
-		my %withinsample;
-		foreach my $sample (keys(%replicate)) {
-			my %nreps;
-			my %nreads;
-			foreach my $replicate (@{$replicate{$sample}}) {
-				foreach my $otuname (@otunames) {
-					if ($table{$replicate}{$otuname}) {
-						$nreps{$otuname} ++;
-						$nreads{$otuname} += $table{$replicate}{$otuname};
+			close($filehandleinput1);
+			# determine whether chimeric OTU or not within sample
+			my %withinsample;
+			foreach my $sample (keys(%replicate)) {
+				my %nreps;
+				my %nreads;
+				foreach my $replicate (@{$replicate{$sample}}) {
+					foreach my $otuname (@otunames) {
+						if ($table{$replicate}{$otuname}) {
+							$nreps{$otuname} ++;
+							$nreads{$otuname} += $table{$replicate}{$otuname};
+						}
+					}
+				}
+				foreach my $otuname (keys(%nreps)) {
+					if ($nreps{$otuname} < $minnreplicate || ($nreps{$otuname} / @{$replicate{$sample}}) < $minpreplicate) {
+						$withinsample{$otuname} += $nreads{$otuname};
 					}
 				}
 			}
-			foreach my $otuname (keys(%nreps)) {
-				if ($nreps{$otuname} < $minnreplicate || ($nreps{$otuname} / @{$replicate{$sample}}) < $minpreplicate) {
-					$withinsample{$otuname} += $nreads{$otuname};
+			# determine whether chimeric OTU or not in total
+			foreach my $otuname (@otunames) {
+				if ($withinsample{$otuname} >= $minnpositive && ($withinsample{$otuname} / $otusum{$otuname}) >= $minppositive) {
+					$eliminate{$otuname} = 1;
 				}
 			}
 		}
-		# determine whether chimeric OTU or not in total
-		foreach my $otuname (@otunames) {
-			if ($withinsample{$otuname} >= $minnpositive && ($withinsample{$otuname} / $otusum{$otuname}) >= $minppositive) {
-				$eliminate{$otuname} = 1;
+		if ($taxfile) {
+			my %newotu;
+			foreach my $otuname (@otunames) {
+				if ($taxonomy{$otuname}{$targetrank}) {
+					my $taxon = $taxonomy{$otuname}{$targetrank};
+					$taxon =~ s/ /_/g;
+					unless ($fuseotu) {
+						$taxon = $otuname . ':' . $taxon;
+					}
+					$otu2newotu{$otuname} = $taxon;
+					$newotu{$taxon} = 0;
+				}
+			}
+			if (%otu2newotu) {
+				foreach my $samplename (keys(%table)) {
+					foreach my $otuname (@otunames) {
+						if ($taxonomy{$otuname}{$targetrank}) {
+							$newotu{$otu2newotu{$otuname}} += $table{$samplename}{$otuname};
+							if (!defined($newotu2otu{$otu2newotu{$otuname}}) || $table{$samplename}{$otuname} > $table{$samplename}{$newotu2otu{$otu2newotu{$otuname}}}) {
+								$newotu2otu{$otu2newotu{$otuname}} = $otuname;
+							}
+						}
+					}
+				}
+			}
+			@otunames = sort({$newotu{$b} <=> $newotu{$a}} keys(%newotu));
+			if ($topN) {
+				while (scalar(@otunames) > $topN) {
+					my $otuname = pop(@otunames);
+					delete($newotu2otu{$otuname});
+				}
+			}
+			if ($numbering) {
+				my $length = length(scalar(@otunames));
+				my $num = 1;
+				foreach my $otuname (@otunames) {
+					my $newotu = sprintf("%0*d", $length, $num) . "_$otuname";
+					$newotu2otu{$newotu} = $newotu2otu{$otuname};
+					delete($newotu2otu{$otuname});
+					$num ++;
+				}
 			}
 		}
+	}
+	elsif ($otufile && $minnseq) {
+		$filehandleinput1 = &readFile($otufile);
+		my $otuname;
+		while (<$filehandleinput1>) {
+			s/\r?\n?$//;
+			s/;+size=\d+;*//g;
+			if (/^>(.+)$/) {
+				$otuname = $1;
+			}
+			elsif ($otuname && /^([^>].*)$/) {
+				$members{$otuname} ++;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$otufile\" is invalid.");
+			}
+		}
+		close($filehandleinput1);
 	}
 }
 
@@ -497,12 +730,22 @@ sub processSequences {
 								{
 									my $filename = $inputfiles[0];
 									$filename =~ s/^.+[\\\/]//;
-									&saveToFile($nucseq1, $qualseq1, $seqname1, $filename, $child);
+									if ($taxfile) {
+										&saveToFile($nucseq1, $qualseq1, $otu2newotu{$seqname1}, $filename, $child);
+									}
+									else {
+										&saveToFile($nucseq1, $qualseq1, $seqname1, $filename, $child);
+									}
 								}
 								{
 									my $filename = $inputfiles[1];
 									$filename =~ s/^.+[\\\/]//;
-									&saveToFile($nucseq2, $qualseq2, $seqname2, $filename, $child);
+									if ($taxfile) {
+										&saveToFile($nucseq2, $qualseq2, $otu2newotu{$seqname2}, $filename, $child);
+									}
+									else {
+										&saveToFile($nucseq2, $qualseq2, $seqname2, $filename, $child);
+									}
 								}
 							}
 						}
@@ -511,7 +754,12 @@ sub processSequences {
 							if ($nucseq1 && $qualseq1) {
 								my $filename = $inputfiles[0];
 								$filename =~ s/^.+[\\\/]//;
-								&saveToFile($nucseq1, $qualseq1, $seqname1, $filename, $child);
+								if ($taxfile) {
+									&saveToFile($nucseq1, $qualseq1, $otu2newotu{$seqname1}, $filename, $child);
+								}
+								else {
+									&saveToFile($nucseq1, $qualseq1, $seqname1, $filename, $child);
+								}
 							}
 						}
 					}
@@ -596,12 +844,22 @@ sub processSequences {
 									{
 										my $filename = $inputfiles[0];
 										$filename =~ s/^.+[\\\/]//;
-										&saveToFile($nucseq1, '', $seqname1, $filename, $child);
+										if ($taxfile) {
+											&saveToFile($nucseq1, '', $otu2newotu{$seqname1}, $filename, $child);
+										}
+										else {
+											&saveToFile($nucseq1, '', $seqname1, $filename, $child);
+										}
 									}
 									{
 										my $filename = $inputfiles[1];
 										$filename =~ s/^.+[\\\/]//;
-										&saveToFile($nucseq2, '', $seqname2, $filename, $child);
+										if ($taxfile) {
+											&saveToFile($nucseq2, '', $otu2newotu{$seqname2}, $filename, $child);
+										}
+										else {
+											&saveToFile($nucseq2, '', $seqname2, $filename, $child);
+										}
 									}
 								}
 							}
@@ -610,7 +868,12 @@ sub processSequences {
 								if ($nucseq1) {
 									my $filename = $inputfiles[0];
 									$filename =~ s/^.+[\\\/]//;
-									&saveToFile($nucseq1, '', $seqname1, $filename, $child);
+									if ($taxfile) {
+										&saveToFile($nucseq1, '', $otu2newotu{$seqname1}, $filename, $child);
+									}
+									else {
+										&saveToFile($nucseq1, '', $seqname1, $filename, $child);
+									}
 								}
 							}
 						}
@@ -712,12 +975,7 @@ sub concatenateFiles {
 
 sub processOneSequence {
 	my ($seqname, $nucseq, $qualseq) = @_;
-	my @nucseq = split('', $nucseq);
-	my @qualseq;
-	if ($format eq 'FASTQ') {
-		@qualseq = unpack('C*', $qualseq);
-	}
-	if ($minnseq && $members{$seqname} < $minnseq) {
+	if ($taxfile && (!defined($otu2newotu{$seqname}) || !defined($newotu2otu{$otu2newotu{$seqname}}) || $newotu2otu{$otu2newotu{$seqname}} ne $seqname) || %otulist && !$otulist{$seqname} || %notulist && $notulist{$seqname} || $minnseq && $members{$seqname} < $minnseq) {
 		if ($format eq 'FASTQ') {
 			return('', '');
 		}
@@ -745,6 +1003,11 @@ sub processOneSequence {
 				return('');
 			}
 		}
+	}
+	my @nucseq = split('', $nucseq);
+	my @qualseq;
+	if ($format eq 'FASTQ') {
+		@qualseq = unpack('C*', $qualseq);
 	}
 	# skip short sequence
 	if (scalar(@nucseq) < $minlen) {
@@ -906,6 +1169,36 @@ sub saveToFile {
 	close($filehandleoutput1);
 }
 
+sub readList {
+	my $listfile = shift(@_);
+	my @list;
+	$filehandleinput1 = &readFile($listfile);
+	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
+		s/;+size=\d+;*//g;
+		s/\t.+//;
+		push(@list, $_);
+	}
+	close($filehandleinput1);
+	return(@list);
+}
+
+sub readSeq {
+	my $seqfile = shift(@_);
+	my @list;
+	$filehandleinput1 = &readFile($seqfile);
+	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
+		if (/^> *(.+)/) {
+			my $seqname = $1;
+			$seqname =~ s/;+size=\d+;*//g;
+			push(@list, $seqname);
+		}
+	}
+	close($filehandleinput1);
+	return(@list);
+}
+
 sub readFile {
 	my $filehandle;
 	my $filename = shift(@_);
@@ -984,6 +1277,28 @@ conditions. (default: none)
 expression but you cannot use comma. All ngwords will be used as AND
 conditions. (default: none)
 
+--otu=OTUNAME,...,OTUNAME
+  Specify output OTU names. The unspecified OTUs will be deleted.
+
+--negativeotu=OTUNAME,...,OTUNAME
+  Specify delete OTU names. The specified OTUs will be deleted.
+
+--otulist=FILENAME
+  Specify output OTU list file name. The file must contain 1 OTU name
+at a line.
+
+--negativeotulist=FILENAME
+  Specify delete OTU list file name. The file must contain 1 OTU name
+at a line.
+
+--otuseq=FILENAME
+  Specify output OTU sequence file name. The file must contain 1 OTU
+name at a line.
+
+--negativeotuseq=FILENAME
+  Specify delete OTU sequence file name. The file must contain 1 OTU
+name at a line.
+
 -c, --converse
   If this option is specified, matched sequences will be cut off and
 nonmatched sequences will be saved. (default: off)
@@ -1045,6 +1360,23 @@ positive in noise/chimera detection. (default: 1)
 --minppositive=DECIMAL
   The OTU that consists of this proportion of reads will be treated as true
 positive in noise/chimera detection. (default: 0)
+
+--taxfile=FILENAME
+  Specify output of classigntax. (default: none)
+
+--targetrank=RANK
+  Specify target taxonomic rank. (default: species)
+
+--fuseotu=ENABLE|DISABLE
+  Specify whether OTU will be fused or not. (default:ENABLE)
+
+--numbering=ENABLE|DISABLE
+  Specify whether number need to be added to head of otunames ot not.
+(default: ENABLE)
+
+--topN=INTEGER
+  If this value specified, only top N abundant taxa will be output and the
+other taxa will be combined to \"others\".
 
 --runname=RUNNAME
   Specify run name for replacing run name.

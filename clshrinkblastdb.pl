@@ -225,7 +225,7 @@ sub constructSeqDB {
 	print(STDERR "Constructing temporary sequence database...");
 	# connect to database
 	my $seqdbhandle;
-	unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '')) {
+	unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	# make table
@@ -291,7 +291,7 @@ sub retrieveTaxa {
 	print(STDERR "Reading nodes table...");
 	# connect to database
 	my $taxdbhandle;
-	unless ($taxdbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '')) {
+	unless ($taxdbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	my $statement;
@@ -322,12 +322,12 @@ sub clusterSequences {
 	$filehandleoutput1 = &writeFile("$outputfile.temp.fasta");
 	# connect to database
 	my $taxdbhandle;
-	unless ($taxdbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '')) {
+	unless ($taxdbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	# connect to database
 	my $seqdbhandle;
-	unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '')) {
+	unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	my $nentries = 0;
@@ -394,12 +394,12 @@ sub clusterSequences {
 		$nentries = 0;
 		# connect to database
 		my $taxdbhandle;
-		unless ($taxdbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '')) {
+		unless ($taxdbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 			&errorMessage(__LINE__, "Cannot connect database.");
 		}
 		# connect to database
 		my $seqdbhandle;
-		unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '')) {
+		unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 			&errorMessage(__LINE__, "Cannot connect database.");
 		}
 		my $statement1;
@@ -504,12 +504,12 @@ sub outputResults {
 	my @cluster = @_;
 	# connect to database
 	my $taxdbhandle;
-	unless ($taxdbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '')) {
+	unless ($taxdbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	# connect to database
 	my $seqdbhandle;
-	unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '')) {
+	unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	# check taxid and split different taxid sequences to different clusters

@@ -359,7 +359,7 @@ else {
 	}
 	# connect to database
 	my $dbhandle;
-	unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '')) {
+	unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	my %taxon2taxid;

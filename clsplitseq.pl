@@ -1190,18 +1190,8 @@ sub searchPrimers {
 				next;
 			}
 			else {
-				if ($fumiseq) {
-					$fumiqual = substr($fqual, $fstart, length($fumiseq));
-				}
 				my $tempsubstr1;
 				my $tempsubstr2;
-				if ($elimprimer){
-					substr($fseq, 0, $fend + 1, '');
-					substr($fqual, 0, $fend + 1, '');
-				}
-				else {
-					$tempsubstr1 = substr($fseq, 0, $fend + 1, '');
-				}
 				if ($reverseprimerfile) {
 					my $rstart;
 					my $rend;
@@ -1223,6 +1213,16 @@ sub searchPrimers {
 							$tempsubstr2 = substr($rseq, 0, $rend + 1, '');
 						}
 					}
+				}
+				if ($fumiseq) {
+					$fumiqual = substr($fqual, $fstart, length($fumiseq));
+				}
+				if ($elimprimer){
+					substr($fseq, 0, $fend + 1, '');
+					substr($fqual, 0, $fend + 1, '');
+				}
+				else {
+					$tempsubstr1 = substr($fseq, 0, $fend + 1, '');
 				}
 				$fseq = lc($tempsubstr1) . $fseq;
 				$rseq = lc($tempsubstr2) . $rseq;
@@ -1267,18 +1267,8 @@ sub searchPrimers {
 				next;
 			}
 			else {
-				if ($fumiseq) {
-					$fumiqual = substr($fqual, $fstart, length($fumiseq));
-				}
 				my $tempsubstr1;
 				my $tempsubstr2;
-				if ($elimprimer){
-					substr($fseq, 0, $fend + 1, '');
-					substr($fqual, 0, $fend + 1, '');
-				}
-				else {
-					$tempsubstr1 = substr($fseq, 0, $fend + 1, '');
-				}
 				if ($reverseprimerfile && $ward == 1) {
 					my $rstart;
 					my $rend;
@@ -1330,6 +1320,16 @@ sub searchPrimers {
 							$tempsubstr2 = substr($fseq, $rstart, length($fseq) - $rstart, '');
 						}
 					}
+				}
+				if ($fumiseq) {
+					$fumiqual = substr($fqual, $fstart, length($fumiseq));
+				}
+				if ($elimprimer){
+					substr($fseq, 0, $fend + 1, '');
+					substr($fqual, 0, $fend + 1, '');
+				}
+				else {
+					$tempsubstr1 = substr($fseq, 0, $fend + 1, '');
 				}
 				$fseq = lc($tempsubstr1) . $fseq . lc($tempsubstr2);
 				$primername = $tempname;

@@ -296,7 +296,7 @@ sub readFASTAmakeTaxDB {
 		}
 		print(STDERR "Reading taxonomy database...");
 		# connect taxdb
-		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$output.taxdb", '', '')) {
+		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$output.taxdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 			&errorMessage(__LINE__, "Cannot connect database.");
 		}
 		{
@@ -445,7 +445,7 @@ sub readFASTAmakeTaxDB {
 	}
 	print(STDERR "done.\n\n");
 	# make taxdb
-	unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$output.taxdb", '', '')) {
+	unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$output.taxdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot make database.");
 	}
 	print(STDERR "Making table for acc_taxid...");

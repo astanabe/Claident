@@ -163,7 +163,7 @@ sub constructSeqDB {
 	print(STDERR "Constructing temporary sequence database...");
 	# connect to database
 	my $seqdbhandle;
-	unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '')) {
+	unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	# make table
@@ -227,7 +227,7 @@ sub clusterSequences {
 	print(STDERR "Clustering sequences...\n");
 	# connect to database
 	my $seqdbhandle;
-	unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '')) {
+	unless ($seqdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.seqdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	{

@@ -101,35 +101,32 @@ sub checkVariables {
 
 sub makeIdentDB {
 	print(STDERR "Reading input file and register to the database...\n");
-	unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '')) {
+	my $switch = 0;
+	if ($append) {
+		my $nadd = 0;
 		if (-e $outputfile) {
-			&errorMessage(__LINE__, "Cannot connect database.");
+			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
+				&errorMessage(__LINE__, "Cannot connect database.");
+			}
 		}
 		else {
-			&errorMessage(__LINE__, "Cannot make database.");
+			&errorMessage(__LINE__, "Database file does not exist.");
 		}
-	}
-	unless ($append) {
-		unless ($dbhandle->do("CREATE TABLE base62_acc (base62 TEXT NOT NULL, acc TEXT NOT NULL);")) {
-			&errorMessage(__LINE__, "Cannot make table.");
-		}
-	}
-	foreach my $inputfile (@inputfiles) {
-		print(STDERR "Reading \"$inputfile\"...\n");
-		$filehandleinput1 = &readFile($inputfile);
-		local $/ = "\n>";
-		while (<$filehandleinput1>) {
-			if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
-				my $query = $1;
-				my $accs = $2;
-				$accs =~ s/[> \t]//g;
-				$accs =~ s/\s+\r?\n?$//;
-				$query =~ /;base62=([A-Za-z0-9]+)/;
-				my $tempseq = $1;
-				my @accs = split(/\r?\n/, $accs);
-				if ($tempseq) {
-					# check duplication
-					{
+		# check duplication
+		foreach my $inputfile (@inputfiles) {
+			print(STDERR "Checking \"$inputfile\"...\n");
+			$filehandleinput1 = &readFile($inputfile);
+			local $/ = "\n>";
+			while (<$filehandleinput1>) {
+				if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
+					my $query = $1;
+					my $accs = $2;
+					$accs =~ s/[> \t]//g;
+					$accs =~ s/\s+\r?\n?$//;
+					$query =~ /;base62=([A-Za-z0-9]+)/;
+					my $tempseq = $1;
+					my @accs = split(/\r?\n/, $accs);
+					if ($tempseq) {
 						my $statement;
 						unless ($statement = $dbhandle->prepare("SELECT acc FROM base62_acc WHERE base62 IN ('" . $tempseq . "')")) {
 							&errorMessage(__LINE__, "Cannot prepare SQL statement.");
@@ -140,55 +137,110 @@ sub makeIdentDB {
 						my $existref = $statement->fetchall_arrayref([0]);
 						my $nhit = scalar(@{$existref});
 						if ($nhit != 0) {
-							if ($nhit != scalar(@accs)) {
-								&errorMessage(__LINE__, "Duplicate sequence $tempseq is detected, but accessions are not identical.");
-							}
-							else {
+							if ($nhit == scalar(@accs)) {
 								@accs = sort(@accs);
-								@{$existref} = sort(@{$existref});
+								my @existaccs;
+								foreach my $temp (@{$existref}) {
+									push(@existaccs, $temp->[0]);
+								}
+								@existaccs = sort(@existaccs);
 								for (my $i = 0; $i < scalar(@accs); $i ++) {
-									if ($accs[$i] ne $existref->[$i]) {
+									if ($accs[$i] ne $existaccs[$i]) {
 										&errorMessage(__LINE__, "Duplicate sequence $tempseq is detected, but accessions are not identical.");
 									}
 								}
 							}
-						}
-					}
-					# register to database
-					{
-						my $statement;
-						unless ($statement = $dbhandle->prepare("INSERT INTO base62_acc (base62, acc) VALUES (?, ?);")) {
-							&errorMessage(__LINE__, "Cannot prepare SQL statement.");
-						}
-						# begin SQL transaction
-						$dbhandle->do('BEGIN;');
-						if (@accs) {
-							my $nentries = 1;
-							foreach my $acc (@accs) {
-								unless ($statement->execute($tempseq, $acc)) {
-									&errorMessage(__LINE__, "Cannot execute INSERT.");
+							else {
+								if ($nhit != 1 || scalar(@accs) != 0 || $existref->[0]->[0] ne '0') {
+									&errorMessage(__LINE__, "Duplicate sequence $tempseq is detected, but accessions are not identical.");
 								}
-								if ($nentries % 1000 == 0) {
-									# commit SQL transaction
-									$dbhandle->do('COMMIT;');
-									# begin SQL transaction
-									$dbhandle->do('BEGIN;');
-								}
-								$nentries ++;
 							}
 						}
 						else {
-							unless ($statement->execute($tempseq, 0)) {
-								&errorMessage(__LINE__, "Cannot execute INSERT.");
-							}
+							$nadd ++;
 						}
-						# commit SQL transaction
-						$dbhandle->do('COMMIT;');
 					}
 				}
 			}
+			close($filehandleinput1);
 		}
-		close($filehandleinput1);
+		if ($nadd) {
+			$switch = 1;
+		}
+	}
+	else {
+		if (-e $outputfile) {
+			&errorMessage(__LINE__, "Output file already exists.");
+		}
+		else {
+			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
+				&errorMessage(__LINE__, "Cannot make database.");
+			}
+			unless ($dbhandle->do("CREATE TABLE base62_acc (base62 TEXT NOT NULL, acc TEXT NOT NULL);")) {
+				&errorMessage(__LINE__, "Cannot make table.");
+			}
+		}
+		$switch = 1;
+	}
+	# register to database
+	if ($switch) {
+		foreach my $inputfile (@inputfiles) {
+			print(STDERR "Inserting entry from \"$inputfile\"...\n");
+			$filehandleinput1 = &readFile($inputfile);
+			local $/ = "\n>";
+			while (<$filehandleinput1>) {
+				if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
+					my $query = $1;
+					my $accs = $2;
+					$accs =~ s/[> \t]//g;
+					$accs =~ s/\s+\r?\n?$//;
+					$query =~ /;base62=([A-Za-z0-9]+)/;
+					my $tempseq = $1;
+					my @accs = split(/\r?\n/, $accs);
+					if ($tempseq) {
+						my $statement;
+						unless ($statement = $dbhandle->prepare("SELECT acc FROM base62_acc WHERE base62 IN ('" . $tempseq . "')")) {
+							&errorMessage(__LINE__, "Cannot prepare SQL statement.");
+						}
+						unless ($statement->execute) {
+							&errorMessage(__LINE__, "Cannot execute SELECT.");
+						}
+						my $existref = $statement->fetchall_arrayref([0]);
+						my $nhit = scalar(@{$existref});
+						if ($nhit == 0) {
+							unless ($statement = $dbhandle->prepare("INSERT INTO base62_acc (base62, acc) VALUES (?, ?);")) {
+								&errorMessage(__LINE__, "Cannot prepare SQL statement.");
+							}
+							# begin SQL transaction
+							$dbhandle->do('BEGIN;');
+							if (@accs) {
+								my $nentries = 1;
+								foreach my $acc (@accs) {
+									unless ($statement->execute($tempseq, $acc)) {
+										&errorMessage(__LINE__, "Cannot execute INSERT.");
+									}
+									if ($nentries % 1000 == 0) {
+										# commit SQL transaction
+										$dbhandle->do('COMMIT;');
+										# begin SQL transaction
+										$dbhandle->do('BEGIN;');
+									}
+									$nentries ++;
+								}
+							}
+							else {
+								unless ($statement->execute($tempseq, 0)) {
+									&errorMessage(__LINE__, "Cannot execute INSERT.");
+								}
+							}
+							# commit SQL transaction
+							$dbhandle->do('COMMIT;');
+						}
+					}
+				}
+			}
+			close($filehandleinput1);
+		}
 	}
 	$dbhandle->disconnect;
 	print(STDERR "done.\n\n");
