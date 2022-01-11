@@ -215,7 +215,10 @@ sub checkVariables {
 	# search referencedb
 	if ($referencedb) {
 		if (!-e $referencedb) {
-			if (-e "$referencedb.fasta") {
+			if (-e "$referencedb.udb") {
+				$referencedb = "$referencedb.udb";
+			}
+			elsif (-e "$referencedb.fasta") {
 				$referencedb = "$referencedb.fasta";
 			}
 			else {
@@ -253,6 +256,9 @@ sub checkVariables {
 				$pathto =~ s/\/$//;
 				if ($pathto && -e "$pathto/$referencedb") {
 					$referencedb = "$pathto/$referencedb";
+				}
+				elsif ($pathto && -e "$pathto/$referencedb.udb") {
+					$referencedb = "$pathto/$referencedb.udb";
 				}
 				elsif ($pathto && -e "$pathto/$referencedb.fasta") {
 					$referencedb = "$pathto/$referencedb.fasta";
