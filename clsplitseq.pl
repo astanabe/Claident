@@ -89,7 +89,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2021  Akifumi S. Tanabe
+Copyright (C) 2011-2022  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -1389,6 +1389,23 @@ sub saveToFile {
 		&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$samplename$filenamesuffix/$child.fastq\".");
 	}
 	if ($seqnamestyle eq 'illumina') {
+		if ($seqname =~ / [12]:[NY]:\d+:([ACGT]+|[ACGT]+\+[ACGT]+)$/ && !$options->{'tagseq'}) {
+			$options->{'tagseq'} = $1;
+		}
+		elsif ($seqname !~ / [12]:[NY]:\d+:(?:\d+|[ACGT]+|[ACGT]+\+[ACGT]+)$/ || $seqname =~ s/ [12]:N:0:\d+$//) {
+			if ($strand == 2) {
+				$seqname .= ' 2:N:0:';
+			}
+			else {
+				$seqname .= ' 1:N:0:';
+			}
+			if ($options->{'tagseq'}) {
+				$seqname .= $options->{'tagseq'};
+			}
+			else {
+				$seqname .= '1';
+			}
+		}
 		if ($options->{'fumiseq'} && $options->{'rumiseq'}) {
 			my $umiseq = ':' . $options->{'fumiseq'} . '+' . $options->{'rumiseq'};
 			if ($seqname =~ / /) {
@@ -1405,20 +1422,6 @@ sub saveToFile {
 			}
 			else {
 				$seqname .= $umiseq;
-			}
-		}
-		if ($seqname !~ / [12]:[NY]:\d+:(?:\d+|[ACGT]+|[ACGT]+\+[ACGT]+)$/ || $seqname =~ s/ [12]:N:0:\d+$//) {
-			if ($strand == 2) {
-				$seqname .= ' 2:N:0:';
-			}
-			else {
-				$seqname .= ' 1:N:0:';
-			}
-			if ($options->{'tagseq'}) {
-				$seqname .= $options->{'tagseq'};
-			}
-			else {
-				$seqname .= '1';
 			}
 		}
 	}

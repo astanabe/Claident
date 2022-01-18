@@ -12,7 +12,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2021  Akifumi S. Tanabe
+Copyright (C) 2011-2022  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -359,7 +359,7 @@ else {
 	}
 	# connect to database
 	my $dbhandle;
-	unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
+	unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$taxdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1, ReadOnly => 1})) {
 		&errorMessage(__LINE__, "Cannot connect database.");
 	}
 	my %taxon2taxid;
