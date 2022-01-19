@@ -77,6 +77,7 @@ clelimdupacc blastdb/prokaryota_all_genus.txt blastdb/prokaryota_all_species_wsp
 clmaketaxdb --acclist=blastdb/prokaryota_all_genus.temp taxonomy prokaryota_all_genus.taxdb &
 clmaketaxdb --workspace=disk --acclist=blastdb/overall_class.txt taxonomy overall_class.taxdb &
 wait
+chmod 666 *.taxdb || exit $?
 ln -s overall_class.taxdb overall_order.taxdb || exit $?
 ln -s overall_class.taxdb overall_family.taxdb || exit $?
 ln -s overall_class.taxdb overall_genus.taxdb || exit $?

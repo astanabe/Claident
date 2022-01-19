@@ -380,7 +380,7 @@ sub retrieveSimilarSequences {
 	}
 	{
 		if ($identdb) {
-			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1, ReadOnly => 1})) {
+			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
 				&errorMessage(__LINE__, "Cannot connect database.");
 			}
 		}
