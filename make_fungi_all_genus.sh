@@ -37,6 +37,7 @@ cd .. || exit $?
 # minimize taxdb
 clelimdupacc blastdb/fungi_all_genus.txt blastdb/fungi_all_species_wsp.txt blastdb/fungi_all_genus.temp || exit $?
 clmaketaxdb --acclist=blastdb/fungi_all_genus.temp taxonomy fungi_all_genus.taxdb || exit $?
+chmod 666 fungi_all_genus.taxdb || exit $?
 ln -s fungi_all_genus.taxdb fungi_all_species_wsp.taxdb || exit $?
 ln -s fungi_all_genus.taxdb fungi_all_species.taxdb || exit $?
 ln -s fungi_all_genus.taxdb fungi_all_species_wosp.taxdb || exit $?

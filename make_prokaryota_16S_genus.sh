@@ -39,6 +39,7 @@ cd .. || exit $?
 # minimize taxdb
 clelimdupacc blastdb/prokaryota_16S_genus.txt blastdb/prokaryota_16S_species_wsp.txt blastdb/prokaryota_16S_genus.temp || exit $?
 clmaketaxdb --acclist=blastdb/prokaryota_16S_genus.temp taxonomy prokaryota_16S_genus.taxdb
+chmod 666 prokaryota_16S_genus.taxdb || exit $?
 ln -s prokaryota_16S_genus.taxdb prokaryota_16S_species_wsp.taxdb || exit $?
 ln -s prokaryota_16S_genus.taxdb prokaryota_16S_species.taxdb || exit $?
 ln -s prokaryota_16S_genus.taxdb prokaryota_16S_species_wosp.taxdb || exit $?

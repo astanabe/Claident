@@ -52,6 +52,7 @@ cd .. || exit $?
 # minimize taxdb
 clelimdupacc blastdb/plants_trnH-psbA_genus.txt blastdb/plants_trnH-psbA_species_wsp.txt blastdb/plants_trnH-psbA_genus.temp || exit $?
 clmaketaxdb --acclist=blastdb/plants_trnH-psbA_genus.temp taxonomy plants_trnH-psbA_genus.taxdb || exit $?
+chmod 666 plants_trnH-psbA_genus.taxdb || exit $?
 ln -s plants_trnH-psbA_genus.taxdb plants_trnH-psbA_species_wsp.taxdb || exit $?
 ln -s plants_trnH-psbA_genus.taxdb plants_trnH-psbA_species.taxdb || exit $?
 ln -s plants_trnH-psbA_genus.taxdb plants_trnH-psbA_species_wosp.taxdb || exit $?

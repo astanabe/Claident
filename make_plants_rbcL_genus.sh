@@ -52,6 +52,7 @@ cd .. || exit $?
 # minimize taxdb
 clelimdupacc blastdb/plants_rbcL_genus.txt blastdb/plants_rbcL_species.txt blastdb/plants_rbcL_genus.temp || exit $?
 clmaketaxdb --acclist=blastdb/plants_rbcL_genus.temp taxonomy plants_rbcL_genus.taxdb || exit $?
+chmod 666 plants_rbcL_genus.taxdb || exit $?
 ln -s plants_rbcL_genus.taxdb plants_rbcL_species_wsp.taxdb || exit $?
 ln -s plants_rbcL_genus.taxdb plants_rbcL_species.taxdb || exit $?
 ln -s plants_rbcL_genus.taxdb plants_rbcL_species_wosp.taxdb || exit $?

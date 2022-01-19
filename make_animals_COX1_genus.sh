@@ -54,6 +54,7 @@ cd .. || exit $?
 # minimize taxdb
 clelimdupacc blastdb/animals_COX1_genus.txt blastdb/animals_COX1_species_wsp.txt blastdb/animals_COX1_genus.temp || exit $?
 clmaketaxdb --acclist=blastdb/animals_COX1_genus.temp taxonomy animals_COX1_genus.taxdb || exit $?
+chmod 666 animals_COX1_genus.taxdb || exit $?
 ln -s animals_COX1_genus.taxdb animals_COX1_species_wsp.taxdb || exit $?
 ln -s animals_COX1_genus.taxdb animals_COX1_species.taxdb || exit $?
 ln -s animals_COX1_genus.taxdb animals_COX1_species_wosp.taxdb || exit $?

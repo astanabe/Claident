@@ -39,6 +39,7 @@ cd .. || exit $?
 # make taxdb
 clelimdupacc blastdb/animals_mt_genus.txt blastdb/animals_mt_species_wsp.txt blastdb/animals_mt_genus.temp || exit $?
 clmaketaxdb --acclist=blastdb/animals_mt_genus.temp taxonomy animals_mt_genus.taxdb || exit $?
+chmod 666 animals_mt_genus.taxdb || exit $?
 ln -s animals_mt_genus.taxdb animals_mt_species_wsp.taxdb || exit $?
 ln -s animals_mt_genus.taxdb animals_mt_species.taxdb || exit $?
 ln -s animals_mt_genus.taxdb animals_mt_species_wosp.taxdb || exit $?

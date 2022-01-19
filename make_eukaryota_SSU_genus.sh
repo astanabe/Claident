@@ -39,6 +39,7 @@ cd .. || exit $?
 # minimize taxdb
 clelimdupacc blastdb/eukaryota_SSU_genus.txt blastdb/eukaryota_SSU_species_wsp.txt blastdb/eukaryota_SSU_genus.temp || exit $?
 clmaketaxdb --acclist=blastdb/eukaryota_SSU_genus.temp taxonomy eukaryota_SSU_genus.taxdb || exit $?
+chmod 666 eukaryota_SSU_genus.taxdb || exit $?
 ln -s eukaryota_SSU_genus.taxdb eukaryota_SSU_species_wsp.taxdb || exit $?
 ln -s eukaryota_SSU_genus.taxdb eukaryota_SSU_species.taxdb || exit $?
 ln -s eukaryota_SSU_genus.taxdb eukaryota_SSU_species_wosp.taxdb || exit $?
