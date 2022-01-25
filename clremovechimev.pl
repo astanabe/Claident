@@ -1,5 +1,6 @@
 use strict;
 use File::Spec;
+use File::Copy::Recursive ('fcopy', 'rcopy', 'dircopy');
 
 my $buildno = '0.9.x';
 
@@ -8,6 +9,7 @@ my @inputfiles;
 my @otufiles;
 my $outputfolder;
 my $referencedb;
+my $addtoref;
 
 # options
 my $mode = 'both';
@@ -130,6 +132,9 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+ref(?:erence)?(?:database|db)=(.+)$/i) {
 			$referencedb = $1;
 		}
+		elsif ($ARGV[$i] =~ /^-+addtoref(?:erence)?=(.+)$/i) {
+			$addtoref = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
 			$numthreads = $1;
 		}
@@ -200,72 +205,76 @@ sub checkVariables {
 	if (($mode eq 'both' || $mode eq 'ref') && !$referencedb) {
 		&errorMessage(__LINE__, "\"uchime_ref\" is enabled but reference db is not given.");
 	}
+	if ($addtoref && !-e $addtoref) {
+		&errorMessage(__LINE__, "Cannot find \"$addtoref\".");
+	}
+	if ($addtoref && !$referencedb) {
+		&errorMessage(__LINE__, "\"--addtoref\" requires \"--referencedb\".");
+	}
+	if ($uchimedenovo < 1 || $uchimedenovo > 3) {
+		&errorMessage(__LINE__, "Invalid value for version of UCHIME de novo.");
+	}
 	if (-e $outputfolder) {
 		&errorMessage(__LINE__, "\"$outputfolder\" already exists.");
 	}
 	if (!mkdir($outputfolder)) {
 		&errorMessage(__LINE__, "Cannot make output folder.");
 	}
-	if ($uchimedenovo < 1 || $uchimedenovo > 3) {
-		&errorMessage(__LINE__, "Invalid value for version of UCHIME de novo.");
-	}
 	if ($uchimedenovo == 1) {
 		$uchimedenovo = '';
 	}
 	# search referencedb
-	if ($referencedb) {
-		if (!-e $referencedb) {
-			if (-e "$referencedb.udb") {
-				$referencedb = "$referencedb.udb";
-			}
-			elsif (-e "$referencedb.fasta") {
-				$referencedb = "$referencedb.fasta";
+	if (!-e $referencedb) {
+		if (-e "$referencedb.udb" && !$addtoref) {
+			$referencedb = "$referencedb.udb";
+		}
+		elsif (-e "$referencedb.fasta") {
+			$referencedb = "$referencedb.fasta";
+		}
+		else {
+			my $pathto;
+			if ($ENV{'UCHIMEDB'}) {
+				$pathto = $ENV{'UCHIMEDB'};
 			}
 			else {
-				my $pathto;
-				if ($ENV{'UCHIMEDB'}) {
-					$pathto = $ENV{'UCHIMEDB'};
+				my $temp;
+				if (-e '.claident') {
+					$temp = '.claident';
 				}
-				else {
-					my $temp;
-					if (-e '.claident') {
-						$temp = '.claident';
+				elsif (-e $ENV{'HOME'} . '/.claident') {
+					$temp = $ENV{'HOME'} . '/.claident';
+				}
+				elsif (-e '/etc/claident/.claident') {
+					$temp = '/etc/claident/.claident';
+				}
+				if ($temp) {
+					my $filehandle;
+					unless (open($filehandle, "< $temp")) {
+						&errorMessage(__LINE__, "Cannot read \"$temp\".");
 					}
-					elsif (-e $ENV{'HOME'} . '/.claident') {
-						$temp = $ENV{'HOME'} . '/.claident';
-					}
-					elsif (-e '/etc/claident/.claident') {
-						$temp = '/etc/claident/.claident';
-					}
-					if ($temp) {
-						my $filehandle;
-						unless (open($filehandle, "< $temp")) {
-							&errorMessage(__LINE__, "Cannot read \"$temp\".");
+					while (<$filehandle>) {
+						if (/^\s*UCHIMEDB\s*=\s*(\S[^\r\n]*)/) {
+							$pathto = $1;
+							$pathto =~ s/\s+$//;
+							last;
 						}
-						while (<$filehandle>) {
-							if (/^\s*UCHIMEDB\s*=\s*(\S[^\r\n]*)/) {
-								$pathto = $1;
-								$pathto =~ s/\s+$//;
-								last;
-							}
-						}
-						close($filehandle);
 					}
+					close($filehandle);
 				}
-				$pathto =~ s/^"(.+)"$/$1/;
-				$pathto =~ s/\/$//;
-				if ($pathto && -e "$pathto/$referencedb") {
-					$referencedb = "$pathto/$referencedb";
-				}
-				elsif ($pathto && -e "$pathto/$referencedb.udb") {
-					$referencedb = "$pathto/$referencedb.udb";
-				}
-				elsif ($pathto && -e "$pathto/$referencedb.fasta") {
-					$referencedb = "$pathto/$referencedb.fasta";
-				}
-				else {
-					&errorMessage(__LINE__, "Both \"$referencedb\" and \"$pathto/$referencedb\" do not exist.");
-				}
+			}
+			$pathto =~ s/^"(.+)"$/$1/;
+			$pathto =~ s/\/$//;
+			if ($pathto && -e "$pathto/$referencedb") {
+				$referencedb = "$pathto/$referencedb";
+			}
+			elsif ($pathto && -e "$pathto/$referencedb.udb" && !$addtoref) {
+				$referencedb = "$pathto/$referencedb.udb";
+			}
+			elsif ($pathto && -e "$pathto/$referencedb.fasta") {
+				$referencedb = "$pathto/$referencedb.fasta";
+			}
+			else {
+				&errorMessage(__LINE__, "Both \"$referencedb\" and \"$pathto/$referencedb\" do not exist.");
 			}
 		}
 	}
@@ -359,6 +368,34 @@ sub makeTemporaryFile {
 	}
 	close($filehandleinput1);
 	close($filehandleoutput1);
+	if ($addtoref) {
+		unless (fcopy($referencedb, "$outputfolder/referencedb.fasta")) {
+			&errorMessage(__LINE__, "Cannot copy \"$referencedb\" to \"$outputfolder/referencedb.fasta\".");
+		}
+		unless (open($filehandleoutput1, ">> $outputfolder/referencedb.fasta")) {
+			&errorMessage(__LINE__, "Cannot write \"$outputfolder/referencedb.fasta\".");
+		}
+		print($filehandleoutput1 "\n");
+		$filehandleinput1 = &readFile($addtoref);
+		{
+			local $/ = "\n>";
+			while (<$filehandleinput1>) {
+				if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
+					my $name = $1;
+					my $sequence = uc($2);
+					$name =~ s/\s+$//;
+					$sequence =~ s/[>\s\r\n]//g;
+					print($filehandleoutput1 ">$name\n$sequence\n>$name");
+					print($filehandleoutput1 "revcomp\n");
+					print($filehandleoutput1 &reversecomplement($sequence));
+					print($filehandleoutput1 "\n");
+				}
+			}
+		}
+		close($filehandleinput1);
+		close($filehandleoutput1);
+		$referencedb = "$outputfolder/referencedb.fasta";
+	}
 }
 
 sub runVSEARCH {
@@ -521,8 +558,19 @@ sub postVSEARCH {
 	}
 	unless ($nodel) {
 		unlink("$outputfolder/temp.fasta");
+		unlink("$outputfolder/referencedb.fasta");
 	}
 	print(STDERR "done.\n\n");
+}
+
+sub reversecomplement {
+	my @temp = split('', $_[0]);
+	my @seq;
+	foreach my $seq (reverse(@temp)) {
+		$seq =~ tr/ACGTMRYKVHDBacgtmrykvhdb/TGCAKYRMBDHVtgcakyrmbdhv/;
+		push(@seq, $seq);
+	}
+	return(join('', @seq));
 }
 
 sub readFile {
@@ -611,6 +659,10 @@ vsearch options end
 --elimborder=ENABLE|DISABLE
   Specify whether borderline sequences must be eliminated or not.
 (default: ENABLE)
+
+--addtoref=FILENAME
+  Specify FASTA sequence file of additional reference sequences. (default:
+none)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)
