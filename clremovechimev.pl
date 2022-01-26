@@ -330,6 +330,7 @@ sub checkVariables {
 }
 
 sub makeTemporaryFile {
+	print(STDERR "Preparing required files...\n");
 	$filehandleinput1 = &readFile($otufiles[0]);
 	my %otumembers;
 	{
@@ -396,6 +397,7 @@ sub makeTemporaryFile {
 		close($filehandleoutput1);
 		$referencedb = "$outputfolder/referencedb.fasta";
 	}
+	print(STDERR "done.\n\n");
 }
 
 sub runVSEARCH {
