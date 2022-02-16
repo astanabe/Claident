@@ -1,4 +1,5 @@
 use strict;
+use warnings;
 use Cwd 'getcwd';
 use File::Spec;
 use File::Path 'rmtree';

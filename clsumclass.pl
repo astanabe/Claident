@@ -1,4 +1,5 @@
 use strict;
+use warnings;
 use File::Spec;
 
 my $devnull = File::Spec->devnull();

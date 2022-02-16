@@ -1,4 +1,5 @@
 use strict;
+use warnings;
 use DBI;
 use File::Spec;
 use File::Copy::Recursive ('fcopy', 'rcopy', 'dircopy');
