@@ -174,18 +174,32 @@ sub checkVariables {
 	{
 		my @newinputfiles;
 		my @tempinputfiles;
+		my $paired = 0;
+		my $unpaired = 0;
 		foreach my $inputfile (@inputfiles) {
 			if (-d $inputfile) {
 				my @temp = sort(glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
 				if (scalar(@temp) % 2 == 0) {
 					for (my $i = 0; $i < scalar(@temp); $i += 2) {
 						if (-e $temp[$i] && -e $temp[($i + 1)]) {
-							if ($temp[$i] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $temp[($i + 1)] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
-								push(@newinputfiles, $temp[$i], $temp[($i + 1)]);
+							my ($tempf, $tempr) = ($temp[$i], $temp[($i + 1)]);
+							$tempf =~ s/\.forward\..*$//;
+							$tempr =~ s/\.reverse\..*$//;
+							if ($tempf eq $tempr) {
+								$paired ++;
 							}
 							else {
-								&errorMessage(__LINE__, "The input files are not paried-end sequences.");
+								($tempf, $tempr) = ($temp[$i], $temp[($i + 1)]);
+								$tempf =~ s/_R1_.*$//;
+								$tempr =~ s/_R2_.*$//;
+								if ($tempf eq $tempr) {
+									$paired ++;
+								}
+								else {
+									$unpaired ++;
+								}
 							}
+							push(@newinputfiles, $temp[$i], $temp[($i + 1)]);
 						}
 						else {
 							&errorMessage(__LINE__, "The input files \"$temp[$i]\" and \"" . $temp[($i + 1)] . "\" are invalid.");
@@ -193,7 +207,8 @@ sub checkVariables {
 					}
 				}
 				else {
-					&errorMessage(__LINE__, "The input files are not paried-end sequences.");
+					$unpaired ++;
+					push(@newinputfiles, @temp);
 				}
 			}
 			elsif (-e $inputfile) {
@@ -206,12 +221,24 @@ sub checkVariables {
 		if (scalar(@tempinputfiles) % 2 == 0) {
 			for (my $i = 0; $i < scalar(@tempinputfiles); $i += 2) {
 				if (-e $tempinputfiles[$i] && -e $tempinputfiles[($i + 1)]) {
-					if ($tempinputfiles[$i] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $tempinputfiles[($i + 1)] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
-						push(@newinputfiles, $tempinputfiles[$i], $tempinputfiles[($i + 1)]);
+					my ($tempf, $tempr) = ($tempinputfiles[$i], $tempinputfiles[($i + 1)]);
+					$tempf =~ s/\.forward\..*$//;
+					$tempr =~ s/\.reverse\..*$//;
+					if ($tempf eq $tempr) {
+						$paired ++;
 					}
 					else {
-						&errorMessage(__LINE__, "The input files are not paried-end sequences.");
+						($tempf, $tempr) = ($tempinputfiles[$i], $tempinputfiles[($i + 1)]);
+						$tempf =~ s/_R1_.*$//;
+						$tempr =~ s/_R2_.*$//;
+						if ($tempf eq $tempr) {
+							$paired ++;
+						}
+						else {
+							$unpaired ++;
+						}
 					}
+					push(@newinputfiles, $tempinputfiles[$i], $tempinputfiles[($i + 1)]);
 				}
 				else {
 					&errorMessage(__LINE__, "The input files \"$tempinputfiles[$i]\" and \"" . $tempinputfiles[($i + 1)] . "\" are invalid.");
@@ -219,9 +246,18 @@ sub checkVariables {
 			}
 		}
 		else {
-			&errorMessage(__LINE__, "The input files are not paried-end sequences.");
+			$unpaired ++;
+			push(@newinputfiles, @tempinputfiles);
 		}
-		@inputfiles = @newinputfiles;
+		if ($paired > 0 && $unpaired == 0) {
+			@inputfiles = @newinputfiles;
+		}
+		elsif ($paired == 0 && $unpaired > 0) {
+			&errorMessage(__LINE__, "Single-end sequences are given.");
+		}
+		else {
+			&errorMessage(__LINE__, "Both paired-end sequences and single-end sequences are given.");
+		}
 		if (scalar(@inputfiles) > 2) {
 			$folder = 1;
 		}

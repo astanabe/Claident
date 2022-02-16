@@ -163,7 +163,6 @@ sub checkVariables {
 	}
 	{
 		my @newinputfiles;
-		my @tempinputfiles;
 		foreach my $inputfile (@inputfiles) {
 			if (-d $inputfile) {
 				my @temp = sort(glob("$inputfile/*.fasta"), glob("$inputfile/*.fasta.gz"), glob("$inputfile/*.fasta.bz2"), glob("$inputfile/*.fasta.xz"));
@@ -194,6 +193,9 @@ sub checkVariables {
 			}
 		}
 		@inputfiles = @newinputfiles;
+	}
+	if (scalar(@inputfiles) != scalar(@otufiles)) {
+		&errorMessage(__LINE__, "The number of input files is different from the number of otu files.");
 	}
 	if (scalar(@inputfiles) > 1) {
 		&errorMessage(__LINE__, "This command accepts only 1 input file.");

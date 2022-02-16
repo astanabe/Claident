@@ -138,7 +138,6 @@ sub checkVariables {
 	}
 	{
 		my @newinputfiles;
-		my @tempinputfiles;
 		foreach my $inputfile (@inputfiles) {
 			if (-d $inputfile) {
 				my @temp = sort(glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));

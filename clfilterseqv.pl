@@ -10,7 +10,6 @@ my $vsearchoption = " --fastq_qmax 93";
 
 # options
 my $folder = 0;
-my $paired;
 my $maxnee;
 my $minlen = 0;
 my $maxlen = 99999;
@@ -28,6 +27,9 @@ my @inputfiles;
 
 # commands
 my $vsearch;
+
+# other variables
+my $inputtype = 'single-end';
 
 # file handles
 my $filehandleinput1;
@@ -177,26 +179,32 @@ sub checkVariables {
 	{
 		my @newinputfiles;
 		my @tempinputfiles;
+		my $paired = 0;
+		my $unpaired = 0;
 		foreach my $inputfile (@inputfiles) {
 			if (-d $inputfile) {
 				my @temp = sort(glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
 				if (scalar(@temp) % 2 == 0) {
 					for (my $i = 0; $i < scalar(@temp); $i += 2) {
 						if (-e $temp[$i] && -e $temp[($i + 1)]) {
-							if ($temp[$i] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $temp[($i + 1)] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
-								if (defined($paired) && $paired == 0) {
-									&errorMessage(__LINE__, "The input files are invalid. Paired-end and single-end sequences cannot be mixed.");
-								}
-								push(@newinputfiles, $temp[$i], $temp[($i + 1)]);
-								$paired = 1;
+							my ($tempf, $tempr) = ($temp[$i], $temp[($i + 1)]);
+							$tempf =~ s/\.forward\..*$//;
+							$tempr =~ s/\.reverse\..*$//;
+							if ($tempf eq $tempr) {
+								$paired ++;
 							}
 							else {
-								if ($paired) {
-									&errorMessage(__LINE__, "The input files are invalid. Paired-end and single-end sequences cannot be mixed.");
+								($tempf, $tempr) = ($temp[$i], $temp[($i + 1)]);
+								$tempf =~ s/_R1_.*$//;
+								$tempr =~ s/_R2_.*$//;
+								if ($tempf eq $tempr) {
+									$paired ++;
 								}
-								push(@newinputfiles, $temp[$i], $temp[($i + 1)]);
-								$paired = 0;
+								else {
+									$unpaired ++;
+								}
 							}
+							push(@newinputfiles, $temp[$i], $temp[($i + 1)]);
 						}
 						else {
 							&errorMessage(__LINE__, "The input files \"$temp[$i]\" and \"" . $temp[($i + 1)] . "\" are invalid.");
@@ -204,13 +212,8 @@ sub checkVariables {
 					}
 				}
 				else {
-					if ($paired) {
-						&errorMessage(__LINE__, "The input files are invalid. Paired-end and single-end sequences cannot be mixed.");
-					}
-					for (my $i = 0; $i < scalar(@temp); $i ++) {
-						push(@newinputfiles, $temp[$i]);
-					}
-					$paired = 0;
+					$unpaired ++;
+					push(@newinputfiles, @temp);
 				}
 			}
 			elsif (-e $inputfile) {
@@ -223,46 +226,53 @@ sub checkVariables {
 		if (scalar(@tempinputfiles) % 2 == 0) {
 			for (my $i = 0; $i < scalar(@tempinputfiles); $i += 2) {
 				if (-e $tempinputfiles[$i] && -e $tempinputfiles[($i + 1)]) {
-					if ($tempinputfiles[$i] =~ /\.forward\.fastq(?:\.gz|\.bz2|\.xz)?$/ && $tempinputfiles[($i + 1)] =~ /\.reverse\.fastq(?:\.gz|\.bz2|\.xz)?$/) {
-						if (defined($paired) && $paired == 0) {
-							&errorMessage(__LINE__, "The input files are invalid. Paired-end and single-end sequences cannot be mixed.");
-						}
-						push(@newinputfiles, $tempinputfiles[$i], $tempinputfiles[($i + 1)]);
-						$paired = 1;
+					my ($tempf, $tempr) = ($tempinputfiles[$i], $tempinputfiles[($i + 1)]);
+					$tempf =~ s/\.forward\..*$//;
+					$tempr =~ s/\.reverse\..*$//;
+					if ($tempf eq $tempr) {
+						$paired ++;
 					}
 					else {
-						if ($paired) {
-							&errorMessage(__LINE__, "The input files are invalid. Paired-end and single-end sequences cannot be mixed.");
+						($tempf, $tempr) = ($tempinputfiles[$i], $tempinputfiles[($i + 1)]);
+						$tempf =~ s/_R1_.*$//;
+						$tempr =~ s/_R2_.*$//;
+						if ($tempf eq $tempr) {
+							$paired ++;
 						}
-						push(@newinputfiles, $tempinputfiles[$i], $tempinputfiles[($i + 1)]);
-						$paired = 0;
+						else {
+							$unpaired ++;
+						}
 					}
+					push(@newinputfiles, $tempinputfiles[$i], $tempinputfiles[($i + 1)]);
 				}
 				else {
 					&errorMessage(__LINE__, "The input files \"$tempinputfiles[$i]\" and \"" . $tempinputfiles[($i + 1)] . "\" are invalid.");
 				}
 			}
 		}
-		elsif ($paired) {
-			&errorMessage(__LINE__, "The input files are invalid. Paired-end and single-end sequences cannot be mixed.");
+		else {
+			$unpaired ++;
+			push(@newinputfiles, @tempinputfiles);
 		}
-		if (@newinputfiles) {
+		if ($paired > 0 && $unpaired == 0) {
+			$inputtype = 'paired-end';
 			@inputfiles = @newinputfiles;
 		}
-		elsif (@tempinputfiles) {
-			@inputfiles = @tempinputfiles;
+		elsif ($paired == 0 && $unpaired > 0) {
+			$inputtype = 'single-end';
+			@inputfiles = @newinputfiles;
 		}
 		else {
-			&errorMessage(__LINE__, "The input files are invalid.");
+			&errorMessage(__LINE__, "Both paired-end sequences and single-end sequences are given.");
 		}
 		if (scalar(@inputfiles) > 1) {
 			$folder = 1;
 		}
 	}
-	if ($paired) {
+	if ($inputtype eq 'paired-end') {
 		print(STDERR "The input files will be treated as paired-end sequences.\n");
 	}
-	else {
+	elsif ($inputtype eq 'single-end') {
 		print(STDERR "The input files will be treated as single-end sequences.\n");
 	}
 	if (-e $output && !$append) {
@@ -351,7 +361,7 @@ sub checkVariables {
 
 sub filterSequences {
 	print(STDERR "Processing sequences...\n");
-	if (!$paired && !$folder) {
+	if ($inputtype eq 'single-end' && !$folder) {
 		print(STDERR "Filtering \"$inputfiles[0]\" using VSEARCH...\n");
 		my $tempfile;
 		if ($inputfiles[0] =~ /\.xz$/) {
@@ -384,7 +394,7 @@ sub filterSequences {
 			print(STDERR "Filtering has been correctly finished. But there is no passed sequence (all sequences have been filtered out).\n");
 		}
 	}
-	elsif (!$paired && $folder) {
+	elsif ($inputtype eq 'single-end' && $folder) {
 		my @outputfastq;
 		for (my $i = 0; $i < scalar(@inputfiles); $i ++) {
 			my $prefix = $inputfiles[$i];
@@ -429,7 +439,7 @@ sub filterSequences {
 			&compressInParallel(@outputfastq);
 		}
 	}
-	elsif ($paired && $folder) {
+	elsif ($inputtype eq 'paired-end' && $folder) {
 		my @outputfastq;
 		for (my $i = 0; $i < scalar(@inputfiles); $i += 2) {
 			my $forwardprefix = $inputfiles[$i];

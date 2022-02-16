@@ -18,11 +18,7 @@ my $addUMI;
 my $tagfile;
 my $reversetagfile;
 my $elimtag = 1;
-my $minlen = 1;
-my $maxlen;
 my $minqualtag = 0;
-my $replaceinternal;
-my $converse;
 my $maxpmismatch = 0.14;
 my $maxnmismatch;
 my $reversemaxpmismatch = 0.15;
@@ -45,6 +41,7 @@ my $devnull = File::Spec->devnull();
 my $runname;
 my $commonprimername;
 my $commontagname;
+my $commontagseq;
 my @primer;
 my %primer;
 my %reverseprimer;
@@ -148,9 +145,6 @@ sub getOptions {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 			}
 		}
-		elsif ($ARGV[$i] =~ /^-+(?:c|converse)$/i) {
-			$converse = 1;
-		}
 		elsif ($ARGV[$i] =~ /^-+max(?:imum)?(?:r|rate|p|percentage)mismatch=(.+)$/i) {
 			$maxpmismatch = $1;
 		}
@@ -244,6 +238,15 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+(?:tag|index)name=(.+)$/i) {
 			$commontagname = $1;
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:tag|index)(?:seq|sequence)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^([ACGTacgt]+)$/ || $value =~ /^([ACGTacgt]+\+[ACGTacgt]+)$/) {
+				$commontagseq = uc($1);
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
 		elsif ($ARGV[$i] =~ /^-+(?:tag|tagfile|t|index1|index1file)=(.+)$/i) {
 			$tagfile = $1;
 		}
@@ -253,17 +256,8 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+(?:index2|index2file)=(.+)$/i) {
 			$reversetagfile = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+min(?:imum)?len(?:gth)?=(\d+)$/i) {
-			$minlen = $1;
-		}
-		elsif ($ARGV[$i] =~ /^-+max(?:imum)?len(?:gth)?=(\d+)$/i) {
-			$maxlen = $1;
-		}
 		elsif ($ARGV[$i] =~ /^-+min(?:imum)?qual(?:ity)?tag=(\d+)$/i) {
 			$minqualtag = $1;
-		}
-		elsif ($ARGV[$i] =~ /^-+replaceinternal$/i) {
-			$replaceinternal = 1;
 		}
 		elsif ($ARGV[$i] =~ /^-+g(?:ap)?o(?:pen)?(?:score)?=(-?\d+)$/i) {
 			$goscore = $1;
@@ -357,9 +351,6 @@ sub checkVariables {
 	}
 	if ($runname =~ /\s/) {
 		&errorMessage(__LINE__, "\"$runname\" is invalid name. Do not use spaces or tabs in run name.");
-	}
-	if ($minlen < 1) {
-		&errorMessage(__LINE__, "Minimum length must be equal to or more than 1.");
 	}
 	if ($useNasUMI && !defined($addUMI)) {
 		$addUMI = 1;
@@ -1402,6 +1393,9 @@ sub saveToFile {
 			if ($options->{'tagseq'}) {
 				$seqname .= $options->{'tagseq'};
 			}
+			elsif ($commontagseq) {
+				$seqname .= $commontagseq;
+			}
 			else {
 				$seqname .= '1';
 			}
@@ -1433,6 +1427,9 @@ sub saveToFile {
 	}
 	if ($options->{'tagseq'}) {
 		$seqname .= ' MID:' . $options->{'tagseq'};
+	}
+	elsif ($commontagseq) {
+		$seqname .= ' MID:' . $commontagseq;
 	}
 	$seqname .= " SN:$samplename";
 	if ($addUMI) {
@@ -1876,6 +1873,12 @@ Command line options
 
 --indexname=INDEXNAME
   Specify index name. (default: none)
+
+--tagseq=SEQUENCE
+  Specify tag sequence. (default: none)
+
+--indexseq=SEQUENCE
+  Specify index sequence. (default: none)
 
 --compress=GZIP|BZIP2|XZ|DISABLE
   Specify compress output files or not. (default: GZIP)

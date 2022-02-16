@@ -109,7 +109,6 @@ sub checkVariables {
 	}
 	{
 		my @newinputfiles;
-		my @tempinputfiles;
 		foreach my $inputfile (@inputfiles) {
 			if (-d $inputfile) {
 				my @temp = sort(glob("$inputfile/*.fastq"), glob("$inputfile/*.fastq.gz"), glob("$inputfile/*.fastq.bz2"), glob("$inputfile/*.fastq.xz"));
@@ -118,7 +117,7 @@ sub checkVariables {
 						push(@newinputfiles, $temp[$i]);
 					}
 					else {
-						&errorMessage(__LINE__, "The input files \"$temp[0]\" and \"$temp[1]\" are invalid.");
+						&errorMessage(__LINE__, "The input files \"$temp[$i]\" is invalid.");
 					}
 				}
 			}
