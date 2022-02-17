@@ -1,5 +1,4 @@
 use strict;
-use warnings;
 use DBI;
 use File::Spec;
 

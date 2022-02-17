@@ -1,5 +1,4 @@
 use strict;
-use warnings;
 use File::Spec;
 use Cwd 'getcwd';
 

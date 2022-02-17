@@ -1,5 +1,4 @@
 use strict;
-use warnings;
 use File::Spec;
 
 my $buildno = '0.9.x';
@@ -767,6 +766,12 @@ If you want to restrict length of UMI, give INTEGER instead of Boolean.
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)
+
+Acceptable replace list formats
+=============================
+Tab-delimited text like below.
+
+replace-from	replace-to
 
 Acceptable input file formats
 =============================

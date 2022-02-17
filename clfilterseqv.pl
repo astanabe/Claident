@@ -1,5 +1,4 @@
 use strict;
-use warnings;
 use File::Spec;
 
 my $buildno = '0.9.x';

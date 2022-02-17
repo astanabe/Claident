@@ -1,5 +1,4 @@
 use strict;
-use warnings;
 
 my $buildno = '0.9.x';
 

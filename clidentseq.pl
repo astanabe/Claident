@@ -1,5 +1,4 @@
 use strict;
-use warnings;
 use File::Spec;
 use DBI;
 use Math::BaseCnv;

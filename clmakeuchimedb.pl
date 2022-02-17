@@ -1,5 +1,4 @@
 use strict;
-use warnings;
 use File::Copy::Recursive ('fcopy', 'rcopy', 'dircopy');
 
 my $buildno = '0.9.x';
