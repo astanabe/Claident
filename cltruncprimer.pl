@@ -1,6 +1,5 @@
 use strict;
 use warnings;
-use Fcntl ':flock';
 use File::Spec;
 
 my $buildno = '0.9.x';
@@ -10,20 +9,25 @@ my $clsplitseqoption;
 my $reversecomplement;
 my $tagfile;
 my $reversetagfile;
-my $replacefile;
+my $replacelist;
 my $append;
-my $numthreads = 1;
 
 # Input/Output
 my @inputfiles;
 my $outputfolder;
 
+# commands
+my $clsplitseq;
+
 # other variables
 my $devnull = File::Spec->devnull();
 my $inputtype;
 my $runname;
+my @tagnames;
 my %name2tag;
 my %tag2name;
+my %name2file;
+my @replace;
 
 # file handles
 my $filehandleinput1;
@@ -40,6 +44,10 @@ sub main {
 	&checkVariables();
 	# read tags
 	&readTags();
+	# read replace list
+	&readReplaceList();
+	# determine file associated to tag
+	&determineFile();
 	# execute clsplitseq
 	&executeClsplitseq();
 }
@@ -170,8 +178,8 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+(?:index2|index2file)=(.+)$/i) {
 			$reversetagfile = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+(?:tag|index)namereplace=(.+)$/i) {
-			$replacefile = $1;
+		elsif ($ARGV[$i] =~ /^-+replacelist=(.+)$/i) {
+			$replacelist = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+min(?:imum)?qual(?:ity)?tag=(\d+)$/i) {
 			$clsplitseqoption .= " $ARGV[$i]";
@@ -304,11 +312,11 @@ sub checkVariables {
 		}
 		if ($paired > 0 && $unpaired == 0) {
 			$inputtype = 'paired-end';
-			@inputfiles = @newinputfiles;
+			@inputfiles = sort(@newinputfiles);
 		}
 		elsif ($paired == 0 && $unpaired > 0) {
 			$inputtype = 'single-end';
-			@inputfiles = @newinputfiles;
+			@inputfiles = sort(@newinputfiles);
 		}
 		else {
 			&errorMessage(__LINE__, "Both paired-end sequences and single-end sequences are given.");
@@ -344,14 +352,57 @@ sub checkVariables {
 	if ($runname =~ /\s/) {
 		&errorMessage(__LINE__, "\"$runname\" is invalid name. Do not use spaces or tabs in run name.");
 	}
+	# search clsplitseq
+	{
+		my $pathto;
+		if ($ENV{'CLAIDENTHOME'}) {
+			$pathto = $ENV{'CLAIDENTHOME'};
+		}
+		else {
+			my $temp;
+			if (-e '.claident') {
+				$temp = '.claident';
+			}
+			elsif (-e $ENV{'HOME'} . '/.claident') {
+				$temp = $ENV{'HOME'} . '/.claident';
+			}
+			elsif (-e '/etc/claident/.claident') {
+				$temp = '/etc/claident/.claident';
+			}
+			if ($temp) {
+				my $filehandle;
+				unless (open($filehandle, "< $temp")) {
+					&errorMessage(__LINE__, "Cannot read \"$temp\".");
+				}
+				while (<$filehandle>) {
+					if (/^\s*CLAIDENTHOME\s*=\s*(\S[^\r\n]*)/) {
+						$pathto = $1;
+						$pathto =~ s/\s+$//;
+						last;
+					}
+				}
+				close($filehandle);
+			}
+		}
+		if ($pathto) {
+			$pathto =~ s/^"(.+)"$/$1/;
+			$pathto =~ s/\/$//;
+			$pathto .= '../../bin';
+			if (!-e $pathto) {
+				&errorMessage(__LINE__, "Cannot find \"$pathto\".");
+			}
+			$clsplitseq = "\"$pathto/clsplitseq\"";
+		}
+		else {
+			$clsplitseq = 'clsplitseq';
+		}
+	}
 }
 
 sub readTags {
 	my $taglength;
 	my $reversetaglength;
-	if ($tagfile || $reversetagfile) {
-		print(STDERR "Reading tag files...\n");
-	}
+	print(STDERR "Reading tag files...\n");
 	if ($tagfile) {
 		my @tag;
 		unless (open($filehandleinput1, "< $tagfile")) {
@@ -410,13 +461,14 @@ sub readTags {
 					if (exists($tag2name{$tag})) {
 						&errorMessage(__LINE__, "Tag \"$tag ($name)\" is doubly used in \"$tagfile\".");
 					}
-					if (exists($name2tag{$name})) {
+					elsif (exists($name2tag{$name})) {
 						&errorMessage(__LINE__, "Name \"$name ($tag)\" is doubly used in \"$tagfile\".");
 					}
 					else {
 						$tag2name{$tag} = $name;
 						$name2tag{$name} = $tag;
 						push(@tag, $tag);
+						push(@tagnames, $name);
 					}
 				}
 			}
@@ -462,12 +514,16 @@ sub readTags {
 						$reversetaglength = length($reversetag);
 					}
 					if (exists($tag2name{$reversetag})) {
-						&errorMessage(__LINE__, "Tag \"$reversetag ($name)\" is doubly used in \"$tagfile\".");
+						&errorMessage(__LINE__, "Tag \"$reversetag ($name)\" is doubly used in \"$reversetagfile\".");
+					}
+					elsif (exists($name2tag{$name})) {
+						&errorMessage(__LINE__, "Name \"$name ($reversetag)\" is doubly used in \"$reversetagfile\".");
 					}
 					else {
 						$tag2name{$reversetag} = $name;
 						$name2tag{$name} = $reversetag;
 						push(@reversetag, $reversetag);
+						push(@tagnames, $name);
 					}
 				}
 			}
@@ -478,67 +534,118 @@ sub readTags {
 			print(STDERR $tag2name{$_} . " : " . $_ . "\n");
 		}
 	}
-	if ($tagfile || $reversetagfile) {
+	@tagnames = sort(@tagnames);
+	print(STDERR "done.\n\n");
+}
+
+sub readReplaceList {
+	if ($replacelist && -e $replacelist) {
+		print(STDERR "Reading replace list...\n");
+		# read list
+		my %replacefrom;
+		my %replaceto;
+		my %replace;
+		unless (open($filehandleinput1, "< $replacelist")) {
+			&errorMessage(__LINE__, "Cannot open \"$replacelist\".");
+		}
+		while (<$filehandleinput1>) {
+			if (/^(\S+)\s+(\S+)/) {
+				my $from = $1;
+				my $to = $2;
+				if ($to =~ /\//) {
+					&errorMessage(__LINE__, "The replace-to name \"$to\" is invalid.");
+				}
+				if ($replacefrom{$from}) {
+					&errorMessage(__LINE__, "The replace-from name \"$from\" is doubly specified.");
+				}
+				else {
+					$replacefrom{$from} = 1;
+				}
+				if ($replaceto{$to}) {
+					&errorMessage(__LINE__, "The replace-to name \"$to\" is doubly specified.");
+				}
+				else {
+					$replaceto{$to} = 1;
+				}
+				$replace{$from} = $to;
+			}
+		}
+		close($filehandleinput1);
+		# replace
+		my @temp = @inputfiles;
+		foreach my $from (sort(keys(%replace))) {
+			for (my $i = 0; $i < scalar(@temp); $i ++) {
+				if ($temp[$i] =~ s/$from/$replace{$from}/) {
+					if ($inputtype eq 'paired-end') {
+						if ($temp[($i + 1)] =~ s/$from/$replace{$from}/) {
+							$replace[($i + 1)] = splice(@temp, ($i + 1), 1);
+							$replace[$i] = splice(@temp, $i, 1);
+						}
+						else {
+							&errorMessage(__LINE__, "The first read file is matched to \"$from\", but the second read " . $temp[($i + 1)] . " is not matched.");
+						}
+					}
+					else {
+						$replace[$i] = splice(@temp, $i, 1);
+					}
+					last;
+				}
+				elsif ($inputtype eq 'paired-end') {
+					$i ++;
+				}
+			}
+		}
+		# fill blanks
+		for (my $i = 0; $i < scalar(@inputfiles); $i ++) {
+			unless ($replace[$i]) {
+				$replace[$i] = $inputfiles[$i];
+			}
+		}
 		print(STDERR "done.\n\n");
 	}
+	else {
+		@replace = @inputfiles;
+	}
+}
+
+sub determineFile {
+	print(STDERR "Search associated file to tag...\n");
+	for (my $i = 0; $i < scalar(@tagnames); $i ++) {
+		for (my $j = 0; $j < scalar(@inputfiles); $j ++) {
+			if ($replace[$j] =~ /$tagnames[$i]/) {
+				if ($inputtype eq 'paired-end') {
+					if ($replace[($j + 1)] =~ /$tagnames[$i]/) {
+						my @temp = splice(@inputfiles, $j, 2);
+						$name2file{$tagnames[$i]} = "@temp";
+					}
+					else {
+						&errorMessage(__LINE__, "The first read file matched to \"$tagnames[$i]\", but the second read " . $replace[($j + 1)] . " is not matched.");
+					}
+				}
+				else {
+					$name2file{$tagnames[$i]} = splice(@inputfiles, $j, 1);
+				}
+				last;
+			}
+			elsif ($inputtype eq 'paired-end') {
+				$j ++;
+			}
+		}
+		if (!exists($name2file{$tagnames[$i]})) {
+			&errorMessage(__LINE__, "Cannot find associated file for tag \"$tagnames[$i]\".");
+		}
+	}
+	print(STDERR "done.\n\n");
 }
 
 sub executeClsplitseq {
 	print(STDERR "Execute clsplitseq...\n");
-	
+	foreach my $tagname (@tagnames) {
+		if (system("$clsplitseq$clsplitseqoption --tagname=$tagname --tagseq=$name2tag{$tagname} --append $name2file{$tagname} $outputfolder 1> $devnull")) {
+			&errorMessage(__LINE__, "Cannot run \"$clsplitseq$clsplitseqoption --tagname=$tagname --tagseq=$name2tag{$tagname} --append $name2file{$tagname} $outputfolder\".");
+		}
+	}
 	print(STDERR "done.\n\n");
-}
-
-sub readFile {
-	my $filehandle;
-	my $filename = shift(@_);
-	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "gzip -dc $filename 2> $devnull |")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "bzip2 -dc $filename 2> $devnull |")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "xz -dc $filename 2> $devnull |")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	else {
-		unless (open($filehandle, "< $filename")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	return($filehandle);
-}
-
-sub writeFile {
-	my $filehandle;
-	my $filename = shift(@_);
-	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "| gzip -c >> $filename 2> $devnull")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "| bzip2 -c >> $filename 2> $devnull")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "| xz -c >> $filename 2> $devnull")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	else {
-		unless (open($filehandle, ">> $filename")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	return($filehandle);
 }
 
 sub reversecomplement {
@@ -571,11 +678,8 @@ Command line options
 --runname=RUNNAME
   Specify run name. This is mandatory. (default: none)
 
---tagnamereplace=FILENAME
-  Specify tag name replace list file name. (default:none)
-
---indexnamereplace=FILENAME
-  Specify index name replace list file name. (default:none)
+--replacelist=FILENAME
+  Specify tag/index name replace list file name. (default:none)
 
 --seqnamestyle=ILLUMINA|OTHER|NOCHANGE
   Specify sequence name style. (default:ILLUMINA)
