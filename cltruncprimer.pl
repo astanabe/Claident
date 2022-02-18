@@ -386,7 +386,7 @@ sub checkVariables {
 		if ($pathto) {
 			$pathto =~ s/^"(.+)"$/$1/;
 			$pathto =~ s/\/$//;
-			$pathto .= '../../bin';
+			$pathto .= '/../../bin';
 			if (!-e $pathto) {
 				&errorMessage(__LINE__, "Cannot find \"$pathto\".");
 			}
@@ -615,6 +615,7 @@ sub determineFile {
 				if ($inputtype eq 'paired-end') {
 					if ($replace[($j + 1)] =~ /$tagnames[$i]/) {
 						my @temp = splice(@inputfiles, $j, 2);
+						splice(@replace, $j, 2);
 						$name2file{$tagnames[$i]} = "@temp";
 					}
 					else {
@@ -623,6 +624,7 @@ sub determineFile {
 				}
 				else {
 					$name2file{$tagnames[$i]} = splice(@inputfiles, $j, 1);
+					splice(@replace, $j, 1);
 				}
 				last;
 			}
