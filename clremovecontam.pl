@@ -602,7 +602,7 @@ sub removeContaminants {
 						}
 					}
 					if ($table{$samplename}{$otuname} > 0 && $sum) {
-						if ($table{$samplename}{$otuname} <= ($sum * $maxpjump)) {
+						if ($table{$samplename}{$otuname} <= (($sum + $table{$samplename}{$otuname}) * $maxpjump)) {
 							$newtable{$samplename}{$otuname} = 0;
 						}
 					}

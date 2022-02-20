@@ -256,6 +256,7 @@ sub checkVariables {
 									$paired ++;
 								}
 								else {
+									print(STDERR "\"$temp[$i]\" and \"" . $temp[($i + 1)] . "\" is not matched.\n");
 									$unpaired ++;
 								}
 							}
@@ -295,6 +296,7 @@ sub checkVariables {
 							$paired ++;
 						}
 						else {
+							print(STDERR "\"$tempinputfiles[$i]\" and \"" . $tempinputfiles[($i + 1)] . "\" is not matched.\n");
 							$unpaired ++;
 						}
 					}
@@ -318,7 +320,7 @@ sub checkVariables {
 			@inputfiles = sort(@newinputfiles);
 		}
 		else {
-			&errorMessage(__LINE__, "Both paired-end sequences and single-end sequences are given.");
+			&errorMessage(__LINE__, "Both paired-end sequences and single-end sequences were given.");
 		}
 	}
 	if ($inputtype eq 'paired-end') {
