@@ -594,17 +594,15 @@ sub removeContaminants {
 	if ($maxpjump > 0) {
 		foreach my $samplename (keys(%sample2blank)) {
 			foreach my $otuname (keys(%{$table{$samplename}})) {
-				if (!defined($ignoreotulist{$otuname})) {
-					my $sum = 0;
+				if (!defined($ignoreotulist{$otuname}) && $table{$samplename}{$otuname} > 0) {
+					my $sum = $table{$samplename}{$otuname};
 					foreach my $blanksample (keys(%{$sample2blank{$samplename}})) {
 						if ($table{$blanksample}{$otuname} > 0) {
 							$sum += $table{$blanksample}{$otuname};
 						}
 					}
-					if ($table{$samplename}{$otuname} > 0 && $sum) {
-						if ($table{$samplename}{$otuname} <= (($sum + $table{$samplename}{$otuname}) * $maxpjump)) {
-							$newtable{$samplename}{$otuname} = 0;
-						}
+					if ($sum > $table{$samplename}{$otuname} && $table{$samplename}{$otuname} <= ($sum * $maxpjump)) {
+						$newtable{$samplename}{$otuname} = 0;
 					}
 				}
 			}
