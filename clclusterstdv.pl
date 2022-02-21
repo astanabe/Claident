@@ -8,6 +8,7 @@ my $devnull = File::Spec->devnull();
 
 # options
 my $numthreads = 1;
+my $hthreads;
 my $vsearchoption = ' --fasta_width 0 --maxseqlength 50000 --minseqlength 32 --notrunclabels --qmask none --dbmask none --fulldp --maxaccepts 0 --maxrejects 0 --uc_allhits --usearch_global';
 my $paddinglen = 0;
 my $minovllen = 0;
@@ -211,6 +212,10 @@ sub checkVariables {
 	}
 	if ($vsearchoption !~ /-+strand (plus|both)/i) {
 		$vsearchoption = ' --strand plus' . $vsearchoption;
+	}
+	$hthreads = int($numthreads / 2);
+	if ($hthreads < 1) {
+		$hthreads = 1;
 	}
 	# search vsearch
 	{
@@ -565,17 +570,17 @@ sub writeFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "| pigz -c > $filename 2> $devnull")) {
+		unless (open($filehandle, "| pigz -p $hthreads -c > $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "| lbzip2 -c > $filename 2> $devnull")) {
+		unless (open($filehandle, "| lbzip2 -n $hthreads -c > $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "| xz -c > $filename 2> $devnull")) {
+		unless (open($filehandle, "| xz -T $hthreads -c > $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
@@ -591,17 +596,17 @@ sub readFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "pigz -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pigz -p $hthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "lbzip2 -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "lbzip2 -n $hthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "xz -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "xz -T $hthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}

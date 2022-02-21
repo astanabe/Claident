@@ -49,6 +49,7 @@ my %tag;
 my $taglength;
 my %reversetag;
 my $reversetaglength;
+my $qthreads;
 
 # file handles
 my $filehandleinput1;
@@ -362,6 +363,10 @@ sub checkVariables {
 		&errorMessage(__LINE__, "\"addUMI\" is enabled but \"elimprimer\" is disabled. This combination is invalid.");
 	}
 	$minqualtag += 33;
+	$qthreads = int($numthreads / 4);
+	if ($qthreads < 1) {
+		$qthreads = 1;
+	}
 }
 
 sub readPrimers {
@@ -1460,7 +1465,7 @@ sub concatenateFASTQ {
 			if (-d $fastqfolder) {
 				if (my $pid = fork()) {
 					$child ++;
-					if ($child == $numthreads) {
+					if ($child == 4) {
 						if (wait == -1) {
 							$child = 0;
 						} else {
@@ -1785,17 +1790,17 @@ sub readFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "pigz -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pigz -p 8 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "lbzip2 -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "lbzip2 -n 8 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "xz -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "xz -T 8 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
@@ -1811,17 +1816,17 @@ sub writeFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "| gzip -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| pigz -p $qthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "| bzip2 -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| lbzip2 -p $qthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "| xz -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| xz -T $qthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}

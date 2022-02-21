@@ -238,17 +238,17 @@ sub deleteChimericSequences {
 		}
 		if ($outputfasta ne $outputfile) {
 			if ($outputfile =~ /\.gz$/) {
-				if (system("pigz $outputfasta")) {
+				if (system("pigz -p $numthreads $outputfasta")) {
 					&errorMessage(__LINE__, "Cannot run pigz.");
 				}
 			}
 			elsif ($outputfile =~ /\.bz2$/) {
-				if (system("lbzip2 $outputfasta")) {
+				if (system("lbzip2 -n $numthreads $outputfasta")) {
 					&errorMessage(__LINE__, "Cannot run lbzip2.");
 				}
 			}
 			elsif ($outputfile =~ /\.xz$/) {
-				if (system("xz $outputfasta")) {
+				if (system("xz -T $numthreads $outputfasta")) {
 					&errorMessage(__LINE__, "Cannot run xz.");
 				}
 			}

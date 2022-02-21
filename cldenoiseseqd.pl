@@ -13,6 +13,7 @@ my @samplenames;
 my $pooling = 0;
 my $seed = time^$$;
 my $numthreads = 1;
+my $qthreads;
 my $tableformat = 'matrix';
 my $nodel;
 
@@ -198,6 +199,10 @@ sub checkVariables {
 	if (!mkdir($outputfolder)) {
 		&errorMessage(__LINE__, "Cannot make output folder.");
 	}
+	$qthreads = int($numthreads / 4);
+	if ($qthreads < 1) {
+		$qthreads = 1;
+	}
 	# search R
 	{
 		my $pathto;
@@ -254,7 +259,7 @@ sub extractInParallel {
 		for (my $i = 0; $i < scalar(@inputfiles); $i ++) {
 			if (my $pid = fork()) {
 				$child ++;
-				if ($child == $numthreads) {
+				if ($child == 4) {
 					if (wait == -1) {
 						$child = 0;
 					} else {
@@ -510,17 +515,17 @@ sub readFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "pigz -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pigz -p $numthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "lbzip2 -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "lbzip2 -n $numthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "xz -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "xz -T $numthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
@@ -536,17 +541,17 @@ sub writeFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "| pigz -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| pigz -p $numthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "| lbzip2 -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| lbzip2 -n $numthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "| xz -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| xz -T $numthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
@@ -562,17 +567,17 @@ sub extractcopyFile {
 	my $filename = shift(@_);
 	my $extractedfile = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		if (system("gzip -dc $filename > $extractedfile")) {
-			&errorMessage(__LINE__, "Cannot run \"gzip -dc $filename > $extractedfile\".");
+		if (system("pigz -p $qthreads -dc $filename > $extractedfile")) {
+			&errorMessage(__LINE__, "Cannot run \"pigz -dc $filename > $extractedfile\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		if (system("bzip2 -dc $filename > $extractedfile")) {
-			&errorMessage(__LINE__, "Cannot run \"bzip2 -dc $filename > $extractedfile\".");
+		if (system("lbzip2 -n $qthreads -dc $filename > $extractedfile")) {
+			&errorMessage(__LINE__, "Cannot run \"lbzip2 -dc $filename > $extractedfile\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		if (system("xz -dc $filename > $extractedfile")) {
+		if (system("xz -T $qthreads -dc $filename > $extractedfile")) {
 			&errorMessage(__LINE__, "Cannot run \"xz -dc $filename > $extractedfile\".");
 		}
 	}

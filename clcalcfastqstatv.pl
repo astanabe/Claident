@@ -203,6 +203,7 @@ sub filterSequences {
 		while (<$filehandleinput1>) {
 			print($pipehandleoutput1 $_);
 		}
+		close($filehandleinput1);
 	}
 	close($pipehandleoutput1);
 	&compressFileByName($output);
@@ -217,8 +218,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("pigz $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"pigz $temp\".");
+		if (system("pigz -p 8 $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"pigz -p 8 $temp\".");
 		}
 	}
 	elsif ($outputfile =~ /\.bz2$/) {
@@ -227,8 +228,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("lbzip2 $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"lbzip2 $temp\".");
+		if (system("lbzip2 -n 8 $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"lbzip2 -n 8 $temp\".");
 		}
 	}
 	elsif ($outputfile =~ /\.xz$/) {
@@ -237,8 +238,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("xz $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"xz $temp\".");
+		if (system("xz -T 8 $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"xz -T 8 $temp\".");
 		}
 	}
 }
@@ -247,17 +248,17 @@ sub readFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "pigz -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pigz -p 8 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "lbzip2 -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "lbzip2 -n 8 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "xz -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "xz -T 8 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}

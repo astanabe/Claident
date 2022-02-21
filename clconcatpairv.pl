@@ -431,36 +431,21 @@ sub concatenateSequences {
 }
 
 sub compressInParallel {
-	{
-		my $child = 0;
-		$| = 1;
-		$? = 0;
-		foreach my $fastq (@_) {
-			if (my $pid = fork()) {
-				$child ++;
-				if ($child == $numthreads) {
-					if (wait == -1) {
-						$child = 0;
-					} else {
-						$child --;
-					}
-				}
-				if ($?) {
-					&errorMessage(__LINE__);
-				}
-				next;
-			}
-			else {
-				print(STDERR "Compressing $fastq...\n");
-				&compressFileBySetting($fastq);
-				exit;
+	foreach my $fastq (@_) {
+		if ($compress eq 'gz') {
+			if (system("pigz -p $numthreads $fastq")) {
+				&errorMessage(__LINE__, "Cannot run \"pigz -p $numthreads $fastq\".");
 			}
 		}
-	}
-	# join
-	while (wait != -1) {
-		if ($?) {
-			&errorMessage(__LINE__, 'Cannot split sequence file correctly.');
+		elsif ($compress eq 'bz2') {
+			if (system("lbzip2 -n $numthreads $fastq")) {
+				&errorMessage(__LINE__, "Cannot run \"lbzip2 -n $numthreads $fastq\".");
+			}
+		}
+		elsif ($compress eq 'xz') {
+			if (system("xz -T $numthreads $fastq")) {
+				&errorMessage(__LINE__, "Cannot run \"xz -T $numthreads $fastq\".");
+			}
 		}
 	}
 }
@@ -473,8 +458,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("pigz $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"pigz $temp\".");
+		if (system("pigz -p $numthreads $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"pigz -p $numthreads $temp\".");
 		}
 	}
 	elsif ($outputfile =~ /\.bz2$/) {
@@ -483,8 +468,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("lbzip2 $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"lbzip2 $temp\".");
+		if (system("lbzip2 -n $numthreads $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"lbzip2 -n $numthreads $temp\".");
 		}
 	}
 	elsif ($outputfile =~ /\.xz$/) {
@@ -493,27 +478,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("xz $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"xz $temp\".");
-		}
-	}
-}
-
-sub compressFileBySetting {
-	my $outputfile = shift(@_);
-	if ($compress eq 'gz') {
-		if (system("gzip $outputfile")) {
-			&errorMessage(__LINE__, "Cannot run \"gzip $outputfile\".");
-		}
-	}
-	elsif ($compress eq 'bz2') {
-		if (system("bzip2 $outputfile")) {
-			&errorMessage(__LINE__, "Cannot run \"bzip2 $outputfile\".");
-		}
-	}
-	elsif ($compress eq 'xz') {
-		if (system("xz $outputfile")) {
-			&errorMessage(__LINE__, "Cannot run \"xz $outputfile\".");
+		if (system("xz -T $numthreads $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"xz -T $numthreads $temp\".");
 		}
 	}
 }

@@ -58,6 +58,8 @@ my %otu2newotu;
 my %newotu2otu;
 my %otulist;
 my %notulist;
+my $qthreads;
+my $hthreads;
 
 # file handles
 my $filehandleinput1;
@@ -319,7 +321,7 @@ sub checkVariables {
 	if (-e $output && !$append) {
 		&errorMessage(__LINE__, "\"$output\" already exists.");
 	}
-	elsif ($folder && !mkdir($output)) {
+	elsif ($folder && !mkdir($output) && !$append) {
 		&errorMessage(__LINE__, 'Cannot make output folder.');
 	}
 	else {
@@ -404,6 +406,14 @@ sub checkVariables {
 	}
 	if ($minmeanqual) {
 		$minmeanqual += 33;
+	}
+	$qthreads = int($numthreads / 4);
+	if ($qthreads < 1) {
+		$qthreads = 1;
+	}
+	$hthreads = int($numthreads / 2);
+	if ($hthreads < 1) {
+		$hthreads = 1;
 	}
 }
 
@@ -905,7 +915,7 @@ sub concatenateFiles {
 		foreach my $inputfile (@inputfiles) {
 			if (my $pid = fork()) {
 				$child ++;
-				if ($child == $numthreads) {
+				if ($child == 4) {
 					if (wait == -1) {
 						$child = 0;
 					} else {
@@ -1203,17 +1213,17 @@ sub readFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "pigz -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pigz -p $hthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "lbzip2 -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "lbzip2 -n $hthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "xz -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "xz -T $hthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
@@ -1229,17 +1239,17 @@ sub writeFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "| pigz -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| pigz -p $qthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "| lbzip2 -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| lbzip2 -n $qthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "| xz -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| xz -T $qthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
