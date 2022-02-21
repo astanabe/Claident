@@ -375,24 +375,6 @@ sub writeFile {
 	unless (flock($filehandle, LOCK_EX)) {
 		&errorMessage(__LINE__, "Cannot lock \"$filename\".");
 	}
-	if ($filename =~ /\.gz$/i) {
-		unless ($filehandle = new IO::Compress::Gzip($filehandle)) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-		binmode($filehandle);
-	}
-	elsif ($filename =~ /\.bz2$/i) {
-		unless ($filehandle = new IO::Compress::Bzip2($filehandle)) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-		binmode($filehandle);
-	}
-	elsif ($filename =~ /\.xz$/i) {
-		unless ($filehandle = new IO::Compress::Xz($filehandle)) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-		binmode($filehandle);
-	}
 	return($filehandle);
 }
 
@@ -405,7 +387,7 @@ sub readFile {
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "bzip2 -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "lbzip2 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}

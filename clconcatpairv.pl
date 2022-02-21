@@ -473,8 +473,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("gzip $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"gzip $temp\".");
+		if (system("pigz $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"pigz $temp\".");
 		}
 	}
 	elsif ($outputfile =~ /\.bz2$/) {
@@ -483,8 +483,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("bzip2 $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"bzip2 $temp\".");
+		if (system("lbzip2 $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"lbzip2 $temp\".");
 		}
 	}
 	elsif ($outputfile =~ /\.xz$/) {
@@ -516,58 +516,6 @@ sub compressFileBySetting {
 			&errorMessage(__LINE__, "Cannot run \"xz $outputfile\".");
 		}
 	}
-}
-
-sub readFile {
-	my $filehandle;
-	my $filename = shift(@_);
-	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "gzip -dc $filename 2> $devnull |")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "bzip2 -dc $filename 2> $devnull |")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "xz -dc $filename 2> $devnull |")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	else {
-		unless (open($filehandle, "< $filename")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	return($filehandle);
-}
-
-sub writeFile {
-	my $filehandle;
-	my $filename = shift(@_);
-	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "| gzip -c >> $filename 2> $devnull")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "| bzip2 -c >> $filename 2> $devnull")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	elsif ($filename =~ /\.xz$/i) {
-		unless (open($filehandle, "| xz -c >> $filename 2> $devnull")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	else {
-		unless (open($filehandle, ">> $filename")) {
-			&errorMessage(__LINE__, "Cannot open \"$filename\".");
-		}
-	}
-	return($filehandle);
 }
 
 sub errorMessage {

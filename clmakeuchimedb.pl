@@ -238,13 +238,13 @@ sub deleteChimericSequences {
 		}
 		if ($outputfasta ne $outputfile) {
 			if ($outputfile =~ /\.gz$/) {
-				if (system("gzip $outputfasta")) {
-					&errorMessage(__LINE__, "Cannot run gzip.");
+				if (system("pigz $outputfasta")) {
+					&errorMessage(__LINE__, "Cannot run pigz.");
 				}
 			}
 			elsif ($outputfile =~ /\.bz2$/) {
-				if (system("bzip2 $outputfasta")) {
-					&errorMessage(__LINE__, "Cannot run bzip2.");
+				if (system("lbzip2 $outputfasta")) {
+					&errorMessage(__LINE__, "Cannot run lbzip2.");
 				}
 			}
 			elsif ($outputfile =~ /\.xz$/) {

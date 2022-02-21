@@ -565,12 +565,12 @@ sub writeFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "| gzip -c > $filename 2> $devnull")) {
+		unless (open($filehandle, "| pigz -c > $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "| bzip2 -c > $filename 2> $devnull")) {
+		unless (open($filehandle, "| lbzip2 -c > $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
@@ -591,12 +591,12 @@ sub readFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "gzip -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pigz -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "bzip2 -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "lbzip2 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}

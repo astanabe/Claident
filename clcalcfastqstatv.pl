@@ -217,8 +217,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("gzip $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"gzip $temp\".");
+		if (system("pigz $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"pigz $temp\".");
 		}
 	}
 	elsif ($outputfile =~ /\.bz2$/) {
@@ -227,8 +227,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("bzip2 $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"bzip2 $temp\".");
+		if (system("lbzip2 $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"lbzip2 $temp\".");
 		}
 	}
 	elsif ($outputfile =~ /\.xz$/) {
@@ -247,12 +247,12 @@ sub readFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	if ($filename =~ /\.gz$/i) {
-		unless (open($filehandle, "gzip -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pigz -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "bzip2 -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "lbzip2 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
