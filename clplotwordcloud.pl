@@ -465,7 +465,7 @@ sub plotWordCloud {
 					$fontsize = 2;
 				}
 				print($filehandleoutput1 "library(wordcloud2)\nlibrary(htmlwidgets)\n");
-				print($filehandleoutput1 "saveWidget(wordcloud2(read.table(\"$samplename.tsv\", header=T), color=$color, backgroundColor=$bgcolor, ellipticity=$ellipticity, minSize=$minSize, size=$fontsize, $rotation, widgetsize=c(5000, 5000)), \"$samplename.html\", selfcontained=F, background=$bgcolor)\n");
+				print($filehandleoutput1 "saveWidget(wordcloud2(read.table(\"$samplename.tsv\", header=T, check.names=F), color=$color, backgroundColor=$bgcolor, ellipticity=$ellipticity, minSize=$minSize, size=$fontsize, $rotation, widgetsize=c(5000, 5000)), \"$samplename.html\", selfcontained=F, background=$bgcolor)\n");
 				close($filehandleoutput1);
 				print(STDERR "Plotting word cloud of \"$samplename\"...\n");
 				if (system("$Rscript --vanilla $samplename.R 2> " . $devnull . ' 1> ' . $devnull)) {

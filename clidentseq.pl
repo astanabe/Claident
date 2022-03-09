@@ -453,7 +453,7 @@ sub searchNeighborhoods {
 	$filehandleinput1 = &readFile($inputfile);
 	{
 		if ($identdb) {
-			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
+			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 				&errorMessage(__LINE__, "Cannot connect database.");
 			}
 		}
@@ -1021,7 +1021,7 @@ sub outputFile {
 	my $listfile = shift(@_);
 	my $outputfile = shift(@_);
 	if ($identdb) {
-		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
+		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 			&errorMessage(__LINE__, "Cannot connect database.");
 		}
 	}

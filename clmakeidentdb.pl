@@ -105,7 +105,7 @@ sub makeIdentDB {
 	if ($append) {
 		my $nadd = 0;
 		if (-e $outputfile) {
-			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
+			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 				&errorMessage(__LINE__, "Cannot connect database.");
 			}
 		}
@@ -173,7 +173,7 @@ sub makeIdentDB {
 			&errorMessage(__LINE__, "Output file already exists.");
 		}
 		else {
-			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
+			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 				&errorMessage(__LINE__, "Cannot make database.");
 			}
 			unless ($dbhandle->do("CREATE TABLE base62_acc (base62 TEXT NOT NULL, acc TEXT NOT NULL);")) {

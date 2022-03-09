@@ -165,9 +165,9 @@ sub processFASTQ {
 			my $seqname;
 			my $nucseq;
 			my $qualseq;
-			my %child;
 			my %pid;
 			my $child = 0;
+			my $nchild = 1;
 			$| = 1;
 			$? = 0;
 			# Processing FASTQ in parallel
@@ -188,25 +188,20 @@ sub processFASTQ {
 					s/\s//g;
 					$qualseq = $_;
 					if (my $pid = fork()) {
-						for (my $i = 0; $i < $numthreads * 2; $i ++) {
-							if (!exists($child{$i})) {
-								$child{$i} = 1;
-								$pid{$pid} = $i;
-								$child = $i;
-								last;
-							}
-						}
-						my @child = keys(%child);
-						if (scalar(@child) == $numthreads * 2) {
+						$pid{$pid} = $child;
+						if ($nchild == $numthreads * 2) {
 							my $endpid = wait();
 							if ($endpid == -1) {
-								undef(%child);
 								undef(%pid);
 							}
 							else {
-								delete($child{$pid{$endpid}});
+								$child = $pid{$endpid};
 								delete($pid{$endpid});
 							}
+						}
+						elsif ($nchild < $numthreads * 2) {
+							$child = $nchild;
+							$nchild ++;
 						}
 						if ($?) {
 							&errorMessage(__LINE__);

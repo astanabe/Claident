@@ -129,7 +129,7 @@ if ((%includetaxa || %excludetaxa || %includetaxid || %excludetaxid) && $acclist
 
 # make new database and connect
 my $dbhandle;
-unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
+unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 	&errorMessage(__LINE__, "Cannot make database.");
 }
 
@@ -140,12 +140,12 @@ if ($acclist) {
 		&errorMessage(__LINE__, "\"$outputfile.accsdb\" already exists.");
 	}
 	if ($workspace eq 'MEMORY') {
-		unless ($accsdbhandle = DBI->connect("dbi:SQLite:dbname=:memory:", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
+		unless ($accsdbhandle = DBI->connect("dbi:SQLite:dbname=:memory:", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 			&errorMessage(__LINE__, "Cannot make database.");
 		}
 	}
 	else {
-		unless ($accsdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.accsdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 0, AutoInactiveDestroy => 1})) {
+		unless ($accsdbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile.accsdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 			&errorMessage(__LINE__, "Cannot make database.");
 		}
 	}
