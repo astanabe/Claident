@@ -716,7 +716,7 @@ sub removeContaminants {
 			&performModifiedThompsonTauTest();
 		}
 		elsif ($test eq 'binomial') {
-			# estimate contamination probability from data if contamination probability is not given
+			# estimate maximum contamination probability from data if contamination probability is not given
 			if (!$pjump1) {
 				$pjump1 = &estimateContaminationProbability();
 			}
@@ -740,7 +740,21 @@ sub removeContaminants {
 		}
 	}
 	# search result files and renew data table
-	
+	my @samplenames = keys(%sample2blank);
+	foreach my $samplename (@samplenames) {
+		while (my $tempfile = glob("$outputfolder/$samplename.*.temp")) {
+			$filehandleinput1 = &readFile($tempfile);
+			while (<$filehandleinput1>) {
+				if (/^$samplename\t(\S+)\t(\d+)/) {
+					$table{$samplename}{$1} = $2;
+				}
+			}
+			close($filehandleinput1);
+			unless ($nodel) {
+				unlink($tempfile);
+			}
+		}
+	}
 	print(STDERR "done.\n\n");
 }
 
@@ -748,6 +762,7 @@ sub estimateContaminationProbability {
 	my @samplenames = keys(%sample2blank);
 	my @otunames = keys(%otunames);
 	my @blanksamples = keys(%blank2sample);
+	# make temporary community table file
 	$filehandleoutput1 = &writeFile("$outputfolder/temptable.tsv");
 	print($filehandleoutput1 "samplename\t". join("\t", @otunames) . "\n");
 	foreach my $samplename (@samplenames, @blanksamples) {
@@ -763,84 +778,14 @@ sub estimateContaminationProbability {
 		print($filehandleoutput1 "\n");
 	}
 	close($filehandleoutput1);
-	$filehandleoutput1 = &writeFile("$outputfolder/estimatecontamprob.R");
-	print($filehandleoutput1 "blanksamples <- c(\n\"");
-	print($filehandleoutput1 join("\",\n\"", @blanksamples));
-	print($filehandleoutput1 "\"\n)\n");
-	print($filehandleoutput1 "blank2samplelist <- c(\n\"");
-	for (my $i = 0; $i < scalar(@blanksamples); $i ++) {
-		print($filehandleoutput1 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}})));
-		if ($i + 1 == scalar(@blanksamples)) {
-			print($filehandleoutput1 "\"\n");
-		}
-		else {
-			print($filehandleoutput1 "\",\n\"");
-		}
-	}
-	print($filehandleoutput1 ")\n");
-	print($filehandleoutput1 <<"_END");
-table <- read.table(\"$outputfolder/temptable.tsv\", header=T, row.names=1, check.names=F)
-nothers <- length(rownames(table)) - 1
-tempsum <- sum(table[blanksamples,], na.rm=T)
-calcResidualSum <- function (x) {
-	pjump <- x
-	if (pjump < 0 || pjump > 0.5) {
-		(abs(pjump) + 1) * 1000000
-	}
-	else {
-		temppjump <- (pjump / (1 - pjump))
-		residualsum <- tempsum - sum((table[blank2samplelist,] * temppjump) / nothers, na.rm=T)
-		abs(residualsum)
-	}
-}
-fit <- optimize(calcResidualSum, interval=c(0, 0.5), maximum=F, tol=1e-9)
-print(fit\$minimum)
-_END
-	close($filehandleoutput1);
-	my $temppjump;
-	unless (open($pipehandleinput1, "$Rscript --vanilla $outputfolder/estimatecontamprob.R 2> $devnull |")) {
-		&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outputfolder/estimatecontamprob.R\".");
-	}
-	while (<$pipehandleinput1>) {
-		if (/ (\d*\.\d+(?:e\-\d+)?)/i) {
-			$temppjump = eval($1);
-		}
-	}
-	close($pipehandleinput1);
-	unless ($nodel) {
-		unlink("$outputfolder/temptable.tsv");
-		unlink("$outputfolder/estimatecontamprob.R");
-	}
-	return($temppjump);
-}
-
-sub estimateTagJumpProbability {
-	my %pjump;
-	my @samplenames = keys(%sample2blank);
-	my @otunames = keys(%otunames);
-	my @blanksamples = keys(%blank2sample);
-	$filehandleoutput1 = &writeFile("$outputfolder/temptable.tsv");
-	print($filehandleoutput1 "samplename\t". join("\t", @otunames) . "\n");
-	foreach my $samplename (@samplenames, @blanksamples) {
-		print($filehandleoutput1 "$samplename");
-		foreach my $otuname (@otunames) {
-			if ($table{$samplename}{$otuname} > 0) {
-				print($filehandleoutput1 "\t" . $table{$samplename}{$otuname});
-			}
-			else {
-				print($filehandleoutput1 "\t0");
-			}
-		}
-		print($filehandleoutput1 "\n");
-	}
-	close($filehandleoutput1);
+	# perform estimation in parallel
 	{
 		my %pid;
 		my $child = 0;
 		my $nchild = 1;
 		$| = 1;
 		$? = 0;
-		foreach my $samplename (@samplenames) {
+		foreach my $blanksample (@blanksamples) {
 			if (my $pid = fork()) {
 				$pid{$pid} = $child;
 				if ($nchild == $numthreads) {
@@ -863,18 +808,35 @@ sub estimateTagJumpProbability {
 				next;
 			}
 			else {
-				my $rjump;
-				my $fjump;
-				my $dummy;
-				my @rblank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{'reversejump'}}));
-				my @fblank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{'forwardjump'}}));
-				# forwardjump
-				if (!-e "$outputfolder/$rblank[0].fjump.txt") {
-					($dummy, $fjump) = &estimate(@rblank);
+				$filehandleoutput1 = &writeFile("$outputfolder/$blanksample.pjump.R");
+				print($filehandleoutput1 "blanksample <- \"$blanksample\"\n");
+				print($filehandleoutput1 "blank2sample <- c(\n\"");
+				print($filehandleoutput1 join("\",\n\"", keys(%{$blank2sample{$blanksample}})));
+				print($filehandleoutput1 "\"\n)\n");
+				print($filehandleoutput1 <<"_END");
+table <- read.table(\"$outputfolder/temptable.tsv\", header=T, row.names=1, check.names=F)
+nothers <- length(rownames(table)) - 1
+tempsum <- sum(table[blanksample,], na.rm=T)
+calcResidualSum <- function (x) {
+	pjump <- x
+	if (pjump < 0 || pjump > 0.5) {
+		(abs(pjump) + 1) * 1000000
+	}
+	else {
+		temppjump <- (pjump / (1 - pjump))
+		residualsum <- tempsum - sum((table[blank2sample,] * temppjump) / nothers, na.rm=T)
+		abs(residualsum)
+	}
+}
+fit <- optimize(calcResidualSum, interval=c(0, 0.5), maximum=F, tol=1e-9)
+print(fit\$minimum)
+_END
+				close($filehandleoutput1);
+				if (system("$Rscript --vanilla $outputfolder/$blanksample.pjump.R 1> $outputfolder/$blanksample.pjump.txt 2> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outputfolder/$blanksample.pjump.R 1> $outputfolder/$blanksample.pjump.txt\".");
 				}
-				# reversejump
-				if (!-e "$outputfolder/$fblank[0].rjump.txt") {
-					($rjump, $dummy) = &estimate(@fblank);
+				unless ($nodel) {
+					unlink("$outputfolder/$blanksample.pjump.R");
 				}
 				exit;
 			}
@@ -886,7 +848,219 @@ sub estimateTagJumpProbability {
 			}
 		}
 	}
+	my $maxpjump;
+	foreach my $blanksample (@blanksamples) {
+		unless (open($filehandleinput1, "< $outputfolder/$blanksample.pjump.txt")) {
+			&errorMessage(__LINE__, "Cannot read \"$outputfolder/$blanksample.pjump.txt\".");
+		}
+		my $temppjump;
+		while (<$filehandleinput1>) {
+			if (/ (\d*\.\d+(?:e\-\d+)?)/i) {
+				$temppjump = eval($1);
+				last;
+			}
+		}
+		if ($temppjump && $temppjump > $maxpjump) {
+			$maxpjump = $temppjump;
+		}
+		elsif (!defined($temppjump)) {
+			&errorMessage(__LINE__, "Cannot get tag jump probability for $blanksample.");
+		}
+		close($filehandleinput1);
+	}
+	unless ($nodel) {
+		unlink("$outputfolder/temptable.tsv");
+	}
+	return($maxpjump);
+}
+
+sub estimateTagJumpProbability {
+	my %pjump;
+	my @samplenames = keys(%sample2blank);
+	my @otunames = keys(%otunames);
+	my @blanksamples = keys(%blank2sample);
+	# make temporary community table file
+	$filehandleoutput1 = &writeFile("$outputfolder/temptable.tsv");
+	print($filehandleoutput1 "samplename\t". join("\t", @otunames) . "\n");
+	foreach my $samplename (@samplenames, @blanksamples) {
+		print($filehandleoutput1 "$samplename");
+		foreach my $otuname (@otunames) {
+			if ($table{$samplename}{$otuname} > 0) {
+				print($filehandleoutput1 "\t" . $table{$samplename}{$otuname});
+			}
+			else {
+				print($filehandleoutput1 "\t0");
+			}
+		}
+		print($filehandleoutput1 "\n");
+	}
+	close($filehandleoutput1);
+	# perform estimation in parallel
+	{
+		my %pid;
+		my $child = 0;
+		my $nchild = 1;
+		$| = 1;
+		$? = 0;
+		foreach my $samplename (@samplenames) {
+			foreach my $type ('reversejump', 'forwardjump') {
+				if (my $pid = fork()) {
+					$pid{$pid} = $child;
+					if ($nchild == $numthreads) {
+						my $endpid = wait();
+						if ($endpid == -1) {
+							undef(%pid);
+						}
+						else {
+							$child = $pid{$endpid};
+							delete($pid{$endpid});
+						}
+					}
+					elsif ($nchild < $numthreads) {
+						$child = $nchild;
+						$nchild ++;
+					}
+					if ($?) {
+						die(__LINE__);
+					}
+					next;
+				}
+				else {
+					my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
+					if (!-e "$outputfolder/$blank[0].p$type.txt") {
+						my $pjump;
+						my $dummy;
+						# estimate tag jump probability
+						if ($type eq 'reversejump') {
+							($dummy, $pjump) = &estimatepjump($type, @blank);
+						}
+						elsif ($type eq 'forwardjump') {
+							($pjump, $dummy) = &estimatepjump($type, @blank);
+						}
+						# save to file
+						&saveToTempFile("$outputfolder/$blank[0].p$type.txt", "$pjump\n");
+					}
+					exit;
+				}
+			}
+		}
+		# join
+		while (wait != -1) {
+			if ($?) {
+				die(__LINE__);
+			}
+		}
+	}
+	# retrieve estimation results and store to hash
+	foreach my $samplename (@samplenames) {
+		foreach my $type ('reversejump', 'forwardjump') {
+			my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
+			$filehandleinput1 = &readFile("$outputfolder/$blank[0].p$type.txt");
+			while (<$filehandleinput1>) {
+				if (/ (\d*\.\d+(?:e\-\d+)?)/i) {
+					$pjump{$samplename}{$type} = eval($1);
+				}
+			}
+			close($filehandleinput1);
+		}
+	}
+	# delete temporary files
+	unless ($nodel) {
+		foreach my $samplename (@samplenames) {
+			foreach my $type ('reversejump', 'forwardjump') {
+				my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
+				unlink("$outputfolder/$blank[0].p$type.txt");
+			}
+		}
+		unlink("$outputfolder/temptable.tsv");
+	}
 	return(\%pjump);
+}
+
+sub estimatepjump {
+	my $preversejump;
+	my $pforwardjump;
+	my $type = shift(@_);
+	my @blanksamples = @_;
+	# make R script
+	$filehandleoutput1 = &writeFile("$outputfolder/$blanksamples[0].$type.R");
+	print($filehandleoutput1 "nothertagR <- " . ($nreversetags - 1) . "\n");
+	print($filehandleoutput1 "nothertagF <- " . ($ntags - 1) . "\n");
+	print($filehandleoutput1 "blanksamples <- c(\n\"" . join("\",\n\"", @blanksamples) . "\"\n)\n");
+	print($filehandleoutput1 "blank2sampleR <- c(\n\"");
+	for (my $i = 0; $i < scalar(@blanksamples); $i ++) {
+		print($filehandleoutput1 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}{'reversejump'}})));
+		if ($i + 1 == scalar(@blanksamples)) {
+			print($filehandleoutput1 "\"\n)\n");
+		}
+		else {
+			print($filehandleoutput1 "\",\n\"");
+		}
+	}
+	print($filehandleoutput1 "blank2sampleF <- c(\n\"");
+	for (my $i = 0; $i < scalar(@blanksamples); $i ++) {
+		print($filehandleoutput1 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}{'forwardjump'}})));
+		if ($i + 1 == scalar(@blanksamples)) {
+			print($filehandleoutput1 "\"\n)\n");
+		}
+		else {
+			print($filehandleoutput1 "\",\n\"");
+		}
+	}
+	print($filehandleoutput1 <<"_END");
+table <- read.table(\"$outputfolder/temptable.tsv\", header=T, row.names=1, check.names=F)
+tempsum <- sum(table[blanksamples,], na.rm=T)
+calcResidualSum <- function (x) {
+	preversejump <- x[1]
+	pforwardjump <- x[2]
+	if (preversejump < 0 || preversejump > 0.5) {
+		(abs(preversejump) + 1) * 1000000
+	}
+	else if (pforwardjump < 0 || pforwardjump > 0.5) {
+		(abs(pforwardjump) + 1) * 1000000
+	}
+	else {
+		temppreversejump <- (preversejump / (1 - preversejump - pforwardjump))
+		temppforwardjump <- (pforwardjump / (1 - preversejump - pforwardjump))
+		residualsum <- tempsum - sum((table[blank2sampleR,] * temppreversejump) / nothertagR, na.rm=T) - sum((table[blank2sampleF,] * temppforwardjump) / nothertagF, na.rm=T)
+		abs(residualsum)
+	}
+}
+fit <- optim(c(0.001, 0.001), calcResidualSum, method="Nelder-Mead", control=list(trace=1, reltol=1e-9, maxit=10000))
+print(fit\$convergence)
+print(fit\$par[1])
+print(fit\$par[2])
+_END
+	close($filehandleoutput1);
+	# run R
+	unless (open($pipehandleinput1, "$Rscript --vanilla $outputfolder/$blanksamples[0].$type.R 2> $devnull |")) {
+		&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outputfolder/$blanksamples[0].$type.R\".");
+	}
+	my $lineno = 1;
+	my $convergence;
+	while (<$pipehandleinput1>) {
+		if (/ (\d*\.\d+(?:e\-\d+)?)/i) {
+			if ($lineno == 1) {
+				$preversejump = eval($1);
+			}
+			elsif ($lineno == 2) {
+				$pforwardjump = eval($1);
+			}
+			elsif ($lineno == 3) {
+				$convergence = eval($1);
+				last;
+			}
+		}
+		$lineno ++;
+	}
+	close($pipehandleinput1);
+	if ($convergence != 0) {
+		&errorMessage(__LINE__, "Cannot optimize $type probability for $blanksamples[0].");
+	}
+	unless ($nodel) {
+		unlink("$outputfolder/$blanksamples[0].$type.R");
+	}
+	return($preversejump, $pforwardjump);
 }
 
 sub performModifiedThompsonTauTest {
@@ -1180,13 +1354,13 @@ otusiglevel <- $otusiglevel{$otuname}
 otuobserved <- $table{$samplename}{$otuname}
 otursum <- $rsum
 otufsum <- $fsum
-rjump <- $pjump{$samplename}{'reversejump'}
-fjump <- $pjump{$samplename}{'forwardjump'}
+preversejump <- $pjump{$samplename}{'reversejump'}
+pforwardjump <- $pjump{$samplename}{'forwardjump'}
 pval <- 1
 for(i in 0:otuobserved) {
 	for(j in 0:i) {
 		k <- i - j
-		pval <- pval - (dbinom(j, otursum, rjump, log=F) * dbinom(k, otufsum, fjump, log=F))
+		pval <- pval - (dbinom(j, otursum, preversejump, log=F) * dbinom(k, otufsum, pforwardjump, log=F))
 		if(pval <= otusiglevel) {
 			print(pval <= otusiglevel)
 			quit(\"no\")
