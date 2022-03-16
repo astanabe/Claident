@@ -312,13 +312,12 @@ sub checkVariables {
 	if (scalar(@inputfiles) != scalar(@otufiles)) {
 		&errorMessage(__LINE__, "The number of input files is different from the number of otu files.");
 	}
-	if ($pjump1 > 0.5 || $pjump2 > 0.5) {
+	if ($pjump1 > 0.1 || $pjump2 > 0.1) {
 		&errorMessage(__LINE__, "Specified tag jump probability is invalid.");
 	}
 	if ($test eq 'thompson') {
 		if (!defined($model)) {
 			$model = 'single';
-			print(STDERR "You selected modified Thompson Tau test.\nThe single parameter model will be applied.\n");
 		}
 		elsif ($model eq 'separate') {
 			&errorMessage(__LINE__, "Modified Thompson Tau test does not support separate model.");
@@ -331,7 +330,6 @@ sub checkVariables {
 		if (%blanklist || $blanklist) {
 			if (!defined($model)) {
 				$model = 'single';
-				print(STDERR "You selected binomial test for decontamination.\nThe single parameter model will be applied.\n");
 			}
 			elsif ($model eq 'separate') {
 				&errorMessage(__LINE__, "Decontamination using blank samples does not support separate model.");
@@ -340,15 +338,12 @@ sub checkVariables {
 		else {
 			if (!defined($model) && !$pjump1 && !$pjump2) {
 				$model = 'separate';
-				print(STDERR "You selected binomial test for removal of tag jump.\nThe separate model will be applied.\n");
 			}
 			elsif (!defined($model) && $pjump1 && $pjump2 && $pjump1 != $pjump2) {
 				$model = 'separate';
-				print(STDERR "You selected binomial test for removal of tag jump.\nThe fixed value separate model will be applied.\n");
 			}
 			elsif (!defined($model) && $pjump1 && $pjump2 && $pjump1 == $pjump2) {
 				$model = 'single';
-				print(STDERR "You selected binomial test for removal of tag jump.\nThe fixed value single parameter model will be applied.\n");
 			}
 			elsif ($model eq 'single' && !$pjump1 && !$pjump2) {
 				&errorMessage(__LINE__, "Removal of tag jump does not support single model probability estimation.");
@@ -361,21 +356,21 @@ sub checkVariables {
 	if (scalar(@inputfiles) > 1) {
 		&errorMessage(__LINE__, "Too many inputs were given.");
 	}
-	if (%blanklist && $blanklist) {
-		&errorMessage(__LINE__, "Both blank sample list and blank sample file were given.");
-	}
-	if (%ignoresamplelist && $ignoresamplelist) {
-		&errorMessage(__LINE__, "Both ignoring sample list and ignoring sample file were given.");
-	}
-	if (%ignoreotulist && $ignoreotulist) {
-		&errorMessage(__LINE__, "Both ignoring otu list and ignoring otu file were given.");
-	}
-	if (%ignoreotulist && $ignoreotuseq) {
-		&errorMessage(__LINE__, "Both ignoring otu list and ignoring otu sequence file were given.");
-	}
-	if ($ignoreotulist && $ignoreotuseq) {
-		&errorMessage(__LINE__, "Both ignoring otu file and ignoring otu sequence file were given.");
-	}
+#	if (%blanklist && $blanklist) {
+#		&errorMessage(__LINE__, "Both blank sample list and blank sample file were given.");
+#	}
+#	if (%ignoresamplelist && $ignoresamplelist) {
+#		&errorMessage(__LINE__, "Both ignoring sample list and ignoring sample file were given.");
+#	}
+#	if (%ignoreotulist && $ignoreotulist) {
+#		&errorMessage(__LINE__, "Both ignoring otu list and ignoring otu file were given.");
+#	}
+#	if (%ignoreotulist && $ignoreotuseq) {
+#		&errorMessage(__LINE__, "Both ignoring otu list and ignoring otu sequence file were given.");
+#	}
+#	if ($ignoreotulist && $ignoreotuseq) {
+#		&errorMessage(__LINE__, "Both ignoring otu file and ignoring otu sequence file were given.");
+#	}
 	if ($ignoreotulist && !-e $ignoreotulist) {
 		&errorMessage(__LINE__, "\"$ignoreotulist\" does not exist.");
 	}
@@ -408,7 +403,7 @@ sub checkVariables {
 		elsif ($test eq 'binomial') {
 			print(STDERR "based on binomial test");
 			if (!$pjump1) {
-				print(STDERR " with estimation of optimum contamination probability.\n");
+				print(STDERR " with estimation of optimal contamination probability.\n");
 			}
 			else {
 				print(STDERR ".\n");
@@ -423,7 +418,7 @@ sub checkVariables {
 		elsif ($test eq 'binomial') {
 			print(STDERR "based on binomial test");
 			if (!$pjump1) {
-				print(STDERR " with estimation of optimum tag jump probability.\n");
+				print(STDERR " with estimation of optimal tag jump probability.\n");
 			}
 			else {
 				print(STDERR " with fixed tag jump probability ($pjump1, $pjump2).\n");
@@ -686,7 +681,7 @@ sub readListFiles {
 			$blanksamples{$blanksample} = 1;
 		}
 	}
-	elsif ($blanklist) {
+	if ($blanklist) {
 		$filehandleinput1 = &readFile($blanklist);
 		my $samplename;
 		while (<$filehandleinput1>) {
@@ -726,7 +721,7 @@ sub readListFiles {
 			}
 		}
 	}
-	elsif ($ignoresamplelist) {
+	if ($ignoresamplelist) {
 		foreach my $ignoresample (&readList($ignoresamplelist)) {
 			delete($sample2blank{$ignoresample});
 			delete($sample2sample{$ignoresample});
@@ -849,7 +844,12 @@ sub removeContaminants {
 sub estimateContaminationProbability {
 	print(STDERR "Estimating contamination probability...\n");
 	my @samplenames = keys(%sample2blank);
-	my @otunames = keys(%otunames);
+	my @otunames;
+	foreach my $otuname (keys(%otunames)) {
+		if (!defined($ignoreotulist{$otuname})) {
+			push(@otunames, $otuname);
+		}
+	}
 	my @blanksamples = keys(%blank2sample);
 	# make temporary community table file
 	$filehandleoutput1 = &writeFile("$outputfolder/temptable.tsv");
@@ -913,7 +913,7 @@ calcResidualSum <- function (x) {
 	residualsum <- tempsum - sum((table[blank2sample,] * temppjump) / nothers, na.rm=T)
 	abs(residualsum)
 }
-fit <- optimize(calcResidualSum, interval=c(0, 0.5), maximum=F, tol=1e-9)
+fit <- optimize(calcResidualSum, interval=c(0, 0.1), maximum=F, tol=1e-9)
 print(fit\$minimum)
 _END
 				close($filehandleoutput1);
@@ -952,6 +952,9 @@ _END
 			&errorMessage(__LINE__, "Cannot get contamination probability for $blanksample.");
 		}
 		close($filehandleinput1);
+		unless ($nodel) {
+			unlink("$outputfolder/$blanksample.pjump.txt");
+		}
 	}
 	unless ($nodel) {
 		unlink("$outputfolder/temptable.tsv");
@@ -959,6 +962,8 @@ _END
 	if (!defined($maxpjump)) {
 		&errorMessage(__LINE__, "Cannot get maximum contamination probability.");
 	}
+	print(STDERR "The estimated maximum contamination probability is ");
+	printf(STDERR "%.10f.\n", $maxpjump);
 	$pjump1 = $maxpjump;
 	$pjump2 = $pjump2;
 }
@@ -966,7 +971,12 @@ _END
 sub estimateTagJumpProbability {
 	print(STDERR "Estimating tag jump probability...\n");
 	my @samplenames = keys(%sample2blank);
-	my @otunames = keys(%otunames);
+	my @otunames;
+	foreach my $otuname (keys(%otunames)) {
+		if (!defined($ignoreotulist{$otuname})) {
+			push(@otunames, $otuname);
+		}
+	}
 	my @blanksamples = keys(%blank2sample);
 	# make temporary community table file
 	$filehandleoutput1 = &writeFile("$outputfolder/temptable.tsv");
@@ -1117,10 +1127,10 @@ tempsum <- sum(table[blanksamples,], na.rm=T)
 calcResidualSum <- function (x) {
 	preversejump <- x[1]
 	pforwardjump <- x[2]
-	if (preversejump < 0 || preversejump > 0.5) {
+	if (preversejump < 0 || preversejump > 0.1) {
 		(abs(preversejump) + 1) * 1000000
 	}
-	else if (pforwardjump < 0 || pforwardjump > 0.5) {
+	else if (pforwardjump < 0 || pforwardjump > 0.1) {
 		(abs(pforwardjump) + 1) * 1000000
 	}
 	else {
@@ -1169,13 +1179,73 @@ _END
 sub performModifiedThompsonTauTest {
 	print(STDERR "Performing modified Thompson Tau test...\n");
 	my @samplenames = keys(%sample2blank);
-	my @otunames = keys(%otunames);
+	my @otunames;
+	foreach my $otuname (keys(%otunames)) {
+		if (!defined($ignoreotulist{$otuname})) {
+			push(@otunames, $otuname);
+		}
+	}
 	# calculate significance level
 	foreach my $otuname (@otunames) {
-		if (!defined($ignoreotulist{$otuname})) {
-			if ($adjust eq 'bonferroni') {
-				my $ntest = 0;
-				foreach my $samplename (@samplenames) {
+		if ($adjust eq 'bonferroni') {
+			my $ntest = 0;
+			foreach my $samplename (@samplenames) {
+				my @nseqblank;
+				my @blanksamples = keys(%{$sample2blank{$samplename}});
+				if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
+					@blanksamples = (keys(%{$sample2blank{$samplename}{'reversejump'}}), keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+				}
+				foreach my $blanksample (@blanksamples) {
+					if ($table{$blanksample}{$otuname} > 0) {
+						push(@nseqblank, $table{$blanksample}{$otuname});
+					}
+					else {
+						push(@nseqblank, 0);
+					}
+				}
+				if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
+					$ntest ++;
+				}
+			}
+			if ($ntest) {
+				$otusiglevel{$otuname} = $siglevel / $ntest;
+			}
+		}
+		else {
+			$otusiglevel{$otuname} = $siglevel;
+		}
+	}
+	{
+		my %pid;
+		my $child = 0;
+		my $nchild = 1;
+		$| = 1;
+		$? = 0;
+		foreach my $samplename (@samplenames) {
+			print(STDERR "\"$samplename\"...\n");
+			foreach my $otuname (@otunames) {
+				if (my $pid = fork()) {
+					$pid{$pid} = $child;
+					if ($nchild == $numthreads) {
+						my $endpid = wait();
+						if ($endpid == -1) {
+							undef(%pid);
+						}
+						else {
+							$child = $pid{$endpid};
+							delete($pid{$endpid});
+						}
+					}
+					elsif ($nchild < $numthreads) {
+						$child = $nchild;
+						$nchild ++;
+					}
+					if ($?) {
+						die(__LINE__);
+					}
+					next;
+				}
+				else {
 					my @nseqblank;
 					my @blanksamples = keys(%{$sample2blank{$samplename}});
 					if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
@@ -1190,70 +1260,11 @@ sub performModifiedThompsonTauTest {
 						}
 					}
 					if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
-						$ntest ++;
+						unless (&isOutlier($otusiglevel{$otuname}, $table{$samplename}{$otuname}, @nseqblank)) {
+							&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+						}
 					}
-				}
-				if ($ntest) {
-					$otusiglevel{$otuname} = $siglevel / $ntest;
-				}
-			}
-			else {
-				$otusiglevel{$otuname} = $siglevel;
-			}
-		}
-	}
-	{
-		my %pid;
-		my $child = 0;
-		my $nchild = 1;
-		$| = 1;
-		$? = 0;
-		foreach my $samplename (@samplenames) {
-			print(STDERR "\"$samplename\"...\n");
-			foreach my $otuname (@otunames) {
-				if (!defined($ignoreotulist{$otuname})) {
-					if (my $pid = fork()) {
-						$pid{$pid} = $child;
-						if ($nchild == $numthreads) {
-							my $endpid = wait();
-							if ($endpid == -1) {
-								undef(%pid);
-							}
-							else {
-								$child = $pid{$endpid};
-								delete($pid{$endpid});
-							}
-						}
-						elsif ($nchild < $numthreads) {
-							$child = $nchild;
-							$nchild ++;
-						}
-						if ($?) {
-							die(__LINE__);
-						}
-						next;
-					}
-					else {
-						my @nseqblank;
-						my @blanksamples = keys(%{$sample2blank{$samplename}});
-						if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
-							@blanksamples = (keys(%{$sample2blank{$samplename}{'reversejump'}}), keys(%{$sample2blank{$samplename}{'forwardjump'}}));
-						}
-						foreach my $blanksample (@blanksamples) {
-							if ($table{$blanksample}{$otuname} > 0) {
-								push(@nseqblank, $table{$blanksample}{$otuname});
-							}
-							else {
-								push(@nseqblank, 0);
-							}
-						}
-						if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
-							unless (&isOutlier($otusiglevel{$otuname}, $table{$samplename}{$otuname}, @nseqblank)) {
-								&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
-							}
-						}
-						exit;
-					}
+					exit;
 				}
 			}
 		}
@@ -1269,35 +1280,36 @@ sub performModifiedThompsonTauTest {
 sub performBinomialTest1 {
 	print(STDERR "Performing binomial test...\n");
 	my @samplenames = keys(%sample2blank);
-	my @otunames = keys(%otunames);
+	my @otunames;
+	foreach my $otuname (keys(%otunames)) {
+		if (!defined($ignoreotulist{$otuname})) {
+			push(@otunames, $otuname);
+		}
+	}
 	my @blanksamples = keys(%blank2sample);
 	# calculate significance level
 	foreach my $otuname (@otunames) {
-		if (!defined($ignoreotulist{$otuname})) {
-			if ($adjust eq 'bonferroni') {
-				my $ntest = 0;
-				foreach my $samplename (@samplenames) {
-					if ($table{$samplename}{$otuname} > 0) {
-						$ntest ++;
-					}
-				}
-				if ($ntest) {
-					$otusiglevel{$otuname} = $siglevel / $ntest;
+		if ($adjust eq 'bonferroni') {
+			my $ntest = 0;
+			foreach my $samplename (@samplenames) {
+				if ($table{$samplename}{$otuname} > 0) {
+					$ntest ++;
 				}
 			}
-			else {
-				$otusiglevel{$otuname} = $siglevel;
+			if ($ntest) {
+				$otusiglevel{$otuname} = $siglevel / $ntest;
 			}
+		}
+		else {
+			$otusiglevel{$otuname} = $siglevel;
 		}
 	}
 	# calculate total number of reads oer OTU
 	my %otutotal;
 	foreach my $otuname (@otunames) {
-		if (!defined($ignoreotulist{$otuname})) {
-			foreach my $samplename (@samplenames, @blanksamples) {
-				if ($table{$samplename}{$otuname} > 0) {
-					$otutotal{$otuname} += $table{$samplename}{$otuname};
-				}
+		foreach my $samplename (@samplenames, @blanksamples) {
+			if ($table{$samplename}{$otuname} > 0) {
+				$otutotal{$otuname} += $table{$samplename}{$otuname};
 			}
 		}
 	}
@@ -1310,37 +1322,35 @@ sub performBinomialTest1 {
 		foreach my $samplename (@samplenames) {
 			print(STDERR "\"$samplename\"...\n");
 			foreach my $otuname (@otunames) {
-				if (!defined($ignoreotulist{$otuname})) {
-					if (my $pid = fork()) {
-						$pid{$pid} = $child;
-						if ($nchild == $numthreads) {
-							my $endpid = wait();
-							if ($endpid == -1) {
-								undef(%pid);
-							}
-							else {
-								$child = $pid{$endpid};
-								delete($pid{$endpid});
-							}
+				if (my $pid = fork()) {
+					$pid{$pid} = $child;
+					if ($nchild == $numthreads) {
+						my $endpid = wait();
+						if ($endpid == -1) {
+							undef(%pid);
 						}
-						elsif ($nchild < $numthreads) {
-							$child = $nchild;
-							$nchild ++;
+						else {
+							$child = $pid{$endpid};
+							delete($pid{$endpid});
 						}
-						if ($?) {
-							die(__LINE__);
-						}
-						next;
 					}
-					else {
-						if ($table{$samplename}{$otuname} > 0) {
-							my $pvalue = (1 - Math::CDF::pbinom($table{$samplename}{$otuname}, $otutotal{$otuname}, $pjump1));
-							if ($pvalue > $otusiglevel{$otuname}) {
-								&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
-							}
-						}
-						exit;
+					elsif ($nchild < $numthreads) {
+						$child = $nchild;
+						$nchild ++;
 					}
+					if ($?) {
+						die(__LINE__);
+					}
+					next;
+				}
+				else {
+					if ($table{$samplename}{$otuname} > 0) {
+						my $pvalue = (1 - Math::CDF::pbinom($table{$samplename}{$otuname}, $otutotal{$otuname}, $pjump1));
+						if ($pvalue > $otusiglevel{$otuname}) {
+							&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+						}
+					}
+					exit;
 				}
 			}
 		}
@@ -1355,25 +1365,33 @@ sub performBinomialTest1 {
 
 sub performBinomialTest2 {
 	print(STDERR "Performing binomial test...\n");
-	my @samplenames = keys(%sample2blank);
-	my @otunames = keys(%otunames);
+	my @samplenames;
+	foreach my $samplename (sort(keys(%samplenames))) {
+		if (exists($sample2blank{$samplename}) || exists($sample2sample{$samplename})) {
+			push(@samplenames, $samplename);
+		}
+	}
+	my @otunames;
+	foreach my $otuname (keys(%otunames)) {
+		if (!defined($ignoreotulist{$otuname})) {
+			push(@otunames, $otuname);
+		}
+	}
 	# calculate significance level
 	foreach my $otuname (@otunames) {
-		if (!defined($ignoreotulist{$otuname})) {
-			if ($adjust eq 'bonferroni') {
-				my $ntest = 0;
-				foreach my $samplename (@samplenames) {
-					if ($table{$samplename}{$otuname} > 0) {
-						$ntest ++;
-					}
-				}
-				if ($ntest) {
-					$otusiglevel{$otuname} = $siglevel / $ntest;
+		if ($adjust eq 'bonferroni') {
+			my $ntest = 0;
+			foreach my $samplename (@samplenames) {
+				if ($table{$samplename}{$otuname} > 0) {
+					$ntest ++;
 				}
 			}
-			else {
-				$otusiglevel{$otuname} = $siglevel;
+			if ($ntest) {
+				$otusiglevel{$otuname} = $siglevel / $ntest;
 			}
+		}
+		else {
+			$otusiglevel{$otuname} = $siglevel;
 		}
 	}
 	{
@@ -1385,39 +1403,38 @@ sub performBinomialTest2 {
 		foreach my $samplename (@samplenames) {
 			print(STDERR "\"$samplename\"...\n");
 			foreach my $otuname (@otunames) {
-				if (!defined($ignoreotulist{$otuname})) {
-					if (my $pid = fork()) {
-						$pid{$pid} = $child;
-						if ($nchild == $numthreads) {
-							my $endpid = wait();
-							if ($endpid == -1) {
-								undef(%pid);
-							}
-							else {
-								$child = $pid{$endpid};
-								delete($pid{$endpid});
-							}
+				if (my $pid = fork()) {
+					$pid{$pid} = $child;
+					if ($nchild == $numthreads) {
+						my $endpid = wait();
+						if ($endpid == -1) {
+							undef(%pid);
 						}
-						elsif ($nchild < $numthreads) {
-							$child = $nchild;
-							$nchild ++;
+						else {
+							$child = $pid{$endpid};
+							delete($pid{$endpid});
 						}
-						if ($?) {
-							die(__LINE__);
-						}
-						next;
 					}
-					else {
-						if ($table{$samplename}{$otuname} > 0) {
-							my $rsum = 0;
-							my $fsum = 0;
-							foreach my $reversejumpsample (keys(%{$sample2blank{$samplename}{'reversejump'}}), keys(%{$sample2sample{$samplename}{'reversejump'}})) {
-								$rsum += $table{$reversejumpsample}{$otuname};
-							}
-							foreach my $forwardjumpsample (keys(%{$sample2blank{$samplename}{'forwardjump'}}), keys(%{$sample2sample{$samplename}{'forwardjump'}})) {
-								$fsum += $table{$forwardjumpsample}{$otuname};
-							}
-							my $rcode = <<"_END";
+					elsif ($nchild < $numthreads) {
+						$child = $nchild;
+						$nchild ++;
+					}
+					if ($?) {
+						die(__LINE__);
+					}
+					next;
+				}
+				else {
+					if ($table{$samplename}{$otuname} > 0) {
+						my $rsum = 0;
+						my $fsum = 0;
+						foreach my $reversejumpsample (keys(%{$sample2blank{$samplename}{'reversejump'}}), keys(%{$sample2sample{$samplename}{'reversejump'}})) {
+							$rsum += $table{$reversejumpsample}{$otuname};
+						}
+						foreach my $forwardjumpsample (keys(%{$sample2blank{$samplename}{'forwardjump'}}), keys(%{$sample2sample{$samplename}{'forwardjump'}})) {
+							$fsum += $table{$forwardjumpsample}{$otuname};
+						}
+						my $rcode = <<"_END";
 # Sample: $samplename
 # OTU: $otuname
 otusiglevel <- $otusiglevel{$otuname}
@@ -1425,19 +1442,19 @@ otuobserved <- $table{$samplename}{$otuname}
 otursum <- $rsum
 otufsum <- $fsum
 _END
-							if ($pjump1 && $pjump2) {
-								$rcode .= <<"_END";
+						if ($pjump1 && $pjump2) {
+							$rcode .= <<"_END";
 preversejump <- $pjump1
 pforwardjump <- $pjump2
 _END
-							}
-							elsif (exists($pjump{$samplename}{'reversejump'}) && exists($pjump{$samplename}{'forwardjump'})) {
-								$rcode .= <<"_END";
+						}
+						elsif (exists($pjump{$samplename}{'reversejump'}) && exists($pjump{$samplename}{'forwardjump'})) {
+							$rcode .= <<"_END";
 preversejump <- $pjump{$samplename}{'reversejump'}
 pforwardjump <- $pjump{$samplename}{'forwardjump'}
 _END
-							}
-							$rcode .= <<"_END";
+						}
+						$rcode .= <<"_END";
 pval <- 1
 for(i in 0:otuobserved) {
 	for(j in 0:i) {
@@ -1451,26 +1468,25 @@ for(i in 0:otuobserved) {
 }
 print(pval <= otusiglevel)
 _END
-							&saveToTempFile("$outputfolder/$samplename.$child.R", $rcode);
-							unless (open($pipehandleinput1, "$Rscript --vanilla $outputfolder/$samplename.$child.R 2> $devnull |")) {
-								&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outputfolder/$samplename.$child.R\".");
-							}
-							my $testresult;
-							while (<$pipehandleinput1>) {
-								if (/TRUE/) {
-									$testresult = 1;
-								}
-							}
-							close($pipehandleinput1);
-							unless ($testresult) {
-								&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
-							}
-							unless ($nodel) {
-								unlink("$outputfolder/$samplename.$child.R");
+						&saveToTempFile("$outputfolder/$samplename.$child.R", $rcode);
+						unless (open($pipehandleinput1, "$Rscript --vanilla $outputfolder/$samplename.$child.R 2> $devnull |")) {
+							&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outputfolder/$samplename.$child.R\".");
+						}
+						my $testresult;
+						while (<$pipehandleinput1>) {
+							if (/TRUE/) {
+								$testresult = 1;
 							}
 						}
-						exit;
+						close($pipehandleinput1);
+						unless ($testresult) {
+							&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+						}
+						unless ($nodel) {
+							unlink("$outputfolder/$samplename.$child.R");
+						}
 					}
+					exit;
 				}
 			}
 		}
@@ -1494,6 +1510,7 @@ sub saveResults {
 			$tempsum += $table{$samplename}{$otuname};
 		}
 		if ($tempsum == 0) {
+			print(STDERR "The OTU \"$otuname\" was removed because all sequences of this OTU were removed.\n");
 			delete($otunames{$otuname});
 		}
 	}
@@ -1653,16 +1670,22 @@ sub saveResults {
 	$filehandleinput1 = &readFile($otufiles[0]);
 	{
 		my $otuname;
+		my $labelline;
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			s/;size=\d+;*//g;
 			if (/^>(.+)$/) {
 				$otuname = $1;
-				print($filehandleoutput1 "$_\n");
+				$labelline = "$_\n"
+				#print($filehandleoutput1 );
 			}
 			elsif ($otuname && $otunames{$otuname} && / SN:(\S+)/) {
 				my $samplename = $1;
 				if ($samplename && $samplenames{$samplename} && $table{$samplename}{$otuname} > 0) {
+					if ($labelline) {
+						print($filehandleoutput1 $labelline);
+						undef($labelline);
+					}
 					print($filehandleoutput1 "$_\n");
 					$table{$samplename}{$otuname} --;
 				}
@@ -1856,7 +1879,7 @@ Command line options
 --ignoresamplelist=FILENAME
   Specify file name of ignoring sample list. (default: none)
 
---ignoreotu=SAMPLENAME,...,SAMPLENAME
+--ignoreotu=OTUNAME,...,OTUNAME
   Specify ignoring otu names. (default: none)
 
 --ignoreotulist=FILENAME
