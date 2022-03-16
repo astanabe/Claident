@@ -19,7 +19,7 @@ my $pjump2;
 my $test = 'thompson';
 my $siglevel = 0.05;
 my $adjust = 'bonferroni';
-my $model = 'single';
+my $model;
 my $numthreads = 1;
 my $tableformat = 'matrix';
 my $nodel;
@@ -30,7 +30,7 @@ my $Rscript;
 # the other global variables
 my $devnull = File::Spec->devnull();
 my %table;
-my %modified;
+my %removed;
 my %otusiglevel;
 my %pjump;
 my %tag;
@@ -48,6 +48,7 @@ my $ignoreotulist;
 my $ignoreotuseq;
 my %samplenames;
 my %sample2blank;
+my %sample2sample;
 my %blanksamples;
 my %blank2sample;
 my %otunames;
@@ -138,7 +139,6 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:binomial|b)$/i) {
 				$test = 'binomial';
-				$model ='separate';
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -151,6 +151,18 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:none)$/i) {
 				$adjust = 'none';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:mode|m)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:eliminate|e)$/i) {
+				next;
+			}
+			elsif ($value =~ /^(?:subtractmax|s)$/i) {
+				&errorMessage(__LINE__, "\"--mode=subtractmax\" option is obsolete.");
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -304,22 +316,44 @@ sub checkVariables {
 		&errorMessage(__LINE__, "Specified tag jump probability is invalid.");
 	}
 	if ($test eq 'thompson') {
-		if ($model eq 'separate') {
+		if (!defined($model)) {
+			$model = 'single';
+			print(STDERR "You selected modified Thompson Tau test.\nThe single parameter model will be applied.\n");
+		}
+		elsif ($model eq 'separate') {
 			&errorMessage(__LINE__, "Modified Thompson Tau test does not support separate model.");
 		}
-		elsif ($pjump1 || $pjump2) {
+		if ($pjump1 || $pjump2) {
 			&errorMessage(__LINE__, "Modified Thompson Tau test does not support tag jump probability.");
 		}
 	}
 	elsif ($test eq 'binomial') {
-		if ((%blanklist || $blanklist) && $model eq 'separate') {
-			&errorMessage(__LINE__, "Decontamination using blank samples does not support separate model.");
+		if (%blanklist || $blanklist) {
+			if (!defined($model)) {
+				$model = 'single';
+				print(STDERR "You selected binomial test for decontamination.\nThe single parameter model will be applied.\n");
+			}
+			elsif ($model eq 'separate') {
+				&errorMessage(__LINE__, "Decontamination using blank samples does not support separate model.");
+			}
 		}
 		else {
-			if ($model eq 'single' && $pjump1 != $pjump2) {
-				&errorMessage(__LINE__, "Single model was selected but forward and reverse tag jump probabilities are different.");
+			if (!defined($model) && !$pjump1 && !$pjump2) {
+				$model = 'separate';
+				print(STDERR "You selected binomial test for removal of tag jump.\nThe separate model will be applied.\n");
 			}
-			elsif ($model eq 'separate' && $pjump1 == $pjump2) {
+			elsif (!defined($model) && $pjump1 && $pjump2 && $pjump1 != $pjump2) {
+				$model = 'separate';
+				print(STDERR "You selected binomial test for removal of tag jump.\nThe fixed value separate model will be applied.\n");
+			}
+			elsif (!defined($model) && $pjump1 && $pjump2 && $pjump1 == $pjump2) {
+				$model = 'single';
+				print(STDERR "You selected binomial test for removal of tag jump.\nThe fixed value single parameter model will be applied.\n");
+			}
+			elsif ($model eq 'single' && !$pjump1 && !$pjump2) {
+				&errorMessage(__LINE__, "Removal of tag jump does not support single model probability estimation.");
+			}
+			elsif ($model eq 'separate' && $pjump1 && $pjump2 && $pjump1 == $pjump2) {
 				&errorMessage(__LINE__, "Separate model was selected but forward and reverse tag jump probabilities are the same.");
 			}
 		}
@@ -404,6 +438,51 @@ sub checkVariables {
 	}
 	else {
 		print(STDERR "Significance level is $siglevel and will not be adjusted.\n");
+	}
+	# search R
+	{
+		my $pathto;
+		if ($ENV{'CLAIDENTHOME'}) {
+			$pathto = $ENV{'CLAIDENTHOME'};
+		}
+		else {
+			my $temp;
+			if (-e '.claident') {
+				$temp = '.claident';
+			}
+			elsif (-e $ENV{'HOME'} . '/.claident') {
+				$temp = $ENV{'HOME'} . '/.claident';
+			}
+			elsif (-e '/etc/claident/.claident') {
+				$temp = '/etc/claident/.claident';
+			}
+			if ($temp) {
+				my $filehandle;
+				unless (open($filehandle, "< $temp")) {
+					&errorMessage(__LINE__, "Cannot read \"$temp\".");
+				}
+				while (<$filehandle>) {
+					if (/^\s*CLAIDENTHOME\s*=\s*(\S[^\r\n]*)/) {
+						$pathto = $1;
+						$pathto =~ s/\s+$//;
+						last;
+					}
+				}
+				close($filehandle);
+			}
+		}
+		if ($pathto) {
+			$pathto =~ s/^"(.+)"$/$1/;
+			$pathto =~ s/\/$//;
+			$pathto .= '/bin';
+			if (!-e $pathto) {
+				&errorMessage(__LINE__, "Cannot find \"$pathto\".");
+			}
+			$Rscript = "\"$pathto/Rscript\"";
+		}
+		else {
+			$Rscript = 'Rscript';
+		}
 	}
 }
 
@@ -551,17 +630,23 @@ sub readTags {
 									my ($runname, $tag, $primer) = @temp;
 									if ($tag eq $tag{$tagseq}) {
 										foreach my $blanktag (@{$reversejump{$temptag}}) {
-											$sample2blank{$samplename}{'reversejump'}{"$runname\__$blanktag\__$primer"} = 1;
 											if ($blanktag =~ /^[ACGT]+\+[ACGT]+$/) {
+												$sample2blank{$samplename}{'reversejump'}{"$runname\__$blanktag\__$primer"} = 1;
 												$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
 												$blank2sample{"$runname\__$blanktag\__$primer"}{'reversejump'}{$samplename} = 1;
 											}
+											else {
+												$sample2sample{$samplename}{'reversejump'}{"$runname\__$blanktag\__$primer"} = 1;
+											}
 										}
 										foreach my $blanktag (@{$forwardjump{$tempreversetag}}) {
-											$sample2blank{$samplename}{'forwardjump'}{"$runname\__$blanktag\__$primer"} = 1;
 											if ($blanktag =~ /^[ACGT]+\+[ACGT]+$/) {
+												$sample2blank{$samplename}{'forwardjump'}{"$runname\__$blanktag\__$primer"} = 1;
 												$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
 												$blank2sample{"$runname\__$blanktag\__$primer"}{'forwardjump'}{$samplename} = 1;
+											}
+											else {
+												$sample2sample{$samplename}{'forwardjump'}{"$runname\__$blanktag\__$primer"} = 1;
 											}
 										}
 									}
@@ -574,11 +659,11 @@ sub readTags {
 			foreach my $samplename (sort(keys(%sample2blank))) {
 				print(STDERR "$samplename :");
 				print(STDERR "\nForward tag sharing / reverse tag jumped samples :");
-				foreach (sort(keys(%{$sample2blank{$samplename}{'reversejump'}}))) {
+				foreach (sort(keys(%{$sample2blank{$samplename}{'reversejump'}})), sort(keys(%{$sample2sample{$samplename}{'reversejump'}}))) {
 					print(STDERR "\n  $_");
 				}
 				print(STDERR "\nReverse tag sharing / forward tag jumped samples :");
-				foreach (sort(keys(%{$sample2blank{$samplename}{'forwardjump'}}))) {
+				foreach (sort(keys(%{$sample2blank{$samplename}{'forwardjump'}})), sort(keys(%{$sample2sample{$samplename}{'forwardjump'}}))) {
 					print(STDERR "\n  $_");
 				}
 				print(STDERR "\n");
@@ -635,6 +720,7 @@ sub readListFiles {
 	if (%ignoresamplelist) {
 		foreach my $ignoresample (keys(%ignoresamplelist)) {
 			delete($sample2blank{$ignoresample});
+			delete($sample2sample{$ignoresample});
 			foreach my $blanksample (keys(%blank2sample)) {
 				delete($blank2sample{$blanksample}{$ignoresample});
 			}
@@ -643,6 +729,7 @@ sub readListFiles {
 	elsif ($ignoresamplelist) {
 		foreach my $ignoresample (&readList($ignoresamplelist)) {
 			delete($sample2blank{$ignoresample});
+			delete($sample2sample{$ignoresample});
 			foreach my $blanksample (keys(%blank2sample)) {
 				delete($blank2sample{$blanksample}{$ignoresample});
 			}
@@ -747,7 +834,7 @@ sub removeContaminants {
 			while (<$filehandleinput1>) {
 				if (/^$samplename\t(\S+)\t(\d+)/) {
 					$table{$samplename}{$1} = $2;
-					$modified{$samplename}{$1} = 1;
+					$removed{$samplename}{$1} = 1;
 				}
 			}
 			close($filehandleinput1);
@@ -760,6 +847,7 @@ sub removeContaminants {
 }
 
 sub estimateContaminationProbability {
+	print(STDERR "Estimating contamination probability...\n");
 	my @samplenames = keys(%sample2blank);
 	my @otunames = keys(%otunames);
 	my @blanksamples = keys(%blank2sample);
@@ -809,6 +897,7 @@ sub estimateContaminationProbability {
 				next;
 			}
 			else {
+				print(STDERR "\"$blanksample\"...\n");
 				$filehandleoutput1 = &writeFile("$outputfolder/$blanksample.pjump.R");
 				print($filehandleoutput1 "blanksample <- \"$blanksample\"\n");
 				print($filehandleoutput1 "blank2sample <- c(\n\"");
@@ -860,18 +949,22 @@ _END
 			$maxpjump = $temppjump;
 		}
 		elsif (!defined($temppjump)) {
-			&errorMessage(__LINE__, "Cannot get tag jump probability for $blanksample.");
+			&errorMessage(__LINE__, "Cannot get contamination probability for $blanksample.");
 		}
 		close($filehandleinput1);
 	}
 	unless ($nodel) {
 		unlink("$outputfolder/temptable.tsv");
 	}
+	if (!defined($maxpjump)) {
+		&errorMessage(__LINE__, "Cannot get maximum contamination probability.");
+	}
 	$pjump1 = $maxpjump;
 	$pjump2 = $pjump2;
 }
 
 sub estimateTagJumpProbability {
+	print(STDERR "Estimating tag jump probability...\n");
 	my @samplenames = keys(%sample2blank);
 	my @otunames = keys(%otunames);
 	my @blanksamples = keys(%blank2sample);
@@ -899,6 +992,7 @@ sub estimateTagJumpProbability {
 		$| = 1;
 		$? = 0;
 		foreach my $samplename (@samplenames) {
+			print(STDERR "\"$samplename\"...\n");
 			foreach my $type ('reversejump', 'forwardjump') {
 				if (my $pid = fork()) {
 					$pid{$pid} = $child;
@@ -924,6 +1018,16 @@ sub estimateTagJumpProbability {
 				else {
 					my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
 					if (!-e "$outputfolder/$blank[0].p$type.txt") {
+						# make a file
+						unless (open($filehandleoutput1, ">> $outputfolder/$blank[0].p$type.txt")) {
+							&errorMessage(__LINE__, "Cannot make \"$outputfolder/$blank[0].p$type.txt\".");
+						}
+						unless (flock($filehandleoutput1, LOCK_EX|LOCK_NB)) {
+							exit;
+						}
+						unless (seek($filehandleoutput1, 0, 2)) {
+							&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$blank[0].p$type.txt\".");
+						}
 						my $pjump;
 						my $dummy;
 						# estimate tag jump probability
@@ -934,7 +1038,8 @@ sub estimateTagJumpProbability {
 							($pjump, $dummy) = &estimatepjump($type, @blank);
 						}
 						# save to file
-						&saveToTempFile("$outputfolder/$blank[0].p$type.txt", "$pjump\n");
+						printf($filehandleoutput1 "%.10f\n", $pjump);
+						close($filehandleoutput1);
 					}
 					exit;
 				}
@@ -953,9 +1058,12 @@ sub estimateTagJumpProbability {
 			my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
 			$filehandleinput1 = &readFile("$outputfolder/$blank[0].p$type.txt");
 			while (<$filehandleinput1>) {
-				if (/ (\d*\.\d+(?:e\-\d+)?)/i) {
+				if (/(\d*\.\d+(?:e\-\d+)?)/i) {
 					$pjump{$samplename}{$type} = eval($1);
 				}
+			}
+			if (!exists($pjump{$samplename}{$type})) {
+				&errorMessage(__LINE__, "Cannot get tag jump probability for \"$samplename\".");
 			}
 			close($filehandleinput1);
 		}
@@ -978,32 +1086,32 @@ sub estimatepjump {
 	my $type = shift(@_);
 	my @blanksamples = @_;
 	# make R script
-	$filehandleoutput1 = &writeFile("$outputfolder/$blanksamples[0].$type.R");
-	print($filehandleoutput1 "nothertagR <- " . ($nreversetags - 1) . "\n");
-	print($filehandleoutput1 "nothertagF <- " . ($ntags - 1) . "\n");
-	print($filehandleoutput1 "blanksamples <- c(\n\"" . join("\",\n\"", @blanksamples) . "\"\n)\n");
-	print($filehandleoutput1 "blank2sampleR <- c(\n\"");
+	$filehandleoutput2 = &writeFile("$outputfolder/$blanksamples[0].p$type.R");
+	print($filehandleoutput2 "nothertagR <- " . ($nreversetags - 1) . "\n");
+	print($filehandleoutput2 "nothertagF <- " . ($ntags - 1) . "\n");
+	print($filehandleoutput2 "blanksamples <- c(\n\"" . join("\",\n\"", @blanksamples) . "\"\n)\n");
+	print($filehandleoutput2 "blank2sampleR <- c(\n\"");
 	for (my $i = 0; $i < scalar(@blanksamples); $i ++) {
-		print($filehandleoutput1 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}{'reversejump'}})));
+		print($filehandleoutput2 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}{'reversejump'}})));
 		if ($i + 1 == scalar(@blanksamples)) {
-			print($filehandleoutput1 "\"\n)\n");
+			print($filehandleoutput2 "\"\n)\n");
 		}
 		else {
-			print($filehandleoutput1 "\",\n\"");
+			print($filehandleoutput2 "\",\n\"");
 		}
 	}
-	print($filehandleoutput1 "blank2sampleF <- c(\n\"");
+	print($filehandleoutput2 "blank2sampleF <- c(\n\"");
 	for (my $i = 0; $i < scalar(@blanksamples); $i ++) {
-		print($filehandleoutput1 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}{'forwardjump'}})));
+		print($filehandleoutput2 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}{'forwardjump'}})));
 		if ($i + 1 == scalar(@blanksamples)) {
-			print($filehandleoutput1 "\"\n)\n");
+			print($filehandleoutput2 "\"\n)\n");
 		}
 		else {
-			print($filehandleoutput1 "\",\n\"");
+			print($filehandleoutput2 "\",\n\"");
 		}
 	}
 	if ($model eq 'separate') {
-		print($filehandleoutput1 <<"_END");
+		print($filehandleoutput2 <<"_END");
 table <- read.table(\"$outputfolder/temptable.tsv\", header=T, row.names=1, check.names=F)
 tempsum <- sum(table[blanksamples,], na.rm=T)
 calcResidualSum <- function (x) {
@@ -1022,32 +1130,16 @@ calcResidualSum <- function (x) {
 		abs(residualsum)
 	}
 }
-fit <- optim(c(0.001, 0.001), calcResidualSum, method="Nelder-Mead", control=list(trace=1, reltol=1e-9, maxit=10000))
+fit <- optim(c(0.001, 0.001), calcResidualSum, method="Nelder-Mead", control=list(trace=0, reltol=1e-9, maxit=10000))
 print(fit\$par[1])
 print(fit\$par[2])
 print(fit\$convergence)
 _END
 	}
-	elsif ($model eq 'single') {
-		print($filehandleoutput1 <<"_END");
-table <- read.table(\"$outputfolder/temptable.tsv\", header=T, row.names=1, check.names=F)
-tempsum <- sum(table[blanksamples,], na.rm=T)
-calcResidualSum <- function (x) {
-	pjump <- x
-	temppjump <- (pjump / (1 - pjump - pjump))
-	residualsum <- tempsum - sum((table[blank2sampleR,] * temppjump) / nothertagR, na.rm=T) - sum((table[blank2sampleF,] * temppjump) / nothertagF, na.rm=T)
-	abs(residualsum)
-}
-fit <- optimize(calcResidualSum, interval=c(0, 0.5), maximum=F, tol=1e-9)
-print(fit\$minimum)
-print(fit\$minimum)
-print(0)
-_END
-	}
-	close($filehandleoutput1);
+	close($filehandleoutput2);
 	# run R
-	unless (open($pipehandleinput1, "$Rscript --vanilla $outputfolder/$blanksamples[0].$type.R 2> $devnull |")) {
-		&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outputfolder/$blanksamples[0].$type.R\".");
+	unless (open($pipehandleinput1, "$Rscript --vanilla $outputfolder/$blanksamples[0].p$type.R 2> $devnull |")) {
+		&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outputfolder/$blanksamples[0].p$type.R\".");
 	}
 	my $lineno = 1;
 	my $convergence;
@@ -1069,12 +1161,13 @@ _END
 		&errorMessage(__LINE__, "Cannot optimize $type probability for $blanksamples[0].");
 	}
 	unless ($nodel) {
-		unlink("$outputfolder/$blanksamples[0].$type.R");
+		unlink("$outputfolder/$blanksamples[0].p$type.R");
 	}
 	return($preversejump, $pforwardjump);
 }
 
 sub performModifiedThompsonTauTest {
+	print(STDERR "Performing modified Thompson Tau test...\n");
 	my @samplenames = keys(%sample2blank);
 	my @otunames = keys(%otunames);
 	# calculate significance level
@@ -1100,7 +1193,9 @@ sub performModifiedThompsonTauTest {
 						$ntest ++;
 					}
 				}
-				$otusiglevel{$otuname} = $siglevel / $ntest;
+				if ($ntest) {
+					$otusiglevel{$otuname} = $siglevel / $ntest;
+				}
 			}
 			else {
 				$otusiglevel{$otuname} = $siglevel;
@@ -1114,6 +1209,7 @@ sub performModifiedThompsonTauTest {
 		$| = 1;
 		$? = 0;
 		foreach my $samplename (@samplenames) {
+			print(STDERR "\"$samplename\"...\n");
 			foreach my $otuname (@otunames) {
 				if (!defined($ignoreotulist{$otuname})) {
 					if (my $pid = fork()) {
@@ -1171,8 +1267,10 @@ sub performModifiedThompsonTauTest {
 }
 
 sub performBinomialTest1 {
+	print(STDERR "Performing binomial test...\n");
 	my @samplenames = keys(%sample2blank);
 	my @otunames = keys(%otunames);
+	my @blanksamples = keys(%blank2sample);
 	# calculate significance level
 	foreach my $otuname (@otunames) {
 		if (!defined($ignoreotulist{$otuname})) {
@@ -1183,7 +1281,9 @@ sub performBinomialTest1 {
 						$ntest ++;
 					}
 				}
-				$otusiglevel{$otuname} = $siglevel / $ntest;
+				if ($ntest) {
+					$otusiglevel{$otuname} = $siglevel / $ntest;
+				}
 			}
 			else {
 				$otusiglevel{$otuname} = $siglevel;
@@ -1194,7 +1294,7 @@ sub performBinomialTest1 {
 	my %otutotal;
 	foreach my $otuname (@otunames) {
 		if (!defined($ignoreotulist{$otuname})) {
-			foreach my $samplename (keys(%table)) {
+			foreach my $samplename (@samplenames, @blanksamples) {
 				if ($table{$samplename}{$otuname} > 0) {
 					$otutotal{$otuname} += $table{$samplename}{$otuname};
 				}
@@ -1208,6 +1308,7 @@ sub performBinomialTest1 {
 		$| = 1;
 		$? = 0;
 		foreach my $samplename (@samplenames) {
+			print(STDERR "\"$samplename\"...\n");
 			foreach my $otuname (@otunames) {
 				if (!defined($ignoreotulist{$otuname})) {
 					if (my $pid = fork()) {
@@ -1253,6 +1354,7 @@ sub performBinomialTest1 {
 }
 
 sub performBinomialTest2 {
+	print(STDERR "Performing binomial test...\n");
 	my @samplenames = keys(%sample2blank);
 	my @otunames = keys(%otunames);
 	# calculate significance level
@@ -1265,7 +1367,9 @@ sub performBinomialTest2 {
 						$ntest ++;
 					}
 				}
-				$otusiglevel{$otuname} = $siglevel / $ntest;
+				if ($ntest) {
+					$otusiglevel{$otuname} = $siglevel / $ntest;
+				}
 			}
 			else {
 				$otusiglevel{$otuname} = $siglevel;
@@ -1279,6 +1383,7 @@ sub performBinomialTest2 {
 		$| = 1;
 		$? = 0;
 		foreach my $samplename (@samplenames) {
+			print(STDERR "\"$samplename\"...\n");
 			foreach my $otuname (@otunames) {
 				if (!defined($ignoreotulist{$otuname})) {
 					if (my $pid = fork()) {
@@ -1306,10 +1411,10 @@ sub performBinomialTest2 {
 						if ($table{$samplename}{$otuname} > 0) {
 							my $rsum = 0;
 							my $fsum = 0;
-							foreach my $reversejumpsample (keys(%{$sample2blank{$samplename}{'reversejump'}})) {
+							foreach my $reversejumpsample (keys(%{$sample2blank{$samplename}{'reversejump'}}), keys(%{$sample2sample{$samplename}{'reversejump'}})) {
 								$rsum += $table{$reversejumpsample}{$otuname};
 							}
-							foreach my $forwardjumpsample (keys(%{$sample2blank{$samplename}{'forwardjump'}})) {
+							foreach my $forwardjumpsample (keys(%{$sample2blank{$samplename}{'forwardjump'}}), keys(%{$sample2sample{$samplename}{'forwardjump'}})) {
 								$fsum += $table{$forwardjumpsample}{$otuname};
 							}
 							my $rcode = <<"_END";
@@ -1326,7 +1431,7 @@ preversejump <- $pjump1
 pforwardjump <- $pjump2
 _END
 							}
-							elsif ($pjump{$samplename}{'reversejump'} && $pjump{$samplename}{'forwardjump'}) {
+							elsif (exists($pjump{$samplename}{'reversejump'}) && exists($pjump{$samplename}{'forwardjump'})) {
 								$rcode .= <<"_END";
 preversejump <- $pjump{$samplename}{'reversejump'}
 pforwardjump <- $pjump{$samplename}{'forwardjump'}
@@ -1399,13 +1504,13 @@ sub saveResults {
 		unless (open($filehandleoutput1, "> $outputfolder/decontaminated.tsv")) {
 			&errorMessage(__LINE__, "Cannot make \"$outputfolder/decontaminated.tsv\".");
 		}
-		unless (open($filehandleoutput2, "> $outputfolder/modified.tsv")) {
-			&errorMessage(__LINE__, "Cannot make \"$outputfolder/modified.tsv\".");
+		unless (open($filehandleoutput2, "> $outputfolder/removed.tsv")) {
+			&errorMessage(__LINE__, "Cannot make \"$outputfolder/removed.tsv\".");
 		}
 		unless (open($filehandleoutput3, "> $outputfolder/siglevel.tsv")) {
 			&errorMessage(__LINE__, "Cannot make \"$outputfolder/siglevel.tsv\".");
 		}
-		if (%pjump) {
+		if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
 			unless (open($filehandleoutput4, "> $outputfolder/preversejump.tsv")) {
 				&errorMessage(__LINE__, "Cannot make \"$outputfolder/preversejump.tsv\".");
 			}
@@ -1417,7 +1522,7 @@ sub saveResults {
 			print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
 			print($filehandleoutput2 "samplename\t" . join("\t", @otunames) . "\n");
 			print($filehandleoutput3 "samplename\t" . join("\t", @otunames) . "\n");
-			if (%pjump) {
+			if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
 				print($filehandleoutput4 "samplename\t" . join("\t", @otunames) . "\n");
 				print($filehandleoutput5 "samplename\t" . join("\t", @otunames) . "\n");
 			}
@@ -1425,7 +1530,7 @@ sub saveResults {
 				print($filehandleoutput1 $samplename);
 				print($filehandleoutput2 $samplename);
 				print($filehandleoutput3 $samplename);
-				if (%pjump) {
+				if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
 					print($filehandleoutput4 $samplename);
 					print($filehandleoutput5 $samplename);
 				}
@@ -1436,35 +1541,37 @@ sub saveResults {
 					else {
 						print($filehandleoutput1 "\t0");
 					}
-					if ($modified{$samplename}{$otuname}) {
+					if ($removed{$samplename}{$otuname}) {
 						print($filehandleoutput2 "\t1");
 					}
 					else {
 						print($filehandleoutput2 "\t0");
 					}
 					if ($otusiglevel{$otuname}) {
-						printf($filehandleoutput3 "\t%f", $otusiglevel{$otuname});
+						printf($filehandleoutput3 "\t%.10f", $otusiglevel{$otuname});
 					}
 					else {
-						print($filehandleoutput3 "\t0.0");
+						print($filehandleoutput3 "\t0.0000000000");
 					}
-					if ($pjump{$samplename}{'reversejump'}) {
-						printf($filehandleoutput4 "\t%f", $pjump{$samplename}{'reversejump'});
-					}
-					elsif (%pjump) {
-						print($filehandleoutput4 "\t0.0");
-					}
-					if ($pjump{$samplename}{'forwardjump'}) {
-						printf($filehandleoutput5 "\t%f", $pjump{$samplename}{'forwardjump'});
-					}
-					elsif (%pjump) {
-						print($filehandleoutput5 "\t0.0");
+					if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
+						if ($pjump{$samplename}{'reversejump'}) {
+							printf($filehandleoutput4 "\t%.10f", $pjump{$samplename}{'reversejump'});
+						}
+						else {
+							print($filehandleoutput4 "\t0.0000000000");
+						}
+						if ($pjump{$samplename}{'forwardjump'}) {
+							printf($filehandleoutput5 "\t%.10f", $pjump{$samplename}{'forwardjump'});
+						}
+						else {
+							print($filehandleoutput5 "\t0.0000000000");
+						}
 					}
 				}
 				print($filehandleoutput1 "\n");
 				print($filehandleoutput2 "\n");
 				print($filehandleoutput3 "\n");
-				if (%pjump) {
+				if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
 					print($filehandleoutput4 "\n");
 					print($filehandleoutput5 "\n");
 				}
@@ -1472,9 +1579,9 @@ sub saveResults {
 		}
 		elsif ($tableformat eq 'column') {
 			print($filehandleoutput1 "samplename\totuname\tnreads\n");
-			print($filehandleoutput2 "samplename\totuname\tmodified\n");
+			print($filehandleoutput2 "samplename\totuname\tremoved\n");
 			print($filehandleoutput3 "samplename\totuname\tsiglevel\n");
-			if (%pjump) {
+			if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
 				print($filehandleoutput4 "samplename\totuname\tpreversejump\n");
 				print($filehandleoutput5 "samplename\totuname\tpforwardjump\n");
 			}
@@ -1486,29 +1593,31 @@ sub saveResults {
 					else {
 						print($filehandleoutput1 "$samplename\t$otuname\t0\n");
 					}
-					if ($modified{$samplename}{$otuname}) {
+					if ($removed{$samplename}{$otuname}) {
 						print($filehandleoutput2 "$samplename\t$otuname\t1\n");
 					}
 					else {
 						print($filehandleoutput2 "$samplename\t$otuname\t0\n");
 					}
 					if ($otusiglevel{$otuname}) {
-						printf($filehandleoutput3 "$samplename\t$otuname\t%f\n", $otusiglevel{$otuname});
+						printf($filehandleoutput3 "$samplename\t$otuname\t%.10f\n", $otusiglevel{$otuname});
 					}
 					else {
-						print($filehandleoutput3 "$samplename\t$otuname\t0.0\n");
+						print($filehandleoutput3 "$samplename\t$otuname\t0.0000000000\n");
 					}
-					if ($pjump{$samplename}{'reversejump'}) {
-						printf($filehandleoutput4 "$samplename\t$otuname\t%f\n", $pjump{$samplename}{'reversejump'});
-					}
-					elsif (%pjump) {
-						print($filehandleoutput4 "$samplename\t$otuname\t0.0\n");
-					}
-					if ($pjump{$samplename}{'forwardjump'}) {
-						printf($filehandleoutput5 "$samplename\t$otuname\t%f\n", $pjump{$samplename}{'forwardjump'});
-					}
-					elsif (%pjump) {
-						print($filehandleoutput5 "$samplename\t$otuname\t0.0\n");
+					if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
+						if ($pjump{$samplename}{'reversejump'}) {
+							printf($filehandleoutput4 "$samplename\t$otuname\t%.10f\n", $pjump{$samplename}{'reversejump'});
+						}
+						else {
+							print($filehandleoutput4 "$samplename\t$otuname\t0.0000000000\n");
+						}
+						if ($pjump{$samplename}{'forwardjump'}) {
+							printf($filehandleoutput5 "$samplename\t$otuname\t%.10f\n", $pjump{$samplename}{'forwardjump'});
+						}
+						else {
+							print($filehandleoutput5 "$samplename\t$otuname\t0.0000000000\n");
+						}
 					}
 				}
 			}
@@ -1516,7 +1625,7 @@ sub saveResults {
 		close($filehandleoutput1);
 		close($filehandleoutput2);
 		close($filehandleoutput3);
-		if (%pjump) {
+		if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
 			close($filehandleoutput4);
 			close($filehandleoutput5);
 		}
