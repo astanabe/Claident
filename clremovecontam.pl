@@ -1734,7 +1734,7 @@ sub isOutlier {
 	my $samplesize = scalar(@_);
 	my $mean = &mean($samplesize, @_);
 	my $stdev = &stdev($samplesize, $mean, @_);
-	my $delta = abs($sample - $mean);
+	my $delta = $sample - $mean;
 	my $t = Math::CDF::qt((1 - $otusiglevel), ($samplesize - 2));
 	my $tau = (($t * ($samplesize - 1)) / (sqrt($samplesize) * sqrt($samplesize - 2 + ($t ** 2))));
 	my $deltamax = $tau * $stdev;
