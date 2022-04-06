@@ -179,8 +179,8 @@ sub getOptions {
 			$logtransform = 0;
 			$color = '"random-dark"';
 			$bgcolor = '"whitesmoke"';
-			$size = '1200x1200';
-			$rotation = 'minRotation=pi/4, maxRotation=pi/4, rotateRatio=1';
+			$size = '1500x1000';
+			$rotation = 'rotateRatio=0';
 		}
 		else {
 			&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
@@ -403,86 +403,91 @@ sub plotWordCloud {
 						push(@tempval, $table{$samplename}{$otuname});
 					}
 				}
-				# scale to 1-20
-				if ($logtransform) {
-					my $scale = exp(20) / $max;
-					map({$_ = int(log($_ * $scale) + 0.5)} @tempval);
-				}
-				else {
-					my $scale = 20 / $max;
-					map({$_ = int($_ * $scale + 0.5)} @tempval);
-				}
-				
-				# make tempfile
-				unless (open($filehandleoutput1, "> $samplename.tsv")) {
-					&errorMessage(__LINE__, "Cannot make \"$samplename.tsv\".");
-				}
-				print($filehandleoutput1 "name\tfreq\n");
-				my $counter = 0;
-				for (my $i = 0; $i < scalar(@tempval); $i ++) {
-					if ($tempval[$i] > 0) {
-						print($filehandleoutput1 $tempname[$i] . "\t" . $tempval[$i] . "\n");
-						$counter ++;
+				if ($max) {
+					# scale to 1-20
+					if ($logtransform) {
+						my $scale = exp(20) / $max;
+						map({$_ = int(log($_ * $scale) + 0.5)} @tempval);
 					}
-				}
-				if ($counter == 1) {
+					else {
+						my $scale = 20 / $max;
+						map({$_ = int($_ * $scale + 0.5)} @tempval);
+					}
+					# sort
+					my %tempval;
+					for (my $i = 0; $i < scalar(@tempval); $i ++) {
+						$tempval{$tempname[$i]} = $tempval[$i];
+					}
+					@tempname = sort({$tempval{$b} <=> $tempval{$a} || $a cmp $b} @tempname);
+					@tempval = sort({$b <=> $a} @tempval);
+					# make tempfile
+					unless (open($filehandleoutput1, "> $samplename.tsv")) {
+						&errorMessage(__LINE__, "Cannot make \"$samplename.tsv\".");
+					}
+					print($filehandleoutput1 "name\tfreq\n");
+					for (my $i = 0; $i < scalar(@tempval); $i ++) {
+						if ($tempval[$i] > 0) {
+							print($filehandleoutput1 $tempname[$i] . "\t" . $tempval[$i] . "\n");
+						}
+					}
 					print($filehandleoutput1 "dummy\t0.00001\n");
-				}
-				close($filehandleoutput1);
-				unless (open($filehandleoutput1, "> $samplename.R")) {
-					&errorMessage(__LINE__, "Cannot make \"$samplename.R\".");
-				}
-				my $ellipticity;
-				if ($size eq '1600x900') {
-					$ellipticity = 0.65;
-				}
-				elsif ($size eq '1500x1000') {
-					$ellipticity = 0.8;
-				}
-				elsif ($size eq '1280x960') {
-					$ellipticity = 0.9;
-				}
-				elsif ($size eq '1200x1200') {
-					$ellipticity = 1.2;
-				}
-				elsif ($size eq '960x1280') {
-					$ellipticity = 1.5;
-				}
-				elsif ($size eq '1000x1500') {
-					$ellipticity = 1.67;
-				}
-				elsif ($size eq '900x1600') {
-					$ellipticity = 1.8;
-				}
-				my $minSize;
-				my $fontsize;
-				if ($logtransform) {
-					$minSize = 100;
-					$fontsize = 1;
-				}
-				else {
-					$minSize = 10;
-					$fontsize = 2;
-				}
-				print($filehandleoutput1 "library(wordcloud2)\nlibrary(htmlwidgets)\n");
-				print($filehandleoutput1 "saveWidget(wordcloud2(read.table(\"$samplename.tsv\", header=T, check.names=F), color=$color, backgroundColor=$bgcolor, ellipticity=$ellipticity, minSize=$minSize, size=$fontsize, $rotation, widgetsize=c(5000, 5000)), \"$samplename.html\", selfcontained=F, background=$bgcolor)\n");
-				close($filehandleoutput1);
-				print(STDERR "Plotting word cloud of \"$samplename\"...\n");
-				if (system("$Rscript --vanilla $samplename.R 2> " . $devnull . ' 1> ' . $devnull)) {
-					&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $samplename.R\" correctly.");
-				}
-				system("$chromeexec --headless --screenshot=$samplename.png --window-size=6000,6000 --virtual-time-budget=1000000 $samplename.html 2> " . $devnull . ' 1> ' . $devnull);
-				if (!-e "$samplename.png" || -z "$samplename.png") {
-					&errorMessage(__LINE__, "Cannot run \"$chromeexec --headless --screenshot=$samplename.png --window-size=6000,6000 --virtual-time-budget=1000000 $samplename.html\" correctly.");
-				}
-				if (system("$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $samplename.png")) {
-					&errorMessage(__LINE__, "Cannot run \"$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $samplename.png\" correctly.");
-				}
-				unless ($nodel) {
-					unlink("$samplename.tsv");
-					unlink("$samplename.R");
-					unlink("$samplename.html");
-					rmtree("$samplename\_files");
+					close($filehandleoutput1);
+					unless (open($filehandleoutput1, "> $samplename.R")) {
+						&errorMessage(__LINE__, "Cannot make \"$samplename.R\".");
+					}
+					my $ellipticity;
+					if ($size eq '1600x900') {
+						$ellipticity = 0.65;
+					}
+					elsif ($size eq '1500x1000') {
+						$ellipticity = 0.8;
+					}
+					elsif ($size eq '1280x960') {
+						$ellipticity = 0.9;
+					}
+					elsif ($size eq '1200x1200') {
+						$ellipticity = 1.2;
+					}
+					elsif ($size eq '960x1280') {
+						$ellipticity = 1.5;
+					}
+					elsif ($size eq '1000x1500') {
+						$ellipticity = 1.67;
+					}
+					elsif ($size eq '900x1600') {
+						$ellipticity = 1.8;
+					}
+					my $minSize;
+					my $fontsize;
+					if ($logtransform) {
+						$minSize = 10;
+						$fontsize = 1;
+					}
+					else {
+						$minSize = 10;
+						$fontsize = 2;
+					}
+					print($filehandleoutput1 "library(wordcloud2)\nlibrary(htmlwidgets)\n");
+					print($filehandleoutput1 "saveWidget(wordcloud2(read.table(\"$samplename.tsv\", header=T, check.names=F), color=$color, backgroundColor=$bgcolor, ellipticity=$ellipticity, minSize=$minSize, size=$fontsize, $rotation, widgetsize=c(5000, 5000)), \"$samplename.html\", selfcontained=F, background=$bgcolor)\n");
+					close($filehandleoutput1);
+					print(STDERR "Plotting word cloud of \"$samplename\"...\n");
+					if (system("$Rscript --vanilla $samplename.R 2> " . $devnull . ' 1> ' . $devnull)) {
+						&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $samplename.R\" correctly.");
+					}
+					system("$chromeexec --headless --user-data-dir=$samplename --screenshot=$samplename.png --window-size=6000,6000 --virtual-time-budget=100000000 $samplename.html 2> " . $devnull . ' 1> ' . $devnull);
+					if (!-e "$samplename.png" || -z "$samplename.png") {
+						&errorMessage(__LINE__, "Cannot run \"$chromeexec --headless --user-data-dir=$samplename --screenshot=$samplename.png --window-size=6000,6000 --virtual-time-budget=100000000 $samplename.html\" correctly.");
+					}
+					if (system("$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $samplename.png")) {
+						&errorMessage(__LINE__, "Cannot run \"$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $samplename.png\" correctly.");
+					}
+					unless ($nodel) {
+						unlink("$samplename.tsv");
+						unlink("$samplename.R");
+						unlink("$samplename.html");
+						rmtree("$samplename\_files");
+						rmtree("$samplename");
+					}
 				}
 				exit;
 			}

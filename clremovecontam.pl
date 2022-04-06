@@ -33,6 +33,7 @@ my %table;
 my %removed;
 my %otusiglevel;
 my %pjump;
+my %pjump2;
 my %tag;
 my $taglength;
 my $ntags;
@@ -62,6 +63,8 @@ my $filehandleoutput2;
 my $filehandleoutput3;
 my $filehandleoutput4;
 my $filehandleoutput5;
+my $filehandleoutput6;
+my $filehandleoutput7;
 my $pipehandleinput1;
 my $pipehandleinput2;
 my $pipehandleoutput1;
@@ -814,7 +817,10 @@ sub removeContaminants {
 		}
 		elsif ($test eq 'binomial') {
 			# estimate tag jump probability from data if tag jump probability is not given
-			if (!$pjump1 && !$pjump2 && $tagfile && $reversetagfile) {
+			if ($pjump1 && $pjump2 && $tagfile && $reversetagfile) {
+				&calculateTagJumpProbability();
+			}
+			elsif (!$pjump1 && !$pjump2 && $tagfile && $reversetagfile) {
 				&estimateTagJumpProbability();
 			}
 			# perform binomial test using estimated tag jump probability
@@ -972,6 +978,45 @@ _END
 	$pjump2 = $pjump2;
 }
 
+sub calculateTagJumpProbability {
+	print(STDERR "Calculating tag jump probability...\n");
+	my @samplenames = keys(%sample2blank);
+	my @otunames;
+	foreach my $otuname (keys(%otunames)) {
+		if (!defined($ignoreotulist{$otuname})) {
+			push(@otunames, $otuname);
+		}
+	}
+	# calculate tag jump probability to other tags
+	foreach my $samplename (@samplenames) {
+		foreach my $type ('reversejump', 'forwardjump') {
+			my $samplenseq = 0;
+			foreach my $otuname (@otunames) {
+				if ($table{$samplename}{$otuname} > 0) {
+					$samplenseq += $table{$samplename}{$otuname};
+				}
+			}
+			my $othernseq = 0;
+			foreach my $tempsample (keys(%{$sample2blank{$samplename}{$type}}), keys(%{$sample2sample{$samplename}{$type}})) {
+				foreach my $otuname (@otunames) {
+					if ($table{$tempsample}{$otuname} > 0) {
+						$othernseq += $table{$tempsample}{$otuname};
+					}
+				}
+			}
+			if ($type eq 'reversejump' && $othernseq) {
+				$pjump{$samplename}{$type} = $pjump1 * ($othernseq / ($samplenseq + $othernseq));
+			}
+			elsif ($type eq 'forwardjump' && $othernseq) {
+				$pjump{$samplename}{$type} = $pjump2 * ($othernseq / ($samplenseq + $othernseq));
+			}
+			else {
+				$pjump{$samplename}{$type} = 0;
+			}
+		}
+	}
+}
+
 sub estimateTagJumpProbability {
 	print(STDERR "Estimating tag jump probability...\n");
 	my @samplenames = keys(%sample2blank);
@@ -1084,6 +1129,36 @@ sub estimateTagJumpProbability {
 				&errorMessage(__LINE__, "Cannot get tag jump probability for \"$samplename\".");
 			}
 			close($filehandleinput1);
+		}
+	}
+	# calculate tag jump probability to all tags including the same tag
+	foreach my $samplename (@samplenames) {
+		foreach my $type ('reversejump', 'forwardjump') {
+			if ($pjump{$samplename}{$type} > 0) {
+				my $samplenseq = 0;
+				foreach my $otuname (@otunames) {
+					if ($table{$samplename}{$otuname} > 0) {
+						$samplenseq += $table{$samplename}{$otuname};
+					}
+				}
+				my $othernseq = 0;
+				foreach my $tempsample (keys(%{$sample2blank{$samplename}{$type}}), keys(%{$sample2sample{$samplename}{$type}})) {
+					foreach my $otuname (@otunames) {
+						if ($table{$tempsample}{$otuname} > 0) {
+							$othernseq += $table{$tempsample}{$otuname};
+						}
+					}
+				}
+				if ($othernseq) {
+					$pjump2{$samplename}{$type} = $pjump{$samplename}{$type} * (($samplenseq + $othernseq) / $othernseq);
+				}
+				else {
+					$pjump2{$samplename}{$type} = 'NA';
+				}
+			}
+			else {
+				$pjump2{$samplename}{$type} = 0;
+			}
 		}
 	}
 	# delete temporary files
@@ -1462,17 +1537,14 @@ otuobserved <- $table{$samplename}{$otuname}
 otursum <- $rsum
 otufsum <- $fsum
 _END
-						if ($pjump1 && $pjump2) {
-							$rcode .= <<"_END";
-preversejump <- $pjump1
-pforwardjump <- $pjump2
-_END
-						}
-						elsif (exists($pjump{$samplename}{'reversejump'}) && exists($pjump{$samplename}{'forwardjump'})) {
+						if (exists($pjump{$samplename}{'reversejump'}) && exists($pjump{$samplename}{'forwardjump'})) {
 							$rcode .= <<"_END";
 preversejump <- $pjump{$samplename}{'reversejump'}
 pforwardjump <- $pjump{$samplename}{'forwardjump'}
 _END
+						}
+						else {
+							&errorMessage(__LINE__, "The probability of tag jump is missing for \"$samplename\".");
 						}
 						$rcode .= <<"_END";
 pval <- 1
@@ -1547,29 +1619,39 @@ sub saveResults {
 		unless (open($filehandleoutput3, "> $outputfolder/siglevel.tsv")) {
 			&errorMessage(__LINE__, "Cannot make \"$outputfolder/siglevel.tsv\".");
 		}
-		if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
+		if ($test eq 'binomial' && %pjump) {
 			unless (open($filehandleoutput4, "> $outputfolder/preversejump.tsv")) {
 				&errorMessage(__LINE__, "Cannot make \"$outputfolder/preversejump.tsv\".");
 			}
 			unless (open($filehandleoutput5, "> $outputfolder/pforwardjump.tsv")) {
 				&errorMessage(__LINE__, "Cannot make \"$outputfolder/pforwardjump.tsv\".");
 			}
+			unless (open($filehandleoutput6, "> $outputfolder/preversejump2.tsv")) {
+				&errorMessage(__LINE__, "Cannot make \"$outputfolder/preversejump2.tsv\".");
+			}
+			unless (open($filehandleoutput7, "> $outputfolder/pforwardjump2.tsv")) {
+				&errorMessage(__LINE__, "Cannot make \"$outputfolder/pforwardjump2.tsv\".");
+			}
 		}
 		if ($tableformat eq 'matrix') {
 			print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
 			print($filehandleoutput2 "samplename\t" . join("\t", @otunames) . "\n");
 			print($filehandleoutput3 "samplename\t" . join("\t", @otunames) . "\n");
-			if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
+			if ($test eq 'binomial' && %pjump) {
 				print($filehandleoutput4 "samplename\t" . join("\t", @otunames) . "\n");
 				print($filehandleoutput5 "samplename\t" . join("\t", @otunames) . "\n");
+				print($filehandleoutput6 "samplename\t" . join("\t", @otunames) . "\n");
+				print($filehandleoutput7 "samplename\t" . join("\t", @otunames) . "\n");
 			}
 			foreach my $samplename (@samplenames) {
 				print($filehandleoutput1 $samplename);
 				print($filehandleoutput2 $samplename);
 				print($filehandleoutput3 $samplename);
-				if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
+				if ($test eq 'binomial' && %pjump) {
 					print($filehandleoutput4 $samplename);
 					print($filehandleoutput5 $samplename);
+					print($filehandleoutput6 $samplename);
+					print($filehandleoutput7 $samplename);
 				}
 				foreach my $otuname (@otunames) {
 					if ($table{$samplename}{$otuname}) {
@@ -1590,7 +1672,7 @@ sub saveResults {
 					else {
 						print($filehandleoutput3 "\t0.0000000000");
 					}
-					if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
+					if ($test eq 'binomial' && %pjump) {
 						if ($pjump{$samplename}{'reversejump'}) {
 							printf($filehandleoutput4 "\t%.10f", $pjump{$samplename}{'reversejump'});
 						}
@@ -1603,14 +1685,40 @@ sub saveResults {
 						else {
 							print($filehandleoutput5 "\t0.0000000000");
 						}
+						if ($pjump1 && $pjump2) {
+							printf($filehandleoutput6 "\t%.10f", $pjump1);
+							printf($filehandleoutput7 "\t%.10f", $pjump2);
+						}
+						else {
+							if ($pjump2{$samplename}{'reversejump'} eq 'NA') {
+								print($filehandleoutput6 "\tNA");
+							}
+							elsif ($pjump2{$samplename}{'reversejump'}) {
+								printf($filehandleoutput6 "\t%.10f", $pjump2{$samplename}{'reversejump'});
+							}
+							else {
+								print($filehandleoutput6 "\t0.0000000000");
+							}
+							if ($pjump2{$samplename}{'forwardjump'} eq 'NA') {
+								print($filehandleoutput7 "\tNA");
+							}
+							elsif ($pjump2{$samplename}{'forwardjump'}) {
+								printf($filehandleoutput7 "\t%.10f", $pjump2{$samplename}{'forwardjump'});
+							}
+							else {
+								print($filehandleoutput7 "\t0.0000000000");
+							}
+						}
 					}
 				}
 				print($filehandleoutput1 "\n");
 				print($filehandleoutput2 "\n");
 				print($filehandleoutput3 "\n");
-				if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
+				if ($test eq 'binomial' && %pjump) {
 					print($filehandleoutput4 "\n");
 					print($filehandleoutput5 "\n");
+					print($filehandleoutput6 "\n");
+					print($filehandleoutput7 "\n");
 				}
 			}
 		}
@@ -1618,9 +1726,11 @@ sub saveResults {
 			print($filehandleoutput1 "samplename\totuname\tnreads\n");
 			print($filehandleoutput2 "samplename\totuname\tremoved\n");
 			print($filehandleoutput3 "samplename\totuname\tsiglevel\n");
-			if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
+			if ($test eq 'binomial' && %pjump) {
 				print($filehandleoutput4 "samplename\totuname\tpreversejump\n");
 				print($filehandleoutput5 "samplename\totuname\tpforwardjump\n");
+				print($filehandleoutput6 "samplename\totuname\tpreversejump\n");
+				print($filehandleoutput7 "samplename\totuname\tpforwardjump\n");
 			}
 			foreach my $samplename (@samplenames) {
 				foreach my $otuname (@otunames) {
@@ -1642,7 +1752,7 @@ sub saveResults {
 					else {
 						print($filehandleoutput3 "$samplename\t$otuname\t0.0000000000\n");
 					}
-					if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
+					if ($test eq 'binomial' && %pjump) {
 						if ($pjump{$samplename}{'reversejump'}) {
 							printf($filehandleoutput4 "$samplename\t$otuname\t%.10f\n", $pjump{$samplename}{'reversejump'});
 						}
@@ -1655,6 +1765,30 @@ sub saveResults {
 						else {
 							print($filehandleoutput5 "$samplename\t$otuname\t0.0000000000\n");
 						}
+						if ($pjump1 && $pjump2) {
+							printf($filehandleoutput6 "$samplename\t$otuname\t%.10f\n", $pjump1);
+							printf($filehandleoutput7 "$samplename\t$otuname\t%.10f\n", $pjump2);
+						}
+						else {
+							if ($pjump2{$samplename}{'reversejump'} eq 'NA') {
+								print($filehandleoutput6 "$samplename\t$otuname\tNA\n");
+							}
+							elsif ($pjump2{$samplename}{'reversejump'}) {
+								printf($filehandleoutput6 "$samplename\t$otuname\t%.10f\n", $pjump2{$samplename}{'reversejump'});
+							}
+							else {
+								print($filehandleoutput6 "$samplename\t$otuname\t0.0000000000\n");
+							}
+							if ($pjump2{$samplename}{'forwardjump'} eq 'NA') {
+								print($filehandleoutput7 "$samplename\t$otuname\tNA\n");
+							}
+							elsif ($pjump2{$samplename}{'forwardjump'}) {
+								printf($filehandleoutput7 "$samplename\t$otuname\t%.10f\n", $pjump2{$samplename}{'forwardjump'});
+							}
+							else {
+								print($filehandleoutput7 "$samplename\t$otuname\t0.0000000000\n");
+							}
+						}
 					}
 				}
 			}
@@ -1662,9 +1796,11 @@ sub saveResults {
 		close($filehandleoutput1);
 		close($filehandleoutput2);
 		close($filehandleoutput3);
-		if ($test eq 'binomial' && %pjump && !$pjump1 && !$pjump2) {
+		if ($test eq 'binomial' && %pjump) {
 			close($filehandleoutput4);
 			close($filehandleoutput5);
+			close($filehandleoutput6);
+			close($filehandleoutput7);
 		}
 	}
 	# read input fasta and save output fasta
