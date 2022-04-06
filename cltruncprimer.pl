@@ -535,7 +535,7 @@ sub readTags {
 			print(STDERR $tag2name{$_} . " : " . $_ . "\n");
 		}
 	}
-	@tagnames = sort(@tagnames);
+	@tagnames = sort({$b cmp $a} @tagnames);
 	print(STDERR "done.\n\n");
 }
 
@@ -574,7 +574,7 @@ sub readReplaceList {
 		close($filehandleinput1);
 		# replace
 		my @temp = @inputfiles;
-		foreach my $from (sort(keys(%replace))) {
+		foreach my $from (sort({$b cmp $a} keys(%replace))) {
 			for (my $i = 0; $i < scalar(@temp); $i ++) {
 				if ($temp[$i] =~ s/$from/$replace{$from}/) {
 					if ($inputtype eq 'paired-end') {
