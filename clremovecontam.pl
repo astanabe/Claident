@@ -980,7 +980,12 @@ _END
 
 sub calculateTagJumpProbability {
 	print(STDERR "Calculating tag jump probability...\n");
-	my @samplenames = keys(%sample2blank);
+	my @samplenames;
+	foreach my $samplename (sort(keys(%samplenames))) {
+		if (exists($sample2blank{$samplename}) || exists($sample2sample{$samplename})) {
+			push(@samplenames, $samplename);
+		}
+	}
 	my @otunames;
 	foreach my $otuname (keys(%otunames)) {
 		if (!defined($ignoreotulist{$otuname})) {
