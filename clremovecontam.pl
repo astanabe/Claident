@@ -633,7 +633,7 @@ sub readTags {
 												$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
 												$blank2sample{"$runname\__$blanktag\__$primer"}{'reversejump'}{$samplename} = 1;
 											}
-											else {
+											elsif ($samplename ne "$runname\__$blanktag\__$primer") {
 												$sample2sample{$samplename}{'reversejump'}{"$runname\__$blanktag\__$primer"} = 1;
 											}
 										}
@@ -643,7 +643,7 @@ sub readTags {
 												$blanksamples{"$runname\__$blanktag\__$primer"} = 1;
 												$blank2sample{"$runname\__$blanktag\__$primer"}{'forwardjump'}{$samplename} = 1;
 											}
-											else {
+											elsif ($samplename ne "$runname\__$blanktag\__$primer") {
 												$sample2sample{$samplename}{'forwardjump'}{"$runname\__$blanktag\__$primer"} = 1;
 											}
 										}

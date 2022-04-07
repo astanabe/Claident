@@ -175,7 +175,7 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+nodel$/i) {
 			$nodel = 1;
 		}
-		elsif ($ARGV[$i] =~ /^-+yami$/i) {
+		elsif ($ARGV[$i] =~ /^-+anemone$/i) {
 			$logtransform = 0;
 			$color = '"random-dark"';
 			$bgcolor = '"whitesmoke"';

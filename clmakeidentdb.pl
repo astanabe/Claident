@@ -1,5 +1,6 @@
 use strict;
 use File::Spec;
+use Fcntl ':flock';
 use DBI;
 
 my $buildno = '0.9.x';
@@ -102,7 +103,7 @@ sub checkVariables {
 sub makeIdentDB {
 	print(STDERR "Reading input file and register to the database...\n");
 	my $switch = 0;
-	if ($append) {
+	if (-e $outputfile && $append) {
 		my $nadd = 0;
 		if (-e $outputfile) {
 			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {

@@ -431,21 +431,49 @@ sub concatenateSequences {
 }
 
 sub compressInParallel {
-	foreach my $fastq (@_) {
-		if ($compress eq 'gz') {
-			if (system("pigz -p $numthreads $fastq")) {
-				&errorMessage(__LINE__, "Cannot run \"pigz -p $numthreads $fastq\".");
+	{
+		my $child = 0;
+		$| = 1;
+		$? = 0;
+		foreach my $fastq (@_) {
+			if (my $pid = fork()) {
+				$child ++;
+				if ($child == 4) {
+					if (wait == -1) {
+						$child = 0;
+					} else {
+						$child --;
+					}
+				}
+				if ($?) {
+					&errorMessage(__LINE__);
+				}
+				next;
+			}
+			else {
+				if ($compress eq 'gz') {
+					if (system("pigz -p $qthreads $fastq")) {
+						&errorMessage(__LINE__, "Cannot run \"pigz $fastq\".");
+					}
+				}
+				elsif ($compress eq 'bz2') {
+					if (system("lbzip2 -n $qthreads $fastq")) {
+						&errorMessage(__LINE__, "Cannot run \"lbzip2 $fastq\".");
+					}
+				}
+				elsif ($compress eq 'xz') {
+					if (system("xz -T $qthreads $fastq")) {
+						&errorMessage(__LINE__, "Cannot run \"xz $fastq\".");
+					}
+				}
+				exit;
 			}
 		}
-		elsif ($compress eq 'bz2') {
-			if (system("lbzip2 -n $numthreads $fastq")) {
-				&errorMessage(__LINE__, "Cannot run \"lbzip2 -n $numthreads $fastq\".");
-			}
-		}
-		elsif ($compress eq 'xz') {
-			if (system("xz -T $numthreads $fastq")) {
-				&errorMessage(__LINE__, "Cannot run \"xz -T $numthreads $fastq\".");
-			}
+	}
+	# join
+	while (wait != -1) {
+		if ($?) {
+			&errorMessage(__LINE__, 'Cannot compress sequence file correctly.');
 		}
 	}
 }
