@@ -20,6 +20,7 @@ my $compress = 'gz';
 my $mode = 'ovl';
 my $padding = 'ACGTACGTACGTACGT';
 my $numthreads = 1;
+my $qthreads = 1;
 my $nodel;
 my $append;
 
@@ -275,6 +276,10 @@ sub checkVariables {
 	$minqual --;
 	if ($minqual < 0) {
 		$minqual = 0;
+	}
+	$qthreads = int($numthreads / 4);
+	if ($qthreads < 1) {
+		$qthreads = 1;
 	}
 	# search vsearch5d
 	{
