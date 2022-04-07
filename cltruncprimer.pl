@@ -10,6 +10,8 @@ my $tagfile;
 my $reversetagfile;
 my $replacelist;
 my $append;
+my $numthreads = 2;
+my $hthreads = 1;
 
 # Input/Output
 my @inputfiles;
@@ -205,7 +207,7 @@ sub getOptions {
 			$clsplitseqoption .= " $ARGV[$i]";
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
-			$clsplitseqoption .= " $ARGV[$i]";
+			$numthreads = $1;
 		}
 		else {
 			my @temp = glob($ARGV[$i]);
@@ -352,6 +354,10 @@ sub checkVariables {
 	}
 	if ($runname =~ /\s/) {
 		&errorMessage(__LINE__, "\"$runname\" is invalid name. Do not use spaces or tabs in run name.");
+	}
+	$hthreads = int($numthreads / 2);
+	if ($hthreads < 1) {
+		$hthreads = 1;
 	}
 	# search clsplitseq
 	{
@@ -643,9 +649,38 @@ sub determineFile {
 
 sub executeClsplitseq {
 	print(STDERR "Execute clsplitseq...\n");
-	foreach my $tagname (@tagnames) {
-		if (system("$clsplitseq$clsplitseqoption --tagname=$tagname --tagseq=$name2tag{$tagname} --append $name2file{$tagname} $outputfolder 1> $devnull")) {
-			&errorMessage(__LINE__, "Cannot run \"$clsplitseq$clsplitseqoption --tagname=$tagname --tagseq=$name2tag{$tagname} --append $name2file{$tagname} $outputfolder\".");
+	{
+		my $child = 0;
+		$| = 1;
+		$? = 0;
+		foreach my $tagname (reverse(@tagnames)) {
+			if (my $pid = fork()) {
+				$child ++;
+				if ($child == 2) {
+					if (wait == -1) {
+						$child = 0;
+					} else {
+						$child --;
+					}
+				}
+				if ($?) {
+					&errorMessage(__LINE__);
+				}
+				next;
+			}
+			else {
+				print(STDERR "Processing \"$tagname\"...\n");
+				if (system("$clsplitseq$clsplitseqoption --numthreads=$hthreads --tagname=$tagname --tagseq=$name2tag{$tagname} --append $name2file{$tagname} $outputfolder 1> $devnull 2> $devnull")) {
+					&errorMessage(__LINE__, "Cannot run \"$clsplitseq$clsplitseqoption --numthreads=$hthreads --tagname=$tagname --tagseq=$name2tag{$tagname} --append $name2file{$tagname} $outputfolder\".");
+				}
+				exit;
+			}
+		}
+		# join
+		while (wait != -1) {
+			if ($?) {
+				&errorMessage(__LINE__, 'Cannot run clsplitseq correctly.');
+			}
 		}
 	}
 	print(STDERR "done.\n\n");
