@@ -221,7 +221,7 @@ sub processFASTQ {
 						if (!-e "$outputfolder/$in2out{$tempin}") {
 							mkdir("$outputfolder/$in2out{$tempin}");
 						}
-						unless (open($filehandleoutput1, ">> $outputfolder/$in2out{$tempin}/$child.fastq")) {
+						unless (open($filehandleoutput1, "+>> $outputfolder/$in2out{$tempin}/$child.fastq")) {
 							&errorMessage(__LINE__, "Cannot write \"$outputfolder/$in2out{$tempin}/$child.fastq\".");
 						}
 						unless (flock($filehandleoutput1, LOCK_EX)) {

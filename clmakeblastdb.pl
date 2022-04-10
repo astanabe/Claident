@@ -369,7 +369,7 @@ sub makeNal {
 sub writeFile {
 	my $filehandle;
 	my $filename = shift(@_);
-	unless (open($filehandle, "> $filename")) {
+	unless (open($filehandle, "+> $filename")) {
 		&errorMessage(__LINE__, "Cannot open \"$filename\".");
 	}
 	unless (flock($filehandle, LOCK_EX)) {

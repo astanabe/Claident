@@ -1374,7 +1374,7 @@ sub saveToFile {
 	if (!-e "$outputfolder/$samplename$filenamesuffix") {
 		mkdir("$outputfolder/$samplename$filenamesuffix");
 	}
-	unless (open($filehandleoutput1, ">> $outputfolder/$samplename$filenamesuffix/$child.fastq")) {
+	unless (open($filehandleoutput1, "+>> $outputfolder/$samplename$filenamesuffix/$child.fastq")) {
 		&errorMessage(__LINE__, "Cannot write \"$outputfolder/$samplename$filenamesuffix/$child.fastq\".");
 	}
 	unless (flock($filehandleoutput1, LOCK_EX)) {

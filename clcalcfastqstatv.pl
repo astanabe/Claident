@@ -1,6 +1,5 @@
 use strict;
 use File::Spec;
-use Fcntl ':flock';
 
 my $buildno = '0.9.x';
 

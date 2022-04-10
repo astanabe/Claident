@@ -1147,7 +1147,7 @@ sub processOneSequence {
 sub saveToFile {
 	my ($nucseq, $qualseq, $seqname, $filename, $child) = @_;
 	if ($folder) {
-		unless (open($filehandleoutput1, ">> $output/$filename.$child")) {
+		unless (open($filehandleoutput1, "+>> $output/$filename.$child")) {
 			&errorMessage(__LINE__, "Cannot write \"$output/$filename.$child\".");
 		}
 		unless (flock($filehandleoutput1, LOCK_EX)) {
@@ -1158,7 +1158,7 @@ sub saveToFile {
 		}
 	}
 	else {
-		unless (open($filehandleoutput1, ">> $output.$child")) {
+		unless (open($filehandleoutput1, "+>> $output.$child")) {
 			&errorMessage(__LINE__, "Cannot write \"$output.$child\".");
 		}
 		unless (flock($filehandleoutput1, LOCK_EX)) {

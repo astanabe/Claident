@@ -1087,7 +1087,7 @@ sub estimateTagJumpProbability {
 					my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
 					if (!-e "$outputfolder/$blank[0].p$type.txt") {
 						# make a file
-						unless (open($filehandleoutput1, ">> $outputfolder/$blank[0].p$type.txt")) {
+						unless (open($filehandleoutput1, "+>> $outputfolder/$blank[0].p$type.txt")) {
 							&errorMessage(__LINE__, "Cannot make \"$outputfolder/$blank[0].p$type.txt\".");
 						}
 						unless (flock($filehandleoutput1, LOCK_EX|LOCK_NB)) {
@@ -1920,7 +1920,7 @@ sub saveToTempFile {
 	my $filehandle;
 	my $filename = shift(@_);
 	my $content = shift(@_);
-	unless (open($filehandle, ">> $filename")) {
+	unless (open($filehandle, "+>> $filename")) {
 		&errorMessage(__LINE__, "Cannot write \"$filename\".");
 	}
 	unless (flock($filehandle, LOCK_EX)) {
