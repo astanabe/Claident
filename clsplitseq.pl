@@ -1459,7 +1459,23 @@ sub concatenateFASTQ {
 		my $child = 0;
 		$| = 1;
 		$? = 0;
-		my @fastqfolder = glob("$outputfolder/$runname\__*");
+		my @tempfolder = glob("$outputfolder/$runname\__*");
+		my @fastqfolder;
+		foreach my $tempfolder (@tempfolder) {
+			if ($commontagname) {
+				if ($tempfolder =~ /^$outputfolder\/$runname\__$commontagname\__/) {
+					push(@fastqfolder, $tempfolder);
+				}
+			}
+			else {
+				foreach my $tagseq (keys(%tag)) {
+					if ($tempfolder =~ /^$outputfolder\/$runname\__$tag{$tagseq}\__/) {
+						push(@fastqfolder, $tempfolder);
+						last;
+					}
+				}
+			}
+		}
 		foreach my $fastqfolder (@fastqfolder) {
 			if (-d $fastqfolder) {
 				if (my $pid = fork()) {

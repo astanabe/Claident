@@ -670,9 +670,10 @@ sub executeClsplitseq {
 			}
 			else {
 				print(STDERR "Processing \"$tagname\"...\n");
-				if (system("$clsplitseq$clsplitseqoption --numthreads=$hthreads --tagname=$tagname --tagseq=$name2tag{$tagname} --append $name2file{$tagname} $outputfolder 1> $devnull 2> $devnull")) {
+				if (system("$clsplitseq$clsplitseqoption --numthreads=$hthreads --tagname=$tagname --tagseq=$name2tag{$tagname} --append $name2file{$tagname} $outputfolder 1> $devnull 2> $outputfolder/$tagname.log")) {
 					&errorMessage(__LINE__, "Cannot run \"$clsplitseq$clsplitseqoption --numthreads=$hthreads --tagname=$tagname --tagseq=$name2tag{$tagname} --append $name2file{$tagname} $outputfolder\".");
 				}
+				unlink("$outputfolder/$tagname.log");
 				exit;
 			}
 		}
