@@ -10,6 +10,7 @@ my $append;
 # input/output
 my @inputfiles;
 my $outputfile;
+my $lockdir;
 
 # other variables
 my $devnull = File::Spec->devnull();
@@ -97,10 +98,25 @@ sub checkVariables {
 	if (-e $outputfile && !$append) {
 		&errorMessage(__LINE__, "Output file already exists.");
 	}
+	$lockdir = "$outputfile.lock";
+	if (-e $lockdir) {
+		&errorMessage(__LINE__, "Lock directory already exists.");
+	}
+}
+
+$SIG{'TERM'} = $SIG{'PIPE'} = $SIG{'HUP'} = "sigexit";
+sub sigexit {
+	if ($lockdir =~ /\.lock$/ && -d $lockdir) {
+		rmdir($lockdir);
+	}
+	exit(1);
 }
 
 sub makeIdentDB {
 	print(STDERR "Reading input file and register to the database...\n");
+	while (!mkdir($lockdir, 0755)) {
+		sleep(10);
+	}
 	my $switch = 0;
 	if (-e $outputfile && $append) {
 		my $nadd = 0;
@@ -243,6 +259,7 @@ sub makeIdentDB {
 		}
 	}
 	$dbhandle->disconnect;
+	rmdir($lockdir);
 	print(STDERR "done.\n\n");
 }
 
