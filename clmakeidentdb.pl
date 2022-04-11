@@ -114,9 +114,11 @@ sub sigexit {
 
 sub makeIdentDB {
 	print(STDERR "Reading input file and register to the database...\n");
-	while (!mkdir($lockdir, 0755)) {
+	while (!mkdir($lockdir)) {
+		print(STDERR "Lock directory was found. Sleep 10 seconds.\n");
 		sleep(10);
 	}
+	print(STDERR "Lock directory has been correctly made.\n");
 	my $switch = 0;
 	if (-e $outputfile && $append) {
 		my $nadd = 0;
@@ -259,7 +261,11 @@ sub makeIdentDB {
 		}
 	}
 	$dbhandle->disconnect;
-	rmdir($lockdir);
+	while (!rmdir($lockdir)) {
+		print(STDERR "Lock directory cannot be removed. Sleep 10 seconds.\n");
+		sleep(10);
+	}
+	print(STDERR "Lock directory has been correctly removed.\n");
 	print(STDERR "done.\n\n");
 }
 
