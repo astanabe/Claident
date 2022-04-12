@@ -412,6 +412,7 @@ sub retrieveSimilarSequences {
 						}
 						while (my @row = $statement->fetchrow_array) {
 							$existornot = 1;
+							$statement->finish();
 							last;
 						}
 					}
@@ -421,6 +422,7 @@ sub retrieveSimilarSequences {
 					}
 					# check identdb
 					if ($existornot) {
+						print(STDERR "IDENTDB record was found for \"$query\". Skipping...\n");
 						next;
 					}
 					# output an entry

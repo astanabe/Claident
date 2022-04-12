@@ -487,6 +487,7 @@ sub searchNeighborhoods {
 						}
 						while (my @row = $statement->fetchrow_array) {
 							$existornot = 1;
+							$statement->finish();
 							last;
 						}
 					}
@@ -525,6 +526,7 @@ sub searchNeighborhoods {
 						}
 						# check identdb
 						if ($existornot) {
+							print(STDERR "IDENTDB record was found for \"$query\". Skipping...\n");
 							exit;
 						}
 						# check cachedb
@@ -762,7 +764,7 @@ sub searchNeighborhoods {
 									close($filehandleoutput1);
 								}
 								else {
-									print(STDERR "WARNING!: Cannot find borderline for $query.");
+									print(STDERR "WARNING!: Cannot find borderline for $query.\n");
 									exit;
 								}
 								if ($method eq 'nnc' || $method eq 'both') {
@@ -863,7 +865,7 @@ sub searchNeighborhoods {
 								#	&errorMessage(__LINE__, "Cannot run \"BLASTDB=\"$blastdbpath\" $blastn$blastoption -query \"$outputfile1.$qnum.temp/query.fasta\" -db $blastdb1 -seqidlist \"$outputfile1.$qnum.temp/borderline.txt\" -out - -evalue 1000000000 -outfmt \"6 sacc evalue score length\" -max_target_seqs 100 -searchsp 9223372036854775807\".");
 								#}
 								if (!$borderlinescore) {
-									print(STDERR "WARNING!: Cannot calculate borderline score for $query.");
+									print(STDERR "WARNING!: Cannot calculate borderline score for $query.\n");
 									exit;
 								}
 							}

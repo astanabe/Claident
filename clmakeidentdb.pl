@@ -99,9 +99,6 @@ sub checkVariables {
 		&errorMessage(__LINE__, "Output file already exists.");
 	}
 	$lockdir = "$outputfile.lock";
-	if (-e $lockdir) {
-		&errorMessage(__LINE__, "Lock directory already exists.");
-	}
 }
 
 $SIG{'TERM'} = $SIG{'PIPE'} = $SIG{'HUP'} = "sigexit";
