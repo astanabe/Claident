@@ -79,11 +79,25 @@ sub fillBlanks {
 	unless (open($filehandleoutput1, "> $outputfile")) {
 		&errorMessage(__LINE__, "Cannot write \"$outputfile\".");
 	}
+	my $lineno = 1;
+	my $addspecies;
 	while (<$filehandleinput1>) {
-		if (/\t/) {
+		if ($lineno == 1) {
+			if (/\tspecies[\t\r\n]/) {
+				$addspecies = 0;
+				print($filehandleoutput1 $_);
+			}
+			else {
+				$addspecies = 1;
+				s/\r?\n?$//;
+				print($filehandleoutput1 $_ . "\tspecies\n");
+			}
+		}
+		elsif ($lineno > 1 && /\t/) {
 			s/\r?\n?$//;
 			my @cell = split(/\t/, $_, -1);
 			my $taxon;
+			# fill upward
 			for (my $i = -1; $i * (-1) < scalar(@cell); $i --) {
 				if ($taxon && $cell[$i] eq '') {
 					$cell[$i] = $taxon;
@@ -93,6 +107,11 @@ sub fillBlanks {
 				}
 			}
 			undef($taxon);
+			# if there is no species column
+			if ($addspecies) {
+				push(@cell, '');
+			}
+			# fill downward
 			for (my $i = 1; $i < scalar(@cell); $i ++) {
 				if ($taxon && $cell[$i] eq '') {
 					$cell[$i] = "unidentified $taxon";
@@ -106,6 +125,7 @@ sub fillBlanks {
 		else {
 			print($filehandleoutput1 $_);
 		}
+		$lineno ++;
 	}
 	close($filehandleoutput1);
 	close($filehandleinput1);

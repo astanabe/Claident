@@ -6,6 +6,8 @@ my $buildno = '0.9.x';
 
 # options
 my $append;
+my $difference = 'stop';
+my $prefer = 'small';
 
 # input/output
 my @inputfiles;
@@ -14,6 +16,7 @@ my $lockdir;
 
 # other variables
 my $devnull = File::Spec->devnull();
+my %replace;
 
 # file handles
 my $filehandleinput1;
@@ -70,6 +73,30 @@ sub getOptions {
 	for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 		if ($ARGV[$i] =~ /^-+(?:a|append)$/i) {
 			$append = 1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:diff|difference)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^stop$/i) {
+				$difference = 'stop';
+			}
+			elsif ($value =~ /^(?:con|continue)$/i) {
+				$difference = 'continue';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+prefer=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:small|s)$/i) {
+				$prefer = 'small';
+			}
+			elsif ($value =~ /^(?:large|l)$/i) {
+				$prefer = 'large';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
 		}
 		else {
 			my @temp = glob($ARGV[$i]);
@@ -128,6 +155,8 @@ sub makeIdentDB {
 			&errorMessage(__LINE__, "Database file does not exist.");
 		}
 		# check duplication
+		my $ndiff = 0;
+		my $stop;
 		foreach my $inputfile (@inputfiles) {
 			print(STDERR "Checking \"$inputfile\"...\n");
 			$filehandleinput1 = &readFile($inputfile);
@@ -152,22 +181,31 @@ sub makeIdentDB {
 						my $existref = $statement->fetchall_arrayref([0]);
 						my $nhit = scalar(@{$existref});
 						if ($nhit != 0) {
+							@accs = sort(@accs);
+							my @existaccs;
+							foreach my $temp (@{$existref}) {
+								push(@existaccs, $temp->[0]);
+							}
+							@existaccs = sort(@existaccs);
 							if ($nhit == scalar(@accs)) {
-								@accs = sort(@accs);
-								my @existaccs;
-								foreach my $temp (@{$existref}) {
-									push(@existaccs, $temp->[0]);
-								}
-								@existaccs = sort(@existaccs);
 								for (my $i = 0; $i < scalar(@accs); $i ++) {
 									if ($accs[$i] ne $existaccs[$i]) {
-										&errorMessage(__LINE__, "Duplicate sequence $tempseq is detected, but accessions are not identical.");
+										$ndiff ++;
+										$stop = 1;
+										print(STDERR "Duplicate sequence $tempseq is detected, but accessions are not identical.\nInsert will abort.\nExisting: @existaccs\nNew: @accs\n");
 									}
 								}
 							}
 							else {
 								if ($nhit != 1 || scalar(@accs) != 0 || $existref->[0]->[0] ne '0') {
-									&errorMessage(__LINE__, "Duplicate sequence $tempseq is detected, but accessions are not identical.");
+									$ndiff ++;
+									if ($prefer eq 'small' && scalar(@accs) < scalar(@existaccs) || $prefer eq 'large' && scalar(@accs) > scalar(@existaccs)) {
+										$replace{$tempseq} = 1;
+									}
+									else {
+										$replace{$tempseq} = 0;
+									}
+									print(STDERR "Duplicate sequence $tempseq is detected, but accessions are not identical.\nExisting: @existaccs\nNew: @accs\n");
 								}
 							}
 						}
@@ -178,6 +216,20 @@ sub makeIdentDB {
 				}
 			}
 			close($filehandleinput1);
+		}
+		if ($ndiff) {
+			if ($difference eq 'stop' || $stop) {
+				&errorMessage(__LINE__, "$ndiff sequence(s) are duplicated and do not have identical accessions.");
+			}
+			else {
+				print(STDERR "$ndiff sequence(s) are duplicated and do not have identical accessions.\n");
+				if ($prefer eq 'small') {
+					print(STDERR "The smaller number of accessions are preferred.\n");
+				}
+				else {
+					print(STDERR "The larger number of accessions are preferred.\n");
+				}
+			}
 		}
 		if ($nadd) {
 			$switch = 1;
@@ -212,7 +264,7 @@ sub makeIdentDB {
 					$query =~ /;base62=([A-Za-z0-9]+)/;
 					my $tempseq = $1;
 					my @accs = split(/\r?\n/, $accs);
-					if ($tempseq) {
+					if ($tempseq && (!exists($replace{$tempseq}) || $replace{$tempseq} == 1)) {
 						my $statement;
 						unless ($statement = $dbhandle->prepare("SELECT acc FROM base62_acc WHERE base62 IN ('" . $tempseq . "')")) {
 							&errorMessage(__LINE__, "Cannot prepare SQL statement.");
@@ -222,7 +274,17 @@ sub makeIdentDB {
 						}
 						my $existref = $statement->fetchall_arrayref([0]);
 						my $nhit = scalar(@{$existref});
-						if ($nhit == 0) {
+						# delete existing data
+						if ($nhit && $replace{$tempseq} == 1) {
+							unless ($statement = $dbhandle->prepare("DELETE FROM base62_acc WHERE base62 IN ('" . $tempseq . "')")) {
+								&errorMessage(__LINE__, "Cannot prepare SQL statement.");
+							}
+							unless ($statement->execute) {
+								&errorMessage(__LINE__, "Cannot execute DELETE.");
+							}
+						}
+						# insert new data
+						if ($nhit == 0 || $nhit && $replace{$tempseq} == 1) {
 							unless ($statement = $dbhandle->prepare("INSERT INTO base62_acc (base62, acc) VALUES (?, ?);")) {
 								&errorMessage(__LINE__, "Cannot prepare SQL statement.");
 							}
@@ -297,6 +359,13 @@ sub errorMessage {
 	my $message = shift(@_);
 	print(STDERR "ERROR!: line $lineno\n$message\n");
 	print(STDERR "If you want to read help message, run this script without options.\n");
+	if ($lockdir =~ /\.lock$/ && -d $lockdir) {
+		while (!rmdir($lockdir)) {
+			print(STDERR "Lock directory cannot be removed. Sleep 10 seconds.\n");
+			sleep(10);
+		}
+		print(STDERR "Lock directory has been correctly removed.\n");
+	}
 	exit(1);
 }
 
@@ -310,6 +379,12 @@ Command line options
 ====================
 -a, --append
   Specify outputfile append or not. (default: off)
+
+--difference=STOP|CONTINUE
+  Specify difference handling. (default: STOP)
+
+--prefer=SMALL|LARGE
+  Specify preferred. (default: SMALL)
 
 Acceptable input file formats
 =============================

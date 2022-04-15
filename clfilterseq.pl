@@ -1300,12 +1300,10 @@ at a line.
 at a line.
 
 --otuseq=FILENAME
-  Specify output OTU sequence file name. The file must contain 1 OTU
-name at a line.
+  Specify output OTU sequence file name.
 
 --negativeotuseq=FILENAME
-  Specify delete OTU sequence file name. The file must contain 1 OTU
-name at a line.
+  Specify delete OTU sequence file name.
 
 -c, --converse
   If this option is specified, matched sequences will be cut off and

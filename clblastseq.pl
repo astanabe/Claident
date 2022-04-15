@@ -214,10 +214,10 @@ unless (open($inputhandle, "< $inputfile")) {
 	while (<$inputhandle>) {
 		if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 			my $query = $1;
-			my $sequence = $2;
+			my $sequence = uc($2);
 			$query =~ s/\s+$//;
 			$qnum ++;
-			$sequence =~ s/[>\s\r\n]//g;
+			$sequence =~ s/[^A-Z]//g;
 			push(@queries, $query);
 			if ($sequence) {
 				if (my $pid = fork()) {

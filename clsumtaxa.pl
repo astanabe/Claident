@@ -1,5 +1,7 @@
 use strict;
 use File::Spec;
+use Math::BaseCnv;
+Math::BaseCnv::dig('m64');
 
 my $buildno = '0.9.x';
 
@@ -7,10 +9,14 @@ my $buildno = '0.9.x';
 my $targetrank;
 my $numbering = 1;
 my $fuseotu = 1;
+my $base62encoding = 0;
+my $taxnamereplace = 1;
+my $taxranknamereplace = 1;
 my $topN;
 my $tableformat;
 my $sortkey = 'abundance';
 my $runname;
+my $otuseq;
 
 # input/output
 my $inputfile;
@@ -28,6 +34,8 @@ for (my $i = 0; $i < scalar(@taxrank); $i ++) {
 	$taxrank{$taxrank[$i]} = $i;
 }
 my %taxonomy;
+my %otu2seq;
+my @taxranknames;
 
 # file handles
 my $filehandleinput1;
@@ -42,6 +50,8 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
+	# read sequence file
+	&readSequenceFile();
 	# read taxonomy file
 	&readTaxonomyFile();
 	# read input file
@@ -89,7 +99,10 @@ sub getOptions {
 	for (my $i = 0; $i < scalar(@ARGV) - 2; $i ++) {
 		if ($ARGV[$i] =~ /^-+(?:target)?(?:tax|taxonomy)?(?:unit|rank|level)=(.+)$/i) {
 			my $taxrank = $1;
-			if ($taxrank{$taxrank}) {
+			if ($taxrank =~ /^sequence$/i) {
+				$targetrank = -1;
+			}
+			elsif ($taxrank{$taxrank}) {
 				$targetrank = $taxrank{$taxrank};
 			}
 			else {
@@ -119,6 +132,30 @@ sub getOptions {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:tax|taxon|taxa)namereplace=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$taxnamereplace = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$taxnamereplace = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:tax|taxon|taxa)ranknamereplace=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$taxranknamereplace = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$taxranknamereplace = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
 		elsif ($ARGV[$i] =~ /^-+numbering=(.+)$/i) {
 			my $value = $1;
 			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
@@ -126,6 +163,18 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
 				$numbering = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+base62encoding=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$base62encoding = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$base62encoding = 0;
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -142,6 +191,9 @@ sub getOptions {
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 			}
+		}
+		elsif ($ARGV[$i] =~ /^-+otuseq=(.+)$/i) {
+			$otuseq = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+topN=(\d+)$/i) {
 			$topN = $1;
@@ -176,8 +228,29 @@ sub checkVariables {
 	}
 }
 
+sub readSequenceFile {
+	if ($otuseq && $targetrank == -1) {
+		unless (open($filehandleinput1, "< $otuseq")) {
+			&errorMessage(__LINE__, "Cannot read \"$otuseq\".");
+		}
+		$| = 1;
+		$? = 0;
+		local $/ = "\n>";
+		while (<$filehandleinput1>) {
+			if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
+				my $query = $1;
+				my $sequence = uc($2);
+				$query =~ s/\s+$//;
+				$query =~ s/;+size=\d+;*//g;
+				$sequence =~ s/[^A-Z]//g;
+				$otu2seq{$query} = $sequence;
+			}
+		}
+		close($filehandleinput1);
+	}
+}
+
 sub readTaxonomyFile {
-	my @rank;
 	unless (open($filehandleinput1, "< $taxfile")) {
 		&errorMessage(__LINE__, "Cannot read \"$taxfile\".");
 	}
@@ -186,9 +259,9 @@ sub readTaxonomyFile {
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			if ($lineno == 1 && /\t/) {
-				@rank = split(/\t/, lc($_));
-				shift(@rank);
-				foreach my $rank (@rank) {
+				@taxranknames = split(/\t/, lc($_));
+				shift(@taxranknames);
+				foreach my $rank (@taxranknames) {
 					if (!exists($taxrank{$rank})) {
 						&errorMessage(__LINE__, "\"$rank\" is invalid taxonomic rank.");
 					}
@@ -197,9 +270,9 @@ sub readTaxonomyFile {
 			elsif (/\t/) {
 				my @entry = split(/\t/, $_, -1);
 				my $otuname = shift(@entry);
-				if (scalar(@entry) == scalar(@rank)) {
+				if (scalar(@entry) == scalar(@taxranknames)) {
 					for (my $i = 0; $i < scalar(@entry); $i ++) {
-						$taxonomy{$otuname}{$taxrank{$rank[$i]}} = $entry[$i];
+						$taxonomy{$otuname}{$taxrank{$taxranknames[$i]}} = $entry[$i];
 					}
 				}
 				else {
@@ -281,7 +354,6 @@ sub processSummary {
 	foreach my $otuname (@otunames) {
 		if ($taxonomy{$otuname}{$targetrank}) {
 			my $taxon = $taxonomy{$otuname}{$targetrank};
-			$taxon =~ s/ /_/g;
 			unless ($fuseotu) {
 				$taxon = $otuname . ':' . $taxon;
 			}
@@ -329,12 +401,12 @@ sub processSummary {
 	if ($sortkey =~ /^\d+$/) {
 		@otunames = sort({$taxonomy{$a}{$sortkey} cmp $taxonomy{$b}{$sortkey} || $newotu{$b} <=> $newotu{$a}} keys(%newotu));
 	}
-	if ($numbering) {
+	if ($numbering && $targetrank >= 0) {
 		my @newotu;
 		my $length = length(scalar(@otunames));
 		my $num = 1;
 		foreach my $otuname (@otunames) {
-			my $newotu = sprintf("%0*d", $length, $num) . "_$otuname";
+			my $newotu = sprintf("%0*d", $length, $num) . ':' . $otuname;
 			push(@newotu, $newotu);
 			foreach my $samplename (@samplenames) {
 				$table{$samplename}{$newotu} = $table{$samplename}{$otuname};
@@ -348,10 +420,47 @@ sub processSummary {
 
 sub saveSummary {
 	@samplenames = sort({$a cmp $b} keys(%table));
+	my %base62seq;
+	if ($base62encoding) {
+		foreach my $otuname (@otunames) {
+			my $tempseq = $otu2seq{$otuname};
+			$tempseq =~ tr/CGT/BCD/;
+			$tempseq = cnv($tempseq, 4, 62);
+			$base62seq{$otuname} = $tempseq;
+		}
+	}
 	# save output file
 	$filehandleoutput1 = &writeFile($outputfile);
 	if ($tableformat eq 'matrix') {
-		print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
+		# output header
+		if ($targetrank >= 0) {
+			my $tempnames = join("\t", @otunames);
+			if ($taxnamereplace) {
+				$tempnames =~ s/[ :]/_/g;
+			}
+			print($filehandleoutput1 "samplename\t$tempnames\n");
+		}
+		else {
+			print($filehandleoutput1 "samplename");
+			foreach my $otuname (@otunames) {
+				if ($base62encoding) {
+					if ($base62seq{$otuname}) {
+						print($filehandleoutput1 "\t$base62seq{$otuname}");
+					}
+					else {
+						&errorMessage(__LINE__, "There is no sequence for \"$otuname\".");
+					}
+				}
+				elsif ($otu2seq{$otuname}) {
+					print($filehandleoutput1 "\t$otu2seq{$otuname}");
+				}
+				else {
+					&errorMessage(__LINE__, "There is no sequence for \"$otuname\".");
+				}
+			}
+			print($filehandleoutput1 "\n");
+		}
+		# output data
 		foreach my $samplename (@samplenames) {
 			print($filehandleoutput1 $samplename);
 			foreach my $otuname (@otunames) {
@@ -366,16 +475,67 @@ sub saveSummary {
 		}
 	}
 	elsif ($tableformat eq 'column') {
-		my $templabel = $taxrank[$targetrank];
-		$templabel =~ s/ /_/g;
-		print($filehandleoutput1 "samplename\t$templabel\tnreads\n");
-		foreach my $samplename (@samplenames) {
-			foreach my $otuname (@otunames) {
-				if ($table{$samplename}{$otuname}) {
-					print($filehandleoutput1 "$samplename\t$otuname\t$table{$samplename}{$otuname}\n");
+		# output header
+		{
+			my $tempranks;
+			if ($targetrank >= 0) {
+				$tempranks = $taxrank[$targetrank];
+			}
+			else {
+				$tempranks = join("\t", @taxranknames);
+				if ($base62encoding) {
+					$tempranks .= "\tbase62sequence";
 				}
 				else {
-					print($filehandleoutput1 "$samplename\t$otuname\t0\n");
+					$tempranks .= "\tsequence";
+				}
+			}
+			if ($taxranknamereplace) {
+				$tempranks =~ s/ /_/g;
+			}
+			print($filehandleoutput1 "samplename\t$tempranks\tnreads\n");
+		}
+		# output data
+		foreach my $samplename (@samplenames) {
+			foreach my $otuname (@otunames) {
+				my $tempname = $otuname;
+				if ($taxnamereplace) {
+					$tempname =~ s/[ :]/_/g;
+				}
+				if ($targetrank >= 0) {
+					if ($table{$samplename}{$otuname}) {
+						print($filehandleoutput1 "$samplename\t$tempname\t$table{$samplename}{$otuname}\n");
+					}
+				}
+				elsif ($table{$samplename}{$otuname}) {
+					{
+						my $tempnames;
+						foreach my $taxrank (@taxranknames) {
+							$tempnames .= "\t";
+							if ($taxonomy{$otuname}{$taxrank{$taxrank}}) {
+								$tempnames .= $taxonomy{$otuname}{$taxrank{$taxrank}};
+							}
+						}
+						if ($taxnamereplace) {
+							$tempnames =~ s/[ :]/_/g;
+						}
+						print($filehandleoutput1 "$samplename$tempnames");
+					}
+					if ($base62encoding) {
+						if ($base62seq{$otuname}) {
+							print($filehandleoutput1 "\t$base62seq{$otuname}");
+						}
+						else {
+							&errorMessage(__LINE__, "There is no sequence for \"$otuname\".");
+						}
+					}
+					elsif ($otu2seq{$otuname}) {
+						print($filehandleoutput1 "\t$otu2seq{$otuname}");
+					}
+					else {
+						&errorMessage(__LINE__, "There is no sequence for \"$otuname\".");
+					}
+					print($filehandleoutput1 "\t$table{$samplename}{$otuname}\n");
 				}
 			}
 		}
@@ -457,12 +617,27 @@ Command line options
 --targetrank=RANK
   Specify target taxonomic rank. (default: species)
 
+--otuseq=FILENAME
+  Specify OTU sequence file name for targetrank=sequence.
+
+--taxnamereplace=ENABLE|DISABLE
+  Specify whether taxon names need to be replaced by s/[ :]/_/g.
+(default: ENABLE)
+
+--taxranknamereplace=ENABLE|DISABLE
+  Specify whether taxonomy rank names need to be replaced by s/ /_/g.
+(default: ENABLE)
+
 --fuseotu=ENABLE|DISABLE
   Specify whether OTU will be fused or not. (default:ENABLE)
 
 --numbering=ENABLE|DISABLE
   Specify whether number need to be added to head of otunames ot not.
 (default: ENABLE)
+
+--base62encoding=ENABLE|DISABLE
+  Specify whether sequences need to be base62-encoded or not.
+(default: DISABLE)
 
 --sortkey=ABUNDANCE|RANKNAME
   Specify which key should be used to sort order. Note that RANKNAME should be

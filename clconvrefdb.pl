@@ -343,9 +343,9 @@ sub readFASTAmakeTaxDB {
 		while (<$filehandleinput1>) {
 			if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 				my $seqname = $1;
-				my $sequence = $2;
+				my $sequence = uc($2);
 				$seqname =~ s/${separator}?\s*$//;
-				$sequence =~ s/[>\s\r\n]//g;
+				$sequence =~ s/[^A-Z]//g;
 				if ($sequence) {
 					$tempacc ++;
 					my $acc = $accprefix . &convNumber2Accession($tempacc);

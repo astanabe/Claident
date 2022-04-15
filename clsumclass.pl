@@ -167,9 +167,6 @@ sub saveSummary {
 				if ($table{$samplename}{$otuname}) {
 					print($filehandleoutput1 "$samplename\t$otuname\t$table{$samplename}{$otuname}\n");
 				}
-				else {
-					print($filehandleoutput1 "$samplename\t$otuname\t0\n");
-				}
 			}
 		}
 	}

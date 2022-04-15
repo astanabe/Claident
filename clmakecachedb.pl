@@ -390,12 +390,12 @@ sub retrieveSimilarSequences {
 		while (<$filehandleinput1>) {
 			if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 				my $query = $1;
-				my $sequence = $2;
+				my $sequence = uc($2);
 				$query =~ s/\s+$//;
 				$query =~ s/;+size=\d+;*//g;
 				if ($sequence && !exists($ignoreotulist{$query})) {
 					$qnum ++;
-					$sequence =~ s/[>\s\r\n]//g;
+					$sequence =~ s/[^A-Z]//g;
 					push(@queries, $query);
 					# check identdb
 					my $existornot;

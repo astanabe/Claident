@@ -470,7 +470,7 @@ sub searchNeighborhoods {
 				$query =~ s/;+size=\d+;*//g;
 				if ($sequence && !exists($ignoreotulist{$query})) {
 					$qnum ++;
-					$sequence =~ s/[>\s\r\n]//g;
+					$sequence =~ s/[^A-Z]//g;
 					push(@queries, $query);
 					# check identdb
 					my $existornot;
@@ -1040,9 +1040,10 @@ sub outputFile {
 			while (<$filehandleinput1>) {
 				if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
 					my $query = $1;
-					my $sequence = $2;
+					my $sequence = uc($2);
 					$query =~ s/\s+$//;
-					$sequence =~ s/[>\s\r\n]//g;
+					$query =~ s/;+size=\d+;*//g;
+					$sequence =~ s/[^A-Z]//g;
 					$sequence =~ tr/CGT/BCD/;
 					$tempseq = cnv($sequence, 4, 62);
 				}

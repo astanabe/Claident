@@ -387,7 +387,7 @@ sub makeTemporaryFile {
 					my $name = $1;
 					my $sequence = uc($2);
 					$name =~ s/\s+$//;
-					$sequence =~ s/[>\s\r\n]//g;
+					$sequence =~ s/[^A-Z]//g;
 					print($filehandleoutput1 ">$name\n$sequence\n>$name");
 					print($filehandleoutput1 "revcomp\n");
 					print($filehandleoutput1 &reversecomplement($sequence));
