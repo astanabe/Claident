@@ -8,11 +8,13 @@ my $buildno = '0.9.x';
 # input/output
 my $inputfile;
 my $outputfolder;
+my $taxfile;
 my $replicatelist;
 
 # options
 my $chromeexec;
 my $mogrifyexec;
+my @targetrank;
 my $logtransform = 1;
 my $color = '"random-dark"';
 my $bgcolor = '"white"';
@@ -21,6 +23,7 @@ my $rotation = 'rotateRatio=0';
 my $runname;
 my $numthreads = 1;
 my $nodel;
+my $append;
 
 # commands
 my $Rscript;
@@ -31,19 +34,18 @@ my $root = getcwd();
 my %table;
 my @otunames;
 my @samplenames;
+my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'subphylum', 'superclass', 'class', 'subclass', 'infraclass', 'cohort', 'subcohort', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'section', 'subsection', 'series', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma', 'forma specialis', 'strain', 'isolate');
+my %taxrank;
+for (my $i = 0; $i < scalar(@taxrank); $i ++) {
+	$taxrank{$taxrank[$i]} = $i;
+}
+my %taxonomy;
+my @taxranknames;
 my %parentsample;
 
 # file handles
 my $filehandleinput1;
-my $filehandleinput2;
-my $filehandleinput3;
 my $filehandleoutput1;
-my $filehandleoutput2;
-my $filehandleoutput3;
-my $pipehandleinput1;
-my $pipehandleinput2;
-my $pipehandleoutput1;
-my $pipehandleoutput2;
 
 &main();
 
@@ -56,7 +58,9 @@ sub main {
 	&checkVariables();
 	# read list files
 	&readListFiles();
-	# read summary
+	# read taxonomy file
+	&readTaxonomyFile();
+	# read input file
 	&readSummary();
 	# plot word cloud
 	&plotWordCloud();
@@ -105,6 +109,24 @@ sub getOptions {
 		}
 		elsif ($ARGV[$i] =~ /^-+mogrify(?:exec|executable)?=(.+)$/i) {
 			$mogrifyexec = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:target)?(?:tax|taxonomy)?(?:unit|rank|level)=(.+)$/i) {
+			my @temp = split(',', $1);
+			my %targetrank;
+			foreach my $taxrank (@temp) {
+				if ($taxrank{$taxrank}) {
+					$targetrank{$taxrank{$taxrank}} = 1;
+				}
+				else {
+					&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+				}
+			}
+			if (%targetrank) {
+				@targetrank = keys(%targetrank);
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
 		}
 		elsif ($ARGV[$i] =~ /^-+logtrans(?:form)?=(.+)$/i) {
 			my $value = $1;
@@ -166,11 +188,20 @@ sub getOptions {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:replicate|repl?)list=(.+)$/i) {
+			$replicatelist = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:tax|taxonomy)file=(.+)$/i) {
+			$taxfile = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+runname=(.+)$/i) {
 			$runname = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
 			$numthreads = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:a|append)$/i) {
+			$append = 1;
 		}
 		elsif ($ARGV[$i] =~ /^-+nodel$/i) {
 			$nodel = 1;
@@ -181,6 +212,11 @@ sub getOptions {
 			$bgcolor = '"whitesmoke"';
 			$size = '1500x1000';
 			$rotation = 'rotateRatio=0';
+			foreach my $taxrank ('phylum', 'class', 'order', 'family', 'genus', 'species') {
+				if ($taxrank{$taxrank}) {
+					push(@targetrank, $taxrank{$taxrank});
+				}
+			}
 		}
 		else {
 			&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
@@ -194,11 +230,16 @@ sub checkVariables {
 		&errorMessage(__LINE__, "Input file does not exist.");
 	}
 	# check output folder
-	if (-e $outputfolder) {
-		&errorMessage(__LINE__, "\"$outputfolder\" already exists.");
+	if ($outputfolder =~ /^samplename$/i) {
+		$append = 1;
 	}
-	if (!mkdir($outputfolder)) {
-		&errorMessage(__LINE__, "Cannot make output folder.");
+	else {
+		if (-e $outputfolder && !$append) {
+			&errorMessage(__LINE__, "\"$outputfolder\" already exists.");
+		}
+		if (!mkdir($outputfolder) && !$append) {
+			&errorMessage(__LINE__, "Cannot make output folder.");
+		}
 	}
 	# search Chrome executable
 	if ($chromeexec) {
@@ -294,6 +335,44 @@ sub readListFiles {
 	}
 }
 
+sub readTaxonomyFile {
+	unless (open($filehandleinput1, "< $taxfile")) {
+		&errorMessage(__LINE__, "Cannot read \"$taxfile\".");
+	}
+	{
+		my $lineno = 1;
+		while (<$filehandleinput1>) {
+			s/\r?\n?$//;
+			if ($lineno == 1 && /\t/) {
+				@taxranknames = split(/\t/, lc($_));
+				shift(@taxranknames);
+				foreach my $rank (@taxranknames) {
+					if (!exists($taxrank{$rank})) {
+						&errorMessage(__LINE__, "\"$rank\" is invalid taxonomic rank.");
+					}
+				}
+			}
+			elsif (/\t/) {
+				my @entry = split(/\t/, $_, -1);
+				my $otuname = shift(@entry);
+				if (scalar(@entry) == scalar(@taxranknames)) {
+					for (my $i = 0; $i < scalar(@entry); $i ++) {
+						$taxonomy{$otuname}{$taxrank{$taxranknames[$i]}} = $entry[$i];
+					}
+				}
+				else {
+					&errorMessage(__LINE__, "Input taxonomy file is invalid.");
+				}
+			}
+			else {
+				&errorMessage(__LINE__, "Input taxonomy file is invalid.");
+			}
+			$lineno ++;
+		}
+	}
+	close($filehandleinput1);
+}
+
 sub readSummary {
 	my $ncol;
 	my $format;
@@ -310,9 +389,6 @@ sub readSummary {
 				if ($replicatelist && $parentsample{$row[0]}) {
 					$row[0] = $parentsample{$row[0]};
 				}
-				$row[1] =~ s/\d+_//;
-				$row[1] =~ s/unidentified_//;
-				$row[1] =~ s/_/ /g;
 				$table{$row[0]}{$row[1]} += $row[2];
 			}
 			else {
@@ -342,11 +418,7 @@ sub readSummary {
 			$format = 'column';
 		}
 		elsif (/^samplename\t(.+)/i) {
-			my $tempnames = $1;
-			$tempnames =~ s/\d+_//g;
-			$tempnames =~ s/unidentified_//g;
-			$tempnames =~ s/_/ /g;
-			@otunames = split(/\t/, $tempnames);
+			@otunames = split(/\t/, $1);
 			$ncol = scalar(@otunames);
 			$format = 'matrix';
 		}
@@ -366,130 +438,207 @@ sub readSummary {
 
 sub plotWordCloud {
 	print(STDERR "Preparing files for plotting...\n");
-	unless (chdir($outputfolder)) {
-		&errorMessage(__LINE__, "Cannot change working directory.");
-	}
 	# make required files, run plotting and delete temporary files
 	{
 		my $child = 0;
 		$| = 1;
 		$? = 0;
-		foreach my $samplename (@samplenames) {
-			if (my $pid = fork()) {
-				$child ++;
-				if ($child == $numthreads) {
-					if (wait == -1) {
-						$child = 0;
-					} else {
-						$child --;
-					}
-				}
-				if ($?) {
-					&errorMessage(__LINE__);
-				}
-				next;
-			}
-			else {
-				# get max
-				my $max = 0;
-				my @tempname;
-				my @tempval;
+		foreach my $targetrank (@targetrank) {
+			# make new table
+			my %newtable;
+			my @newotunames;
+			{
+				my %otu2newotu;
+				my %newotu;
 				foreach my $otuname (@otunames) {
-					if ($table{$samplename}{$otuname} > $max) {
-						$max = $table{$samplename}{$otuname};
-					}
-					if ($table{$samplename}{$otuname} > 0) {
-						push(@tempname, $otuname);
-						push(@tempval, $table{$samplename}{$otuname});
+					if ($taxonomy{$otuname}{$targetrank}) {
+						my $taxon = $taxonomy{$otuname}{$targetrank};
+						$otu2newotu{$otuname} = $taxon;
+						$newotu{$taxon} = 0;
 					}
 				}
-				if ($max) {
-					# scale to 1-20
-					if ($logtransform) {
-						my $scale = exp(20) / $max;
-						map({$_ = int(log($_ * $scale) + 0.5)} @tempval);
-					}
-					else {
-						my $scale = 20 / $max;
-						map({$_ = int($_ * $scale + 0.5)} @tempval);
-					}
-					# sort
-					my %tempval;
-					for (my $i = 0; $i < scalar(@tempval); $i ++) {
-						$tempval{$tempname[$i]} = $tempval[$i];
-					}
-					@tempname = sort({$tempval{$b} <=> $tempval{$a} || $a cmp $b} @tempname);
-					@tempval = sort({$b <=> $a} @tempval);
-					# make tempfile
-					unless (open($filehandleoutput1, "> $samplename.tsv")) {
-						&errorMessage(__LINE__, "Cannot make \"$samplename.tsv\".");
-					}
-					print($filehandleoutput1 "name\tfreq\n");
-					for (my $i = 0; $i < scalar(@tempval); $i ++) {
-						if ($tempval[$i] > 0) {
-							print($filehandleoutput1 $tempname[$i] . "\t" . $tempval[$i] . "\n");
+				if (%otu2newotu) {
+					foreach my $samplename (@samplenames) {
+						foreach my $otuname (@otunames) {
+							if ($taxonomy{$otuname}{$targetrank}) {
+								$newtable{$samplename}{$otu2newotu{$otuname}} += $table{$samplename}{$otuname};
+								$newotu{$otu2newotu{$otuname}} += $table{$samplename}{$otuname};
+							}
 						}
 					}
-					print($filehandleoutput1 "dummy\t0.00001\n");
-					close($filehandleoutput1);
-					unless (open($filehandleoutput1, "> $samplename.R")) {
-						&errorMessage(__LINE__, "Cannot make \"$samplename.R\".");
-					}
-					my $ellipticity;
-					if ($size eq '1600x900') {
-						$ellipticity = 0.65;
-					}
-					elsif ($size eq '1500x1000') {
-						$ellipticity = 0.8;
-					}
-					elsif ($size eq '1280x960') {
-						$ellipticity = 0.9;
-					}
-					elsif ($size eq '1200x1200') {
-						$ellipticity = 1.2;
-					}
-					elsif ($size eq '960x1280') {
-						$ellipticity = 1.5;
-					}
-					elsif ($size eq '1000x1500') {
-						$ellipticity = 1.67;
-					}
-					elsif ($size eq '900x1600') {
-						$ellipticity = 1.8;
-					}
-					my $minSize;
-					my $fontsize;
-					if ($logtransform) {
-						$minSize = 10;
-						$fontsize = 1;
-					}
-					else {
-						$minSize = 10;
-						$fontsize = 2;
-					}
-					print($filehandleoutput1 "library(wordcloud2)\nlibrary(htmlwidgets)\n");
-					print($filehandleoutput1 "saveWidget(wordcloud2(read.table(\"$samplename.tsv\", header=T, check.names=F), color=$color, backgroundColor=$bgcolor, ellipticity=$ellipticity, minSize=$minSize, size=$fontsize, $rotation, widgetsize=c(5000, 5000)), \"$samplename.html\", selfcontained=F, background=$bgcolor)\n");
-					close($filehandleoutput1);
-					print(STDERR "Plotting word cloud of \"$samplename\"...\n");
-					if (system("$Rscript --vanilla $samplename.R 2> " . $devnull . ' 1> ' . $devnull)) {
-						&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $samplename.R\" correctly.");
-					}
-					system("$chromeexec --headless --user-data-dir=$samplename --screenshot=$samplename.png --window-size=6000,6000 --virtual-time-budget=100000000 $samplename.html 2> " . $devnull . ' 1> ' . $devnull);
-					if (!-e "$samplename.png" || -z "$samplename.png") {
-						&errorMessage(__LINE__, "Cannot run \"$chromeexec --headless --user-data-dir=$samplename --screenshot=$samplename.png --window-size=6000,6000 --virtual-time-budget=100000000 $samplename.html\" correctly.");
-					}
-					if (system("$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $samplename.png")) {
-						&errorMessage(__LINE__, "Cannot run \"$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $samplename.png\" correctly.");
-					}
-					unless ($nodel) {
-						unlink("$samplename.tsv");
-						unlink("$samplename.R");
-						unlink("$samplename.html");
-						rmtree("$samplename\_files");
-						rmtree("$samplename");
+				}
+				foreach my $otuname (keys(%newotu)) {
+					if ($newotu{$otuname} > 0) {
+						push(@newotunames, $otuname);
 					}
 				}
-				exit;
+			}
+			# plot wordcloud in parallel
+			foreach my $samplename (@samplenames) {
+				if (my $pid = fork()) {
+					$child ++;
+					if ($child == $numthreads) {
+						if (wait == -1) {
+							$child = 0;
+						} else {
+							$child --;
+						}
+					}
+					if ($?) {
+						&errorMessage(__LINE__);
+					}
+					next;
+				}
+				else {
+					my $tempfolder;
+					my $outfileprefix;
+					# make output folder
+					if ($outputfolder =~ /^samplename$/i) {
+						$tempfolder = $samplename;
+						$outfileprefix = $taxrank[$targetrank];
+					}
+					else {
+						$tempfolder = $outputfolder;
+						$outfileprefix = "$samplename.$taxrank[$targetrank]";
+					}
+					if ($append) {
+						if (!-e $tempfolder && !mkdir($tempfolder)) {
+							&errorMessage(__LINE__, "Cannot find \"$tempfolder\".");
+						}
+						if (!-d $tempfolder) {
+							&errorMessage(__LINE__, "\"$tempfolder\" is not directory.");
+						}
+					}
+					else {
+						if (!mkdir($tempfolder)) {
+							&errorMessage(__LINE__, "Cannot make \"$tempfolder\".");
+						}
+					}
+					# change directory
+					unless (chdir($tempfolder)) {
+						&errorMessage(__LINE__, "Cannot change working directory.");
+					}
+					# get max
+					my $max = 0;
+					my @tempname;
+					my @tempval;
+					foreach my $otuname (@newotunames) {
+						if ($newtable{$samplename}{$otuname} > $max) {
+							$max = $newtable{$samplename}{$otuname};
+						}
+						if ($newtable{$samplename}{$otuname} > 0) {
+							push(@tempname, $otuname);
+							push(@tempval, $newtable{$samplename}{$otuname});
+						}
+					}
+					if ($max) {
+						# scale to 1-20
+						if ($logtransform) {
+							my $scale = exp(20) / $max;
+							map({$_ = int(log($_ * $scale) + 0.5)} @tempval);
+						}
+						else {
+							my $scale = 20 / $max;
+							map({$_ = int($_ * $scale + 0.5)} @tempval);
+						}
+						# sort
+						my %tempval;
+						for (my $i = 0; $i < scalar(@tempval); $i ++) {
+							$tempval{$tempname[$i]} = $tempval[$i];
+						}
+						@tempname = sort({$tempval{$b} <=> $tempval{$a} || $a cmp $b} @tempname);
+						@tempval = sort({$b <=> $a} @tempval);
+						# make tempfile
+						unless (open($filehandleoutput1, "> $outfileprefix.tsv")) {
+							&errorMessage(__LINE__, "Cannot make \"$outfileprefix.tsv\".");
+						}
+						print($filehandleoutput1 "name\tfreq\n");
+						for (my $i = 0; $i < scalar(@tempval); $i ++) {
+							if ($tempval[$i] > 0) {
+								$tempname[$i] =~ s/^unidentified //;
+								print($filehandleoutput1 $tempname[$i] . "\t" . $tempval[$i] . "\n");
+							}
+						}
+						print($filehandleoutput1 "dummy\t0.00001\n");
+						close($filehandleoutput1);
+						unless (open($filehandleoutput1, "> $outfileprefix.R")) {
+							&errorMessage(__LINE__, "Cannot make \"$outfileprefix.R\".");
+						}
+						my $ellipticity;
+						if ($size eq '1600x900') {
+							$ellipticity = 0.65;
+						}
+						elsif ($size eq '1500x1000') {
+							$ellipticity = 0.8;
+						}
+						elsif ($size eq '1280x960') {
+							$ellipticity = 0.9;
+						}
+						elsif ($size eq '1200x1200') {
+							$ellipticity = 1.2;
+						}
+						elsif ($size eq '960x1280') {
+							$ellipticity = 1.5;
+						}
+						elsif ($size eq '1000x1500') {
+							$ellipticity = 1.67;
+						}
+						elsif ($size eq '900x1600') {
+							$ellipticity = 1.8;
+						}
+						my $minSize;
+						my $fontsize;
+						if ($logtransform) {
+							$minSize = 10;
+							$fontsize = 1;
+						}
+						else {
+							$minSize = 10;
+							$fontsize = 2;
+						}
+						print($filehandleoutput1 "library(wordcloud2)\nlibrary(htmlwidgets)\n");
+						print($filehandleoutput1 "saveWidget(wordcloud2(read.delim(\"$outfileprefix.tsv\", header=T, check.names=F), color=$color, backgroundColor=$bgcolor, ellipticity=$ellipticity, minSize=$minSize, size=$fontsize, $rotation, widgetsize=c(5000, 5000), fontFamily=\"Noto Sans\", fontWeight=\"bold\"), \"$outfileprefix.html\", selfcontained=F, background=$bgcolor)\n");
+						close($filehandleoutput1);
+						print(STDERR "Plotting word cloud of $taxrank[$targetrank] of \"$samplename\"...\n");
+						if (-e "$outfileprefix.R" && -e "$outfileprefix.tsv") {
+							if (system("$Rscript --vanilla $outfileprefix.R 2>> $outfileprefix.log" . ' 1> ' . $devnull)) {
+								&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outfileprefix.R\" correctly.");
+							}
+						}
+						else {
+							&errorMessage(__LINE__, "Unknown error.");
+						}
+						if (-e "$outfileprefix.html" && -d "$outfileprefix\_files") {
+							#if (system($^X . " -i -npe 's/(?:\\\\n)+ *//g' $outfileprefix.html 2>> $outfileprefix.log" . ' 1> ' . $devnull)) {
+							#	&errorMessage(__LINE__, "Cannot run \"" . $^X . " -i -npe 's/(?:\\\\n)+ *//g' $outfileprefix.html\" correctly.");
+							#}
+							unlink("$outfileprefix.png");
+							while (!-e "$outfileprefix.png" || (-s "$outfileprefix.png") < 10240) {
+								system("timeout 60 $chromeexec --headless --single-process --disable-dev-shm-usage --lang=en --disk-cache-dir=$outfileprefix --user-data-dir=$outfileprefix --crash-dumps-dir=$outfileprefix --screenshot=$outfileprefix.png --window-size=6000,6000 --virtual-time-budget=100000000 $outfileprefix.html 2>> $outfileprefix.log" . ' 1> ' . $devnull);
+								if (-e "$outfileprefix.png" && !-z "$outfileprefix.png") {
+									if (system("$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $outfileprefix.png 2>> $outfileprefix.log" . ' 1> ' . $devnull)) {
+										&errorMessage(__LINE__, "Cannot run \"$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $outfileprefix.png\" correctly.");
+									}
+								}
+							}
+						}
+						else {
+							&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outfileprefix.R\" correctly.");
+						}
+						unless ($nodel) {
+							unlink("$outfileprefix.tsv");
+							unlink("$outfileprefix.R");
+							unlink("$outfileprefix.html");
+							unlink("$outfileprefix.log");
+							rmtree("$outfileprefix\_files");
+							rmtree("$outfileprefix");
+						}
+					}
+					unless (chdir($root)) {
+						&errorMessage(__LINE__, "Cannot change working directory.");
+					}
+					exit;
+				}
 			}
 		}
 	}
@@ -498,9 +647,6 @@ sub plotWordCloud {
 		if ($?) {
 			&errorMessage(__LINE__, 'Cannot plot word cloud correctly.');
 		}
-	}
-	unless (chdir($root)) {
-		&errorMessage(__LINE__, "Cannot change working directory.");
 	}
 	print(STDERR "done.\n\n");
 }
@@ -554,6 +700,12 @@ chromium-browser)
 --mogrifyexec=MOGRIFYEXECUTABLE
   Specify mogrify executable. (default: mogrify)
 
+--taxfile=FILENAME
+  Specify output of classigntax. (default: none)
+
+--targetrank=RANK
+  Specify target taxonomic rank. (default: species)
+
 --logtransform=ENABLE|DISABLE
   Specify whether log-transformation will be applied or not. (default:
 DISABLE)
@@ -573,6 +725,9 @@ DISABLE)
 --runname=RUNNAME
   Specify run name for replacing run name.
 (default: given by sequence name)
+
+-a, --append
+  Specify outputfile append or not. (default: off)
 
 -n, --numthreads=INTEGER
   Specify the number of processes. (default: 1)

@@ -16,12 +16,13 @@ my $topN;
 my $tableformat;
 my $sortkey = 'abundance';
 my $runname;
-my $otuseq;
 
 # input/output
 my $inputfile;
 my $outputfile;
 my $taxfile;
+my $replicatelist;
+my $otuseq;
 
 # other variables
 my $devnull = File::Spec->devnull();
@@ -36,6 +37,7 @@ for (my $i = 0; $i < scalar(@taxrank); $i ++) {
 my %taxonomy;
 my %otu2seq;
 my @taxranknames;
+my %parentsample;
 
 # file handles
 my $filehandleinput1;
@@ -50,6 +52,8 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
+	# read list files
+	&readListFiles();
 	# read sequence file
 	&readSequenceFile();
 	# read taxonomy file
@@ -192,6 +196,9 @@ sub getOptions {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:replicate|repl?)list=(.+)$/i) {
+			$replicatelist = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+otuseq=(.+)$/i) {
 			$otuseq = $1;
 		}
@@ -225,6 +232,20 @@ sub checkVariables {
 	}
 	if (!$targetrank) {
 		$targetrank = $taxrank{'species'};
+	}
+}
+
+sub readListFiles {
+	if ($replicatelist) {
+		$filehandleinput1 = &readFile($replicatelist);
+		while (<$filehandleinput1>) {
+			s/\r?\n?$//;
+			my @temp = split(/\t/, $_);
+			for (my $i = 0; $i < scalar(@temp); $i ++) {
+				$parentsample{$temp[$i]} = $temp[0];
+			}
+		}
+		close($filehandleinput1);
 	}
 }
 
@@ -301,6 +322,9 @@ sub readSummary {
 				if ($runname) {
 					$row[0] =~ s/^.+?(__)/$runname$1/;
 				}
+				if ($replicatelist && $parentsample{$row[0]}) {
+					$row[0] = $parentsample{$row[0]};
+				}
 				$table{$row[0]}{$row[1]} += $row[2];
 			}
 			else {
@@ -313,6 +337,9 @@ sub readSummary {
 				my $samplename = shift(@row);
 				if ($runname) {
 					$samplename =~ s/^.+?(__)/$runname$1/;
+				}
+				if ($replicatelist && $parentsample{$samplename}) {
+					$samplename = $parentsample{$samplename};
 				}
 				push(@samplenames, $samplename);
 				for (my $i = 0; $i < scalar(@row); $i ++) {

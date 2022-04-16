@@ -29,7 +29,6 @@ my $blastdb_aliastool;
 # global variables
 my $root = getcwd();
 my @format;
-my $prefix;
 my $blastdbpath;
 my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'subphylum', 'superclass', 'class', 'subclass', 'infraclass', 'cohort', 'subcohort', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'section', 'subsection', 'series', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma', 'forma specialis', 'strain', 'isolate');
 my %taxrank;
@@ -134,7 +133,7 @@ sub checkVariables {
 		}
 	}
 	# define prefix
-	$prefix = $output;
+	my $prefix = $output;
 	$prefix =~ s/^.+[\\\/]//;
 	if ($prefix eq '') {
 		&errorMessage(__LINE__, "Output is invalid.");
