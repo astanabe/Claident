@@ -885,16 +885,15 @@ sub estimateContaminationProbability {
 				$pid{$pid} = $child;
 				if ($nchild == $numthreads) {
 					my $endpid = wait();
+					while (!exists($pid{$endpid}) && $endpid != -1) {
+						$endpid = wait();
+					}
 					if (exists($pid{$endpid})) {
 						$child = $pid{$endpid};
 						delete($pid{$endpid});
 					}
 					elsif ($endpid == -1) {
 						$child = 0;
-					}
-					else {
-						print(STDERR "WARNING!: Unkown PID \"$endpid\".\n");
-						$child = int(rand($nchild));
 					}
 				}
 				elsif ($nchild < $numthreads) {
@@ -1062,16 +1061,15 @@ sub estimateTagJumpProbability {
 					$pid{$pid} = $child;
 					if ($nchild == $numthreads) {
 						my $endpid = wait();
+						while (!exists($pid{$endpid}) && $endpid != -1) {
+							$endpid = wait();
+						}
 						if (exists($pid{$endpid})) {
 							$child = $pid{$endpid};
 							delete($pid{$endpid});
 						}
 						elsif ($endpid == -1) {
 							$child = 0;
-						}
-						else {
-							print(STDERR "WARNING!: Unkown PID \"$endpid\".\n");
-							$child = int(rand($nchild));
 						}
 					}
 					elsif ($nchild < $numthreads) {
@@ -1316,16 +1314,15 @@ sub performModifiedThompsonTauTest {
 					$pid{$pid} = $child;
 					if ($nchild == $numthreads) {
 						my $endpid = wait();
+						while (!exists($pid{$endpid}) && $endpid != -1) {
+							$endpid = wait();
+						}
 						if (exists($pid{$endpid})) {
 							$child = $pid{$endpid};
 							delete($pid{$endpid});
 						}
 						elsif ($endpid == -1) {
 							$child = 0;
-						}
-						else {
-							print(STDERR "WARNING!: Unkown PID \"$endpid\".\n");
-							$child = int(rand($nchild));
 						}
 					}
 					elsif ($nchild < $numthreads) {
@@ -1418,16 +1415,15 @@ sub performBinomialTest1 {
 					$pid{$pid} = $child;
 					if ($nchild == $numthreads) {
 						my $endpid = wait();
+						while (!exists($pid{$endpid}) && $endpid != -1) {
+							$endpid = wait();
+						}
 						if (exists($pid{$endpid})) {
 							$child = $pid{$endpid};
 							delete($pid{$endpid});
 						}
 						elsif ($endpid == -1) {
 							$child = 0;
-						}
-						else {
-							print(STDERR "WARNING!: Unkown PID \"$endpid\".\n");
-							$child = int(rand($nchild));
 						}
 					}
 					elsif ($nchild < $numthreads) {
@@ -1503,16 +1499,15 @@ sub performBinomialTest2 {
 					$pid{$pid} = $child;
 					if ($nchild == $numthreads) {
 						my $endpid = wait();
+						while (!exists($pid{$endpid}) && $endpid != -1) {
+							$endpid = wait();
+						}
 						if (exists($pid{$endpid})) {
 							$child = $pid{$endpid};
 							delete($pid{$endpid});
 						}
 						elsif ($endpid == -1) {
 							$child = 0;
-						}
-						else {
-							print(STDERR "WARNING!: Unkown PID \"$endpid\".\n");
-							$child = int(rand($nchild));
 						}
 					}
 					elsif ($nchild < $numthreads) {

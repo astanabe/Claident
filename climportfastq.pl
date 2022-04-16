@@ -191,16 +191,15 @@ sub processFASTQ {
 						$pid{$pid} = $child;
 						if ($nchild == $numthreads * 2) {
 							my $endpid = wait();
+							while (!exists($pid{$endpid}) && $endpid != -1) {
+								$endpid = wait();
+							}
 							if (exists($pid{$endpid})) {
 								$child = $pid{$endpid};
 								delete($pid{$endpid});
 							}
 							elsif ($endpid == -1) {
 								$child = 0;
-							}
-							else {
-								print(STDERR "WARNING!: Unkown PID \"$endpid\".\n");
-								$child = int(rand($nchild));
 							}
 						}
 						elsif ($nchild < $numthreads * 2) {

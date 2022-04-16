@@ -698,16 +698,15 @@ sub splitSequences {
 					$pid{$pid} = $child;
 					if ($nchild == $numthreads * 2) {
 						my $endpid = wait();
+						while (!exists($pid{$endpid}) && $endpid != -1) {
+							$endpid = wait();
+						}
 						if (exists($pid{$endpid})) {
 							$child = $pid{$endpid};
 							delete($pid{$endpid});
 						}
 						elsif ($endpid == -1) {
 							$child = 0;
-						}
-						else {
-							print(STDERR "WARNING!: Unkown PID \"$endpid\".\n");
-							$child = int(rand($nchild));
 						}
 					}
 					elsif ($nchild < $numthreads * 2) {
@@ -1455,27 +1454,33 @@ sub saveToFile {
 
 sub concatenateFASTQ {
 	print(STDERR "Concatenating FASTQ files...\n");
+	my @fastqfolder;
 	{
-		my $child = 0;
-		$| = 1;
-		$? = 0;
 		my @tempfolder = glob("$outputfolder/$runname\__*");
-		my @fastqfolder;
 		foreach my $tempfolder (@tempfolder) {
 			if ($commontagname) {
-				if ($tempfolder =~ /^$outputfolder\/$runname\__$commontagname\__/) {
+				my $temp = "$outputfolder/$runname\__$commontagname\__";
+				$temp = &escapetext($temp);
+				if ($tempfolder =~ /^$temp/) {
 					push(@fastqfolder, $tempfolder);
 				}
 			}
 			else {
 				foreach my $tagseq (keys(%tag)) {
-					if ($tempfolder =~ /^$outputfolder\/$runname\__$tag{$tagseq}\__/) {
+					my $temp = "$outputfolder/$runname\__$tag{$tagseq}\__";
+					$temp = &escapetext($temp);
+					if ($tempfolder =~ /^$temp/) {
 						push(@fastqfolder, $tempfolder);
 						last;
 					}
 				}
 			}
 		}
+	}
+	{
+		my $child = 0;
+		$| = 1;
+		$? = 0;
 		foreach my $fastqfolder (@fastqfolder) {
 			if (-d $fastqfolder) {
 				if (my $pid = fork()) {
@@ -1851,6 +1856,20 @@ sub writeFile {
 		}
 	}
 	return($filehandle);
+}
+
+sub escapetext {
+	my $temp = shift(@_);
+	$temp =~ s/\+/\\\+/g;
+	$temp =~ s/\*/\\\*/g;
+	$temp =~ s/\./\\\./g;
+	$temp =~ s/\(/\\\(/g;
+	$temp =~ s/\)/\\\)/g;
+	$temp =~ s/\[/\\\[/g;
+	$temp =~ s/\]/\\\]/g;
+	$temp =~ s/\{/\\\{/g;
+	$temp =~ s/\}/\\\}/g;
+	return($temp);
 }
 
 sub reversecomplement {
