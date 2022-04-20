@@ -6,6 +6,18 @@ my $buildno = '0.9.x';
 my $inputfile;
 my $outputfile;
 
+# options
+my $fullfill = 0;
+
+# global variables
+my @taxrank = ('no rank', 'superkingdom', 'kingdom', 'subkingdom', 'superphylum', 'phylum', 'subphylum', 'superclass', 'class', 'subclass', 'infraclass', 'cohort', 'subcohort', 'superorder', 'order', 'suborder', 'infraorder', 'parvorder', 'superfamily', 'family', 'subfamily', 'tribe', 'subtribe', 'genus', 'subgenus', 'section', 'subsection', 'series', 'species group', 'species subgroup', 'species', 'subspecies', 'varietas', 'forma', 'forma specialis', 'strain', 'isolate');
+my %taxrank;
+for (my $i = 0; $i < scalar(@taxrank); $i ++) {
+	$taxrank{$taxrank[$i]} = $i;
+}
+my @outheader = @taxrank;
+shift(@outheader);
+
 # file handles
 my $filehandleinput1;
 my $filehandleoutput1;
@@ -59,6 +71,24 @@ sub getOptions {
 	$inputfile = $ARGV[-2];
 	# get output file name
 	$outputfile = $ARGV[-1];
+	# read command line options
+	for (my $i = 0; $i < scalar(@ARGV) - 2; $i ++) {
+		if ($ARGV[$i] =~ /^-+(?:fill|full|fullfill)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$fullfill = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$fullfill = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		else {
+			&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
+		}
+	}
 }
 
 sub checkVariables {
@@ -80,22 +110,36 @@ sub fillBlanks {
 		&errorMessage(__LINE__, "Cannot write \"$outputfile\".");
 	}
 	my $lineno = 1;
-	my $addspecies;
+	my @inheader;
 	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
 		if ($lineno == 1) {
-			if (/\tspecies[\t\r\n]/) {
-				$addspecies = 0;
-				print($filehandleoutput1 $_);
+			if (/\t/) {
+				@inheader = split(/\t/, $_, -1);
 			}
 			else {
-				$addspecies = 1;
-				s/\r?\n?$//;
-				print($filehandleoutput1 $_ . "\tspecies\n");
+				&errorMessage(__LINE__, "");
+			}
+			if ($fullfill) {
+				print($filehandleoutput1 "query\t" . join("\t", @outheader) . "\n");
+			}
+			else {
+				print($filehandleoutput1 join("\t", @inheader) . "\n");
 			}
 		}
 		elsif ($lineno > 1 && /\t/) {
-			s/\r?\n?$//;
 			my @cell = split(/\t/, $_, -1);
+			if ($fullfill) {
+				my @temp;
+				$temp[0] = $cell[0];
+				for (my $i = 1; $i < scalar(@cell); $i ++) {
+					$temp[$taxrank{$inheader[$i]}] = $cell[$i];
+				}
+				if (scalar(@temp) < scalar(@taxrank)) {
+					$temp[scalar(@outheader)] = '';
+				}
+				@cell = @temp;
+			}
 			my $taxon;
 			# fill upward
 			for (my $i = -1; $i * (-1) < scalar(@cell); $i --) {
@@ -107,10 +151,6 @@ sub fillBlanks {
 				}
 			}
 			undef($taxon);
-			# if there is no species column
-			if ($addspecies) {
-				push(@cell, '');
-			}
 			# fill downward
 			for (my $i = 1; $i < scalar(@cell); $i ++) {
 				if ($taxon && $cell[$i] eq '') {
@@ -144,6 +184,12 @@ sub helpMessage {
 Usage
 =====
 clfillassign inputfile outputfile
+
+Command line options
+====================
+--fullfill=ENABLE|DISABLE
+  Specify whether all taxonomic ranks need to be filled or not.
+(default: DISABLE)
 
 Acceptable input file formats
 =============================

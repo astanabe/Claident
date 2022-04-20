@@ -1,5 +1,7 @@
 use strict;
 use File::Spec;
+use Math::BaseCnv;
+Math::BaseCnv::dig('m64');
 
 my $buildno = '0.9.x';
 
@@ -14,6 +16,8 @@ my $notuseq;
 my $samplelist;
 my $nsamplelist;
 my $taxfile;
+my $base62encoding = 0;
+my $otunamereplace = 0;
 
 # options
 my $runname;
@@ -179,6 +183,30 @@ sub getOptions {
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:tax|taxonomy)file=(.+)$/i) {
 			$taxfile = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+otunamereplace=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$otunamereplace = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$otunamereplace = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+base62encoding=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$base62encoding = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$base62encoding = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
 		}
 		elsif ($ARGV[$i] =~ /^-+in(?:clude)?tax(?:on|a)?=(.+)$/i) {
 			my @words = split(/,/, $1);
@@ -350,8 +378,29 @@ sub readListFiles {
 
 sub readSequenceFiles {
 	if ($otuseq) {
-		foreach my $otu (&readSeq($otuseq)) {
-			$otulist{$otu} = 1;
+		if ($otunamereplace) {
+			unless (open($filehandleinput1, "< $otuseq")) {
+				&errorMessage(__LINE__, "Cannot read \"$otuseq\".");
+			}
+			$| = 1;
+			$? = 0;
+			local $/ = "\n>";
+			while (<$filehandleinput1>) {
+				if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
+					my $query = $1;
+					my $sequence = uc($2);
+					$query =~ s/\s+$//;
+					$query =~ s/;+size=\d+;*//g;
+					$sequence =~ s/[^A-Z]//g;
+					$otulist{$query} = $sequence;
+				}
+			}
+			close($filehandleinput1);
+		}
+		else {
+			foreach my $otu (&readSeq($otuseq)) {
+				$otulist{$otu} = 1;
+			}
 		}
 	}
 	elsif ($notuseq) {
@@ -612,10 +661,43 @@ sub filterColumnsRows {
 sub saveSummary {
 	@otunames = sort({$a cmp $b} @otunames);
 	@samplenames = sort({$a cmp $b} keys(%table));
+	my %base62seq;
+	if ($base62encoding) {
+		foreach my $otuname (@otunames) {
+			my $tempseq = $otulist{$otuname};
+			$tempseq =~ tr/CGT/BCD/;
+			$tempseq = cnv($tempseq, 4, 62);
+			$base62seq{$otuname} = $tempseq;
+		}
+	}
 	# save output file
 	$filehandleoutput1 = &writeFile($outputfile);
 	if ($tableformat eq 'matrix') {
-		print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
+		if ($otunamereplace) {
+			print($filehandleoutput1 "samplename");
+			foreach my $otuname (@otunames) {
+				if ($base62encoding) {
+					if ($base62seq{$otuname}) {
+						print($filehandleoutput1 "\t$base62seq{$otuname}");
+					}
+					else {
+						&errorMessage(__LINE__, "There is no sequence for \"$otuname\".");
+					}
+				}
+				else {
+					if ($otulist{$otuname}) {
+						print($filehandleoutput1 "\t$otulist{$otuname}");
+					}
+					else {
+						&errorMessage(__LINE__, "There is no sequence for \"$otuname\".");
+					}
+				}
+			}
+			print($filehandleoutput1 "\n");
+		}
+		else {
+			print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
+		}
 		foreach my $samplename (@samplenames) {
 			print($filehandleoutput1 $samplename);
 			foreach my $otuname (@otunames) {
@@ -630,14 +712,39 @@ sub saveSummary {
 		}
 	}
 	elsif ($tableformat eq 'column') {
-		print($filehandleoutput1 "samplename\totuname\tnreads\n");
+		if ($otunamereplace) {
+			if ($base62encoding) {
+				print($filehandleoutput1 "samplename\tbase62sequence\tnreads\n");
+			}
+			else {
+				print($filehandleoutput1 "samplename\tsequence\tnreads\n");
+			}
+		}
+		else {
+			print($filehandleoutput1 "samplename\totuname\tnreads\n");
+		}
 		foreach my $samplename (@samplenames) {
 			foreach my $otuname (@otunames) {
 				if ($table{$samplename}{$otuname}) {
-					print($filehandleoutput1 "$samplename\t$otuname\t$table{$samplename}{$otuname}\n");
-				}
-				else {
-					print($filehandleoutput1 "$samplename\t$otuname\t0\n");
+					if ($otunamereplace) {
+						if ($base62encoding) {
+							if ($base62seq{$otuname}) {
+								print($filehandleoutput1 "$samplename\t$base62seq{$otuname}\t$table{$samplename}{$otuname}\n");
+							}
+							else {
+								&errorMessage(__LINE__, "There is no sequence for \"$otuname\".");
+							}
+						}
+						elsif ($otulist{$otuname}) {
+							print($filehandleoutput1 "$samplename\t$otulist{$otuname}\t$table{$samplename}{$otuname}\n");
+						}
+						else {
+							&errorMessage(__LINE__, "There is no sequence for \"$otuname\".");
+						}
+					}
+					else {
+						print($filehandleoutput1 "$samplename\t$otuname\t$table{$samplename}{$otuname}\n");
+					}
 				}
 			}
 		}
@@ -822,6 +929,14 @@ smaller than this value at all samples, the OTU will be omitted.
 sequences of a sample / the total number of sequences of a sample is
 smaller than this value at all OTUs, the sample will be omitted.
 (default: 0)
+
+--otunamereplace=ENABLE|DISABLE
+  Specify whether OTU names need to be replaced by sequence.
+(default: DISABLE)
+
+--base62encoding=ENABLE|DISABLE
+  Specify whether sequences need to be base62-encoded or not.
+(default: DISABLE)
 
 --tableformat=COLUMN|MATRIX
   Specify output table format. (default: same as input)

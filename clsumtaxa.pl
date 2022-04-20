@@ -524,7 +524,14 @@ sub saveSummary {
 		}
 		# output data
 		foreach my $samplename (@samplenames) {
-			foreach my $otuname (@otunames) {
+			my @tempotus;
+			if ($sortkey eq 'abundance') {
+				@tempotus = sort({$table{$samplename}{$b} <=> $table{$samplename}{$a}} @otunames);
+			}
+			else {
+				@tempotus = @otunames;
+			}
+			foreach my $otuname (@tempotus) {
 				my $tempname = $otuname;
 				if ($taxnamereplace) {
 					$tempname =~ s/[ :]/_/g;
