@@ -230,6 +230,17 @@ sub getOptions {
 				}
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:o|output|tableformat)=(.+)$/i) {
+			if ($1 =~ /^matrix$/i) {
+				$tableformat = 'matrix';
+			}
+			elsif ($1 =~ /^column$/i) {
+				$tableformat = 'column';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
+			}
+		}
 		else {
 			&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
 		}

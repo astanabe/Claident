@@ -654,15 +654,36 @@ sub readTags {
 					}
 				}
 			}
-			foreach my $samplename (sort(keys(%sample2blank))) {
+			my %tempsamples;
+			foreach my $samplename (keys(%sample2blank)) {
+				$tempsamples{$samplename} = 1;
+			}
+			foreach my $samplename (keys(%sample2sample)) {
+				$tempsamples{$samplename} = 1;
+			}
+			foreach my $samplename (sort(keys(%tempsamples))) {
 				print(STDERR "$samplename :");
 				print(STDERR "\nForward tag sharing / reverse tag jumped samples :");
-				foreach (sort(keys(%{$sample2blank{$samplename}{'reversejump'}})), sort(keys(%{$sample2sample{$samplename}{'reversejump'}}))) {
-					print(STDERR "\n  $_");
+				if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
+					foreach (sort(keys(%{$sample2blank{$samplename}{'reversejump'}}))) {
+						print(STDERR "\n  Blank : $_");
+					}
+				}
+				if (%sample2sample && exists($sample2sample{$samplename}) && exists($sample2sample{$samplename}{'reversejump'})) {
+					foreach (sort(keys(%{$sample2sample{$samplename}{'reversejump'}}))) {
+						print(STDERR "\n  Sample : $_");
+					}
 				}
 				print(STDERR "\nReverse tag sharing / forward tag jumped samples :");
-				foreach (sort(keys(%{$sample2blank{$samplename}{'forwardjump'}})), sort(keys(%{$sample2sample{$samplename}{'forwardjump'}}))) {
-					print(STDERR "\n  $_");
+				if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
+					foreach (sort(keys(%{$sample2blank{$samplename}{'forwardjump'}}))) {
+						print(STDERR "\n  Blank : $_");
+					}
+				}
+				if (%sample2sample && exists($sample2sample{$samplename}) && exists($sample2sample{$samplename}{'forwardjump'})) {
+					foreach (sort(keys(%{$sample2sample{$samplename}{'forwardjump'}}))) {
+						print(STDERR "\n  Sample : $_");
+					}
 				}
 				print(STDERR "\n");
 			}
@@ -828,8 +849,7 @@ sub removeContaminants {
 		}
 	}
 	# search result files and renew data table
-	my @samplenames = keys(%sample2blank);
-	foreach my $samplename (@samplenames) {
+	foreach my $samplename (keys(%samplenames)) {
 		while (my $tempfile = glob("$outputfolder/$samplename.*.temp")) {
 			$filehandleinput1 = &readFile($tempfile);
 			while (<$filehandleinput1>) {
@@ -910,10 +930,15 @@ sub estimateContaminationProbability {
 				$filehandleoutput1 = &writeFile("$outputfolder/$blanksample.pjump.R");
 				print($filehandleoutput1 "blanksample <- \"$blanksample\"\n");
 				print($filehandleoutput1 "blank2sample <- c(\n\"");
-				print($filehandleoutput1 join("\",\n\"", keys(%{$blank2sample{$blanksample}})));
+				if (exists($blank2sample{$blanksample})) {
+					print($filehandleoutput1 join("\",\n\"", keys(%{$blank2sample{$blanksample}})));
+				}
+				else {
+					&errorMessage(__LINE__, "Unknown error.");
+				}
 				print($filehandleoutput1 "\"\n)\n");
 				print($filehandleoutput1 <<"_END");
-table <- read.table(\"$outputfolder/temptable.tsv\", header=T, row.names=1, check.names=F)
+table <- read.delim(\"$outputfolder/temptable.tsv\", header=T, row.names=1, check.names=F)
 nothers <- length(rownames(table)) - 1
 tempsum <- sum(table[blanksample,], na.rm=T)
 calcResidualSum <- function (x) {
@@ -994,28 +1019,103 @@ sub calculateTagJumpProbability {
 	# calculate tag jump probability to other tags
 	foreach my $samplename (@samplenames) {
 		foreach my $type ('reversejump', 'forwardjump') {
-			my $samplenseq = 0;
-			foreach my $otuname (@otunames) {
-				if ($table{$samplename}{$otuname} > 0) {
-					$samplenseq += $table{$samplename}{$otuname};
-				}
-			}
-			my $othernseq = 0;
-			foreach my $tempsample (keys(%{$sample2blank{$samplename}{$type}}), keys(%{$sample2sample{$samplename}{$type}})) {
+			if (!exists($pjump{$samplename}{$type})) {
+				my $samplenseq = 0;
 				foreach my $otuname (@otunames) {
-					if ($table{$tempsample}{$otuname} > 0) {
-						$othernseq += $table{$tempsample}{$otuname};
+					if ($table{$samplename}{$otuname} > 0) {
+						$samplenseq += $table{$samplename}{$otuname};
+					}
+					if ($type eq 'reversejump') {
+						$samplenseq += &calcfsum($samplename, $otuname);
+					}
+					elsif ($type eq 'forwardjump') {
+						$samplenseq += &calcrsum($samplename, $otuname);
 					}
 				}
-			}
-			if ($type eq 'reversejump' && $othernseq) {
-				$pjump{$samplename}{$type} = $pjump1 * ($othernseq / ($samplenseq + $othernseq));
-			}
-			elsif ($type eq 'forwardjump' && $othernseq) {
-				$pjump{$samplename}{$type} = $pjump2 * ($othernseq / ($samplenseq + $othernseq));
-			}
-			else {
-				$pjump{$samplename}{$type} = 0;
+				my $othernseq = 0;
+				if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{$type})) {
+					foreach my $tempsample (keys(%{$sample2blank{$samplename}{$type}})) {
+						foreach my $otuname (@otunames) {
+							if ($table{$tempsample}{$otuname} > 0) {
+								$othernseq += $table{$tempsample}{$otuname};
+							}
+							if ($type eq 'reversejump') {
+								$othernseq += &calcfsum($samplename, $otuname);
+							}
+							elsif ($type eq 'forwardjump') {
+								$othernseq += &calcrsum($samplename, $otuname);
+							}
+						}
+					}
+				}
+				if (%sample2sample && exists($sample2sample{$samplename}) && exists($sample2sample{$samplename}{$type})) {
+					foreach my $tempsample (keys(%{$sample2sample{$samplename}{$type}})) {
+						foreach my $otuname (@otunames) {
+							if ($table{$tempsample}{$otuname} > 0) {
+								$othernseq += $table{$tempsample}{$otuname};
+							}
+							if ($type eq 'reversejump') {
+								$othernseq += &calcfsum($samplename, $otuname);
+							}
+							elsif ($type eq 'forwardjump') {
+								$othernseq += &calcrsum($samplename, $otuname);
+							}
+						}
+					}
+				}
+				if ($type eq 'reversejump' && $othernseq) {
+					$pjump{$samplename}{$type} = $pjump1 * ($othernseq / ($samplenseq + $othernseq));
+				}
+				elsif ($type eq 'forwardjump' && $othernseq) {
+					$pjump{$samplename}{$type} = $pjump2 * ($othernseq / ($samplenseq + $othernseq));
+				}
+				else {
+					$pjump{$samplename}{$type} = 0;
+				}
+				if ($type eq 'reversejump') {
+					if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
+						foreach my $tempsample (keys(%{$sample2blank{$samplename}{'forwardjump'}})) {
+							if (exists($pjump{$tempsample}{$type})) {
+								&errorMessage(__LINE__, "Unknown error.");
+							}
+							else {
+								$pjump{$tempsample}{$type} = $pjump{$samplename}{$type};
+							}
+						}
+					}
+					if (%sample2sample && exists($sample2sample{$samplename}) && exists($sample2sample{$samplename}{'forwardjump'})) {
+						foreach my $tempsample (keys(%{$sample2sample{$samplename}{'forwardjump'}})) {
+							if (exists($pjump{$tempsample}{$type})) {
+								&errorMessage(__LINE__, "Unknown error.");
+							}
+							else {
+								$pjump{$tempsample}{$type} = $pjump{$samplename}{$type};
+							}
+						}
+					}
+				}
+				elsif ($type eq 'forwardjump') {
+					if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
+						foreach my $tempsample (keys(%{$sample2blank{$samplename}{'reversejump'}})) {
+							if (exists($pjump{$tempsample}{$type})) {
+								&errorMessage(__LINE__, "Unknown error.");
+							}
+							else {
+								$pjump{$tempsample}{$type} = $pjump{$samplename}{$type};
+							}
+						}
+					}
+					if (%sample2sample && exists($sample2sample{$samplename}) && exists($sample2sample{$samplename}{'reversejump'})) {
+						foreach my $tempsample (keys(%{$sample2sample{$samplename}{'reversejump'}})) {
+							if (exists($pjump{$tempsample}{$type})) {
+								&errorMessage(__LINE__, "Unknown error.");
+							}
+							else {
+								$pjump{$tempsample}{$type} = $pjump{$samplename}{$type};
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -1082,30 +1182,32 @@ sub estimateTagJumpProbability {
 					next;
 				}
 				else {
-					my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
-					if (!-e "$outputfolder/$blank[0].p$type.txt") {
-						# make a file
-						unless (open($filehandleoutput1, "+>> $outputfolder/$blank[0].p$type.txt")) {
-							&errorMessage(__LINE__, "Cannot make \"$outputfolder/$blank[0].p$type.txt\".");
+					if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{$type})) {
+						my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
+						if (!-e "$outputfolder/$blank[0].p$type.txt") {
+							# make a file
+							unless (open($filehandleoutput1, "+>> $outputfolder/$blank[0].p$type.txt")) {
+								&errorMessage(__LINE__, "Cannot make \"$outputfolder/$blank[0].p$type.txt\".");
+							}
+							unless (flock($filehandleoutput1, LOCK_EX|LOCK_NB)) {
+								exit;
+							}
+							unless (seek($filehandleoutput1, 0, 2)) {
+								&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$blank[0].p$type.txt\".");
+							}
+							my $pjump;
+							my $dummy;
+							# estimate tag jump probability
+							if ($type eq 'reversejump') {
+								($dummy, $pjump) = &estimatepjump($type, @blank);
+							}
+							elsif ($type eq 'forwardjump') {
+								($pjump, $dummy) = &estimatepjump($type, @blank);
+							}
+							# save to file
+							printf($filehandleoutput1 "%.10f\n", $pjump);
+							close($filehandleoutput1);
 						}
-						unless (flock($filehandleoutput1, LOCK_EX|LOCK_NB)) {
-							exit;
-						}
-						unless (seek($filehandleoutput1, 0, 2)) {
-							&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$blank[0].p$type.txt\".");
-						}
-						my $pjump;
-						my $dummy;
-						# estimate tag jump probability
-						if ($type eq 'reversejump') {
-							($dummy, $pjump) = &estimatepjump($type, @blank);
-						}
-						elsif ($type eq 'forwardjump') {
-							($pjump, $dummy) = &estimatepjump($type, @blank);
-						}
-						# save to file
-						printf($filehandleoutput1 "%.10f\n", $pjump);
-						close($filehandleoutput1);
 					}
 					exit;
 				}
@@ -1121,46 +1223,123 @@ sub estimateTagJumpProbability {
 	# retrieve estimation results and store to hash
 	foreach my $samplename (@samplenames) {
 		foreach my $type ('reversejump', 'forwardjump') {
-			my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
-			$filehandleinput1 = &readFile("$outputfolder/$blank[0].p$type.txt");
-			while (<$filehandleinput1>) {
-				if (/(\d*\.\d+(?:e\-\d+)?)/i) {
-					$pjump{$samplename}{$type} = eval($1);
+			if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{$type})) {
+				my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
+				$filehandleinput1 = &readFile("$outputfolder/$blank[0].p$type.txt");
+				while (<$filehandleinput1>) {
+					if (/(\d*\.\d+(?:e\-\d+)?)/i) {
+						$pjump{$samplename}{$type} = eval($1);
+					}
 				}
+				if (!exists($pjump{$samplename}{$type})) {
+					&errorMessage(__LINE__, "Cannot get tag jump probability for \"$samplename\".");
+				}
+				close($filehandleinput1);
 			}
-			if (!exists($pjump{$samplename}{$type})) {
-				&errorMessage(__LINE__, "Cannot get tag jump probability for \"$samplename\".");
-			}
-			close($filehandleinput1);
 		}
 	}
 	# calculate tag jump probability to all tags including the same tag
 	foreach my $samplename (@samplenames) {
 		foreach my $type ('reversejump', 'forwardjump') {
-			if ($pjump{$samplename}{$type} > 0) {
-				my $samplenseq = 0;
-				foreach my $otuname (@otunames) {
-					if ($table{$samplename}{$otuname} > 0) {
-						$samplenseq += $table{$samplename}{$otuname};
+			if (!exists($pjump2{$samplename}{$type})) {
+				if ($pjump{$samplename}{$type} > 0) {
+					my $samplenseq = 0;
+					foreach my $otuname (@otunames) {
+						if ($table{$samplename}{$otuname} > 0) {
+							$samplenseq += $table{$samplename}{$otuname};
+						}
+						if ($type eq 'reversejump') {
+							$samplenseq += &calcfsum($samplename, $otuname);
+						}
+						elsif ($type eq 'forwardjump') {
+							$samplenseq += &calcrsum($samplename, $otuname);
+						}
+					}
+					my $othernseq = 0;
+					if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{$type})) {
+						foreach my $tempsample (keys(%{$sample2blank{$samplename}{$type}})) {
+							foreach my $otuname (@otunames) {
+								if ($table{$tempsample}{$otuname} > 0) {
+									$othernseq += $table{$tempsample}{$otuname};
+								}
+								if ($type eq 'reversejump') {
+									$othernseq += &calcfsum($samplename, $otuname);
+								}
+								elsif ($type eq 'forwardjump') {
+									$othernseq += &calcrsum($samplename, $otuname);
+								}
+							}
+						}
+					}
+					if (%sample2sample && exists($sample2sample{$samplename}) && exists($sample2sample{$samplename}{$type})) {
+						foreach my $tempsample (keys(%{$sample2sample{$samplename}{$type}})) {
+							foreach my $otuname (@otunames) {
+								if ($table{$tempsample}{$otuname} > 0) {
+									$othernseq += $table{$tempsample}{$otuname};
+								}
+								if ($type eq 'reversejump') {
+									$othernseq += &calcfsum($samplename, $otuname);
+								}
+								elsif ($type eq 'forwardjump') {
+									$othernseq += &calcrsum($samplename, $otuname);
+								}
+							}
+						}
+					}
+					if ($othernseq) {
+						$pjump2{$samplename}{$type} = $pjump{$samplename}{$type} * (($samplenseq + $othernseq) / $othernseq);
+					}
+					else {
+						$pjump2{$samplename}{$type} = 'NA';
 					}
 				}
-				my $othernseq = 0;
-				foreach my $tempsample (keys(%{$sample2blank{$samplename}{$type}}), keys(%{$sample2sample{$samplename}{$type}})) {
-					foreach my $otuname (@otunames) {
-						if ($table{$tempsample}{$otuname} > 0) {
-							$othernseq += $table{$tempsample}{$otuname};
+				else {
+					$pjump2{$samplename}{$type} = 0;
+				}
+				if ($type eq 'reversejump') {
+					if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
+						foreach my $tempsample (keys(%{$sample2blank{$samplename}{'forwardjump'}})) {
+							if (exists($pjump2{$tempsample}{$type})) {
+								&errorMessage(__LINE__, "Unknown error.");
+							}
+							else {
+								$pjump2{$tempsample}{$type} = $pjump2{$samplename}{$type};
+							}
+						}
+					}
+					if (%sample2sample && exists($sample2sample{$samplename}) && exists($sample2sample{$samplename}{'forwardjump'})) {
+						foreach my $tempsample (keys(%{$sample2sample{$samplename}{'forwardjump'}})) {
+							if (exists($pjump2{$tempsample}{$type})) {
+								&errorMessage(__LINE__, "Unknown error.");
+							}
+							else {
+								$pjump2{$tempsample}{$type} = $pjump2{$samplename}{$type};
+							}
 						}
 					}
 				}
-				if ($othernseq) {
-					$pjump2{$samplename}{$type} = $pjump{$samplename}{$type} * (($samplenseq + $othernseq) / $othernseq);
+				elsif ($type eq 'forwardjump') {
+					if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
+						foreach my $tempsample (keys(%{$sample2blank{$samplename}{'reversejump'}})) {
+							if (exists($pjump2{$tempsample}{$type})) {
+								&errorMessage(__LINE__, "Unknown error.");
+							}
+							else {
+								$pjump2{$tempsample}{$type} = $pjump2{$samplename}{$type};
+							}
+						}
+					}
+					if (%sample2sample && exists($sample2sample{$samplename}) && exists($sample2sample{$samplename}{'reversejump'})) {
+						foreach my $tempsample (keys(%{$sample2sample{$samplename}{'reversejump'}})) {
+							if (exists($pjump2{$tempsample}{$type})) {
+								&errorMessage(__LINE__, "Unknown error.");
+							}
+							else {
+								$pjump2{$tempsample}{$type} = $pjump2{$samplename}{$type};
+							}
+						}
+					}
 				}
-				else {
-					$pjump2{$samplename}{$type} = 'NA';
-				}
-			}
-			else {
-				$pjump2{$samplename}{$type} = 0;
 			}
 		}
 	}
@@ -1168,8 +1347,10 @@ sub estimateTagJumpProbability {
 	unless ($nodel) {
 		foreach my $samplename (@samplenames) {
 			foreach my $type ('reversejump', 'forwardjump') {
-				my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
-				unlink("$outputfolder/$blank[0].p$type.txt");
+				if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{$type})) {
+					my @blank = sort({$a cmp $b} keys(%{$sample2blank{$samplename}{$type}}));
+					unlink("$outputfolder/$blank[0].p$type.txt");
+				}
 			}
 		}
 		unlink("$outputfolder/temptable.tsv");
@@ -1188,7 +1369,12 @@ sub estimatepjump {
 	print($filehandleoutput2 "blanksamples <- c(\n\"" . join("\",\n\"", @blanksamples) . "\"\n)\n");
 	print($filehandleoutput2 "blank2sampleR <- c(\n\"");
 	for (my $i = 0; $i < scalar(@blanksamples); $i ++) {
-		print($filehandleoutput2 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}{'reversejump'}})));
+		if (%blank2sample && exists($blank2sample{$blanksamples[$i]}) && exists($blank2sample{$blanksamples[$i]}{'reversejump'})) {
+			print($filehandleoutput2 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}{'reversejump'}})));
+		}
+		else {
+			&errorMessage(__LINE__, "Unknown error.");
+		}
 		if ($i + 1 == scalar(@blanksamples)) {
 			print($filehandleoutput2 "\"\n)\n");
 		}
@@ -1198,7 +1384,12 @@ sub estimatepjump {
 	}
 	print($filehandleoutput2 "blank2sampleF <- c(\n\"");
 	for (my $i = 0; $i < scalar(@blanksamples); $i ++) {
-		print($filehandleoutput2 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}{'forwardjump'}})));
+		if (%blank2sample && exists($blank2sample{$blanksamples[$i]}) && exists($blank2sample{$blanksamples[$i]}{'forwardjump'})) {
+			print($filehandleoutput2 join("\",\n\"", keys(%{$blank2sample{$blanksamples[$i]}{'forwardjump'}})));
+		}
+		else {
+			&errorMessage(__LINE__, "Unknown error.");
+		}
 		if ($i + 1 == scalar(@blanksamples)) {
 			print($filehandleoutput2 "\"\n)\n");
 		}
@@ -1208,7 +1399,7 @@ sub estimatepjump {
 	}
 	if ($model eq 'separate') {
 		print($filehandleoutput2 <<"_END");
-table <- read.table(\"$outputfolder/temptable.tsv\", header=T, row.names=1, check.names=F)
+table <- read.delim(\"$outputfolder/temptable.tsv\", header=T, row.names=1, check.names=F)
 tempsum <- sum(table[blanksamples,], na.rm=T)
 calcResidualSum <- function (x) {
 	preversejump <- x[1]
@@ -1277,9 +1468,28 @@ sub performModifiedThompsonTauTest {
 			my $ntest = 0;
 			foreach my $samplename (@samplenames) {
 				my @nseqblank;
-				my @blanksamples = keys(%{$sample2blank{$samplename}});
+				my @blanksamples;
+				if (%sample2blank && exists($sample2blank{$samplename})) {
+					@blanksamples = keys(%{$sample2blank{$samplename}});
+				}
+				else {
+					&errorMessage(__LINE__, "There is no associated blanks for \"$samplename\".");
+				}
 				if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
-					@blanksamples = (keys(%{$sample2blank{$samplename}{'reversejump'}}), keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+					my @tempblanks;
+					if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
+						push(@tempblanks, keys(%{$sample2blank{$samplename}{'reversejump'}}));
+					}
+					else {
+						&errorMessage(__LINE__, "Unknown error.");
+					}
+					if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
+						push(@tempblanks, keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+					}
+					else {
+						&errorMessage(__LINE__, "Unknown error.");
+					}
+					@blanksamples = @tempblanks;
 				}
 				foreach my $blanksample (@blanksamples) {
 					if ($table{$blanksample}{$otuname} > 0) {
@@ -1336,9 +1546,28 @@ sub performModifiedThompsonTauTest {
 				}
 				else {
 					my @nseqblank;
-					my @blanksamples = keys(%{$sample2blank{$samplename}});
+					my @blanksamples;
+					if (%sample2blank && exists($sample2blank{$samplename})) {
+						@blanksamples = keys(%{$sample2blank{$samplename}});
+					}
+					else {
+						&errorMessage(__LINE__, "There is no associated blanks for \"$samplename\".");
+					}
 					if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
-						@blanksamples = (keys(%{$sample2blank{$samplename}{'reversejump'}}), keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+						my @tempblanks;
+						if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
+							push(@tempblanks, keys(%{$sample2blank{$samplename}{'reversejump'}}));
+						}
+						else {
+							&errorMessage(__LINE__, "Unknown error.");
+						}
+						if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
+							push(@tempblanks, keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+						}
+						else {
+							&errorMessage(__LINE__, "Unknown error.");
+						}
+						@blanksamples = @tempblanks;
 					}
 					foreach my $blanksample (@blanksamples) {
 						if ($table{$blanksample}{$otuname} > 0) {
@@ -1521,14 +1750,8 @@ sub performBinomialTest2 {
 				}
 				else {
 					if ($table{$samplename}{$otuname} > 0) {
-						my $rsum = 0;
-						my $fsum = 0;
-						foreach my $reversejumpsample (keys(%{$sample2blank{$samplename}{'reversejump'}}), keys(%{$sample2sample{$samplename}{'reversejump'}})) {
-							$rsum += $table{$reversejumpsample}{$otuname};
-						}
-						foreach my $forwardjumpsample (keys(%{$sample2blank{$samplename}{'forwardjump'}}), keys(%{$sample2sample{$samplename}{'forwardjump'}})) {
-							$fsum += $table{$forwardjumpsample}{$otuname};
-						}
+						my $rsum = &calcrsum($samplename, $otuname);
+						my $fsum = &calcfsum($samplename, $otuname);
 						my $rcode = <<"_END";
 # Sample: $samplename
 # OTU: $otuname
@@ -1592,7 +1815,7 @@ _END
 }
 
 sub saveResults {
-	print(STDERR "Outputing results...\n");
+	print(STDERR "Outputting results...\n");
 	foreach my $blanksample (keys(%blanksamples)) {
 		delete($samplenames{$blanksample});
 	}
@@ -1853,14 +2076,48 @@ sub saveResults {
 	print(STDERR "done.\n\n");
 }
 
-sub max {
-	my $max = 0;
-	foreach (@_) {
-		if ($_ > $max) {
-			$max = $_;
+# calculate total number of reads of OTU of forward tag sharing / reverse tag jumped samples
+sub calcrsum {
+	my $samplename = shift(@_);
+	my $otuname = shift(@_);
+	my $rsum = 0;
+	if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
+		foreach my $reversejumpsample (keys(%{$sample2blank{$samplename}{'reversejump'}})) {
+			if ($table{$reversejumpsample}{$otuname} > 0) {
+				$rsum += $table{$reversejumpsample}{$otuname};
+			}
 		}
 	}
-	return($max);
+	if (%sample2sample && exists($sample2sample{$samplename}) && exists($sample2sample{$samplename}{'reversejump'})) {
+		foreach my $reversejumpsample (keys(%{$sample2sample{$samplename}{'reversejump'}})) {
+			if ($table{$reversejumpsample}{$otuname} > 0) {
+				$rsum += $table{$reversejumpsample}{$otuname};
+			}
+		}
+	}
+	return($rsum);
+}
+
+# calculate total number of reads of OTU of reverse tag sharing / forward tag jumped samples
+sub calcfsum {
+	my $samplename = shift(@_);
+	my $otuname = shift(@_);
+	my $fsum = 0;
+	if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
+		foreach my $forwardjumpsample (keys(%{$sample2blank{$samplename}{'forwardjump'}})) {
+			if ($table{$forwardjumpsample}{$otuname} > 0) {
+				$fsum += $table{$forwardjumpsample}{$otuname};
+			}
+		}
+	}
+	if (%sample2sample && exists($sample2sample{$samplename}) && exists($sample2sample{$samplename}{'forwardjump'})) {
+		foreach my $forwardjumpsample (keys(%{$sample2sample{$samplename}{'forwardjump'}})) {
+			if ($table{$forwardjumpsample}{$otuname} > 0) {
+				$fsum += $table{$forwardjumpsample}{$otuname};
+			}
+		}
+	}
+	return($fsum);
 }
 
 sub isOutlier {
