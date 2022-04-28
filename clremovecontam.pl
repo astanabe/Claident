@@ -1040,10 +1040,10 @@ sub calculateTagJumpProbability {
 								$othernseq += $table{$tempsample}{$otuname};
 							}
 							if ($type eq 'reversejump') {
-								$othernseq += &calcfsum($samplename, $otuname);
+								$othernseq += &calcfsum($tempsample, $otuname);
 							}
 							elsif ($type eq 'forwardjump') {
-								$othernseq += &calcrsum($samplename, $otuname);
+								$othernseq += &calcrsum($tempsample, $otuname);
 							}
 						}
 					}
@@ -1055,19 +1055,19 @@ sub calculateTagJumpProbability {
 								$othernseq += $table{$tempsample}{$otuname};
 							}
 							if ($type eq 'reversejump') {
-								$othernseq += &calcfsum($samplename, $otuname);
+								$othernseq += &calcfsum($tempsample, $otuname);
 							}
 							elsif ($type eq 'forwardjump') {
-								$othernseq += &calcrsum($samplename, $otuname);
+								$othernseq += &calcrsum($tempsample, $otuname);
 							}
 						}
 					}
 				}
 				if ($type eq 'reversejump' && $othernseq) {
-					$pjump{$samplename}{$type} = $pjump1 * ($othernseq / ($samplenseq + $othernseq));
+					$pjump{$samplename}{$type} = $pjump1 * ($samplenseq / ($samplenseq + $othernseq));
 				}
 				elsif ($type eq 'forwardjump' && $othernseq) {
-					$pjump{$samplename}{$type} = $pjump2 * ($othernseq / ($samplenseq + $othernseq));
+					$pjump{$samplename}{$type} = $pjump2 * ($samplenseq / ($samplenseq + $othernseq));
 				}
 				else {
 					$pjump{$samplename}{$type} = 0;
@@ -1263,10 +1263,10 @@ sub estimateTagJumpProbability {
 									$othernseq += $table{$tempsample}{$otuname};
 								}
 								if ($type eq 'reversejump') {
-									$othernseq += &calcfsum($samplename, $otuname);
+									$othernseq += &calcfsum($tempsample, $otuname);
 								}
 								elsif ($type eq 'forwardjump') {
-									$othernseq += &calcrsum($samplename, $otuname);
+									$othernseq += &calcrsum($tempsample, $otuname);
 								}
 							}
 						}
@@ -1278,16 +1278,16 @@ sub estimateTagJumpProbability {
 									$othernseq += $table{$tempsample}{$otuname};
 								}
 								if ($type eq 'reversejump') {
-									$othernseq += &calcfsum($samplename, $otuname);
+									$othernseq += &calcfsum($tempsample, $otuname);
 								}
 								elsif ($type eq 'forwardjump') {
-									$othernseq += &calcrsum($samplename, $otuname);
+									$othernseq += &calcrsum($tempsample, $otuname);
 								}
 							}
 						}
 					}
 					if ($othernseq) {
-						$pjump2{$samplename}{$type} = $pjump{$samplename}{$type} * (($samplenseq + $othernseq) / $othernseq);
+						$pjump2{$samplename}{$type} = $pjump{$samplename}{$type} * (($samplenseq + $othernseq) / $samplenseq);
 					}
 					else {
 						$pjump2{$samplename}{$type} = 'NA';
