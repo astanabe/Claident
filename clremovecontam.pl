@@ -19,6 +19,7 @@ my $pjump2;
 my $test = 'thompson';
 my $siglevel = 0.05;
 my $adjust = 'bonferroni';
+my $fwerunit = 'whole';
 my $model;
 my $numthreads = 1;
 my $tableformat = 'matrix';
@@ -154,6 +155,18 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:none)$/i) {
 				$adjust = 'none';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:fwer|fwerunit)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:all|whole)$/i) {
+				$fwerunit = 'whole';
+			}
+			elsif ($value =~ /^otu$/i) {
+				$fwerunit = 'otu';
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -433,6 +446,12 @@ sub checkVariables {
 	}
 	if ($adjust eq 'bonferroni') {
 		print(STDERR "Significance level is $siglevel but will be adjusted based on Bonferroni method.\n");
+		if ($fwerunit eq 'whole') {
+			print(STDERR "Family-wise error rate will be controlled in whole data.\n");
+		}
+		elsif ($fwerunit eq 'otu') {
+			print(STDERR "Family-wise error rate will be controlled in each OTU.\n");
+		}
 	}
 	else {
 		print(STDERR "Significance level is $siglevel and will not be adjusted.\n");
@@ -1463,6 +1482,7 @@ sub performModifiedThompsonTauTest {
 		}
 	}
 	# calculate significance level
+	my $ntestwhole = 0;
 	foreach my $otuname (@otunames) {
 		if ($adjust eq 'bonferroni') {
 			my $ntest = 0;
@@ -1504,11 +1524,21 @@ sub performModifiedThompsonTauTest {
 				}
 			}
 			if ($ntest) {
-				$otusiglevel{$otuname} = $siglevel / $ntest;
+				if ($fwerunit eq 'otu') {
+					$otusiglevel{$otuname} = $siglevel / $ntest;
+				}
+				elsif ($fwerunit eq 'whole') {
+					$ntestwhole += $ntest;
+				}
 			}
 		}
 		else {
 			$otusiglevel{$otuname} = $siglevel;
+		}
+	}
+	if ($adjust eq 'bonferroni' && $fwerunit eq 'whole') {
+		foreach my $otuname (@otunames) {
+			$otusiglevel{$otuname} = $siglevel / $ntestwhole;
 		}
 	}
 	{
@@ -1606,6 +1636,7 @@ sub performBinomialTest1 {
 	}
 	my @blanksamples = keys(%blank2sample);
 	# calculate significance level
+	my $ntestwhole = 0;
 	foreach my $otuname (@otunames) {
 		if ($adjust eq 'bonferroni') {
 			my $ntest = 0;
@@ -1615,11 +1646,21 @@ sub performBinomialTest1 {
 				}
 			}
 			if ($ntest) {
-				$otusiglevel{$otuname} = $siglevel / $ntest;
+				if ($fwerunit eq 'otu') {
+					$otusiglevel{$otuname} = $siglevel / $ntest;
+				}
+				elsif ($fwerunit eq 'whole') {
+					$ntestwhole += $ntest;
+				}
 			}
 		}
 		else {
 			$otusiglevel{$otuname} = $siglevel;
+		}
+	}
+	if ($adjust eq 'bonferroni' && $fwerunit eq 'whole') {
+		foreach my $otuname (@otunames) {
+			$otusiglevel{$otuname} = $siglevel / $ntestwhole;
 		}
 	}
 	# calculate total number of reads oer OTU
@@ -1699,6 +1740,7 @@ sub performBinomialTest2 {
 		}
 	}
 	# calculate significance level
+	my $ntestwhole = 0;
 	foreach my $otuname (@otunames) {
 		if ($adjust eq 'bonferroni') {
 			my $ntest = 0;
@@ -1708,11 +1750,21 @@ sub performBinomialTest2 {
 				}
 			}
 			if ($ntest) {
-				$otusiglevel{$otuname} = $siglevel / $ntest;
+				if ($fwerunit eq 'otu') {
+					$otusiglevel{$otuname} = $siglevel / $ntest;
+				}
+				elsif ($fwerunit eq 'whole') {
+					$ntestwhole += $ntest;
+				}
 			}
 		}
 		else {
 			$otusiglevel{$otuname} = $siglevel;
+		}
+	}
+	if ($adjust eq 'bonferroni' && $fwerunit eq 'whole') {
+		foreach my $otuname (@otunames) {
+			$otusiglevel{$otuname} = $siglevel / $ntestwhole;
 		}
 	}
 	{
@@ -2276,6 +2328,10 @@ Command line options
 
 --adjust=BONFERRONI|NONE
   Specify correction method for multiple testing. (default: BONFERRONI)
+
+--fwerunit=WHOLE|OTU
+  Specify family-wise error rate unit for Bonferroni correction.
+(default: WHOLE)
 
 --pjump=DECIMAL(,DECIMAL)
   Specify the probability of tag jump. (default: none)
