@@ -1082,11 +1082,11 @@ sub calculateTagJumpProbability {
 						}
 					}
 				}
-				if ($type eq 'reversejump' && $othernseq) {
-					$pjump{$samplename}{$type} = $pjump1 * ($samplenseq / ($samplenseq + $othernseq));
+				if ($type eq 'reversejump' && $samplenseq && $othernseq) {
+					$pjump{$samplename}{$type} = $pjump1 * ($samplenseq / ($samplenseq + $othernseq)) * ($othernseq / ($samplenseq + $othernseq));
 				}
-				elsif ($type eq 'forwardjump' && $othernseq) {
-					$pjump{$samplename}{$type} = $pjump2 * ($samplenseq / ($samplenseq + $othernseq));
+				elsif ($type eq 'forwardjump' && $samplenseq && $othernseq) {
+					$pjump{$samplename}{$type} = $pjump2 * ($samplenseq / ($samplenseq + $othernseq)) * ($othernseq / ($samplenseq + $othernseq));
 				}
 				else {
 					$pjump{$samplename}{$type} = 0;
@@ -1305,8 +1305,8 @@ sub estimateTagJumpProbability {
 							}
 						}
 					}
-					if ($othernseq) {
-						$pjump2{$samplename}{$type} = $pjump{$samplename}{$type} * (($samplenseq + $othernseq) / $samplenseq);
+					if ($samplenseq && $othernseq) {
+						$pjump2{$samplename}{$type} = $pjump{$samplename}{$type} * (($samplenseq + $othernseq) / $samplenseq) * (($samplenseq + $othernseq) / $othernseq);
 					}
 					else {
 						$pjump2{$samplename}{$type} = 'NA';
