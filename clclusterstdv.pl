@@ -118,7 +118,7 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+(?:n|n(?:um)?threads?)=(\d+)$/i) {
 			$numthreads = $1;
 		}
-		elsif ($ARGV[$i] =~ /^-+(?:std|stdseq|standard|standardseq)=(.+)$/i) {
+		elsif ($ARGV[$i] =~ /^-+(?:std|stdseq|standard|standardseq|stdotu|stdotuseq|standardotu|standardotuseq)=(.+)$/i) {
 			$stdseq = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+tableformat=(.+)$/i) {
