@@ -333,17 +333,7 @@ sub estimateConcentration {
 				if (@stdotu) {
 					foreach my $stdotu (@stdotu) {
 						if (!exists($table{$samplename}{$stdotu}) || $table{$samplename}{$stdotu} == 0) {
-							exit;
-						}
-					}
-					{
-						my $nerror = 0;
-						for (my $i = 0; $i < (scalar(@stdotu) - 1); $i ++) {
-							if ($table{$samplename}{$stdotu[$i]} > $table{$samplename}{$stdotu[($i + 1)]}) {
-								$nerror ++;
-							}
-						}
-						if ($nerror > 1) {
+							print(STDERR "There is no reads of \"$stdotu\" in \"$samplename\".\nThis is weird.\nEstimated values will be replaced to \"NA\".\n");
 							exit;
 						}
 					}
@@ -490,7 +480,7 @@ sub estimateConcentration {
 		}
 	}
 	# glob output files and get results
-	# slope <= 0 or rsquared < 0.36 samples are replaced to "NA"
+	# slope <= 0 or rsquared < 0.49 samples are replaced to "NA"
 	my %stdotu;
 	foreach my $samplename (@samplenames) {
 		my @stdotu;
@@ -521,6 +511,7 @@ sub estimateConcentration {
 			$filehandleinput1 = &readFile("$outputfile.temp/$samplename/slope.tsv");
 			while (<$filehandleinput1>) {
 				if (/(\S+)/ && eval($1) <= 0) {
+					print(STDERR " Slope of \"$samplename\" is negative.\nThis is weird.\nEstimated values will be replaced to \"NA\".\n");
 					$error = 1;
 					last;
 				}
@@ -529,7 +520,8 @@ sub estimateConcentration {
 			# check rsquared
 			$filehandleinput1 = &readFile("$outputfile.temp/$samplename/rsquared.tsv");
 			while (<$filehandleinput1>) {
-				if (/(\S+)/ && eval($1) < 0.36) {
+				if (/(\S+)/ && eval($1) < 0.49) {
+					print(STDERR " R-squared of \"$samplename\" is lower than 0.49.\nThis is weird.\nEstimated values will be replaced to \"NA\".\n");
 					$error = 1;
 					last;
 				}
@@ -558,6 +550,11 @@ sub estimateConcentration {
 				else {
 					&errorMessage(__LINE__, "Unknown error.");
 				}
+			}
+		}
+		else {
+			foreach my $otuname (@otunames) {
+				$table{$samplename}{$otuname} = 'NA';
 			}
 		}
 		# delete temporary folder
