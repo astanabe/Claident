@@ -592,7 +592,7 @@ sub saveSummary {
 	$filehandleoutput1 = &writeFile($outputfile);
 	if ($tableformat eq 'matrix') {
 		# output header
-		print($filehandleoutput1 "samplename" . join("\t", @otunames) . "\n");
+		print($filehandleoutput1 "samplename\t" . join("\t", @otunames) . "\n");
 		# output data
 		foreach my $samplename (@samplenames) {
 			print($filehandleoutput1 $samplename);
