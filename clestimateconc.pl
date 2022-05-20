@@ -530,7 +530,11 @@ sub estimateConcentration {
 			# renew table data
 			if ($error) {
 				foreach my $otuname (@otunames) {
-					$table{$samplename}{$otuname} = 'NA';
+					if (exists($table{$samplename}{$otuname})) {
+						if ($table{$samplename}{$otuname} > 0) {
+							$table{$samplename}{$otuname} = 'NA';
+						}
+					}
 				}
 			}
 			else {
@@ -554,7 +558,11 @@ sub estimateConcentration {
 		}
 		else {
 			foreach my $otuname (@otunames) {
-				$table{$samplename}{$otuname} = 'NA';
+				if (exists($table{$samplename}{$otuname})) {
+					if ($table{$samplename}{$otuname} > 0) {
+						$table{$samplename}{$otuname} = 'NA';
+					}
+				}
 			}
 		}
 		# delete temporary folder
@@ -575,9 +583,11 @@ sub estimateConcentration {
 	unless ($nodel) {
 		rmtree("$outputfile.temp");
 	}
+	print(STDERR "done.\n\n");
 }
 
 sub saveSummary {
+	print(STDERR "Save results...\n");
 	# save output file
 	$filehandleoutput1 = &writeFile($outputfile);
 	if ($tableformat eq 'matrix') {
@@ -630,6 +640,7 @@ sub saveSummary {
 		}
 	}
 	close($filehandleoutput1);
+	print(STDERR "done.\n\n");
 }
 
 sub readTable {
