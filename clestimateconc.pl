@@ -333,7 +333,7 @@ sub estimateConcentration {
 				if (@stdotu) {
 					foreach my $stdotu (@stdotu) {
 						if (!exists($table{$samplename}{$stdotu}) || $table{$samplename}{$stdotu} == 0) {
-							print(STDERR "There is no reads of \"$stdotu\" in \"$samplename\".\nThis is weird.\nEstimated values will be replaced to \"NA\".\n");
+							print(STDERR "There is no reads of \"$stdotu\" in \"$samplename\".\nThis is weird.\nEstimated values will be replaced to 0.\n");
 							exit;
 						}
 					}
@@ -480,7 +480,7 @@ sub estimateConcentration {
 		}
 	}
 	# glob output files and get results
-	# slope <= 0 or rsquared < 0.49 samples are replaced to "NA"
+	# slope <= 0 or rsquared < 0.49 samples are replaced to 0
 	my %stdotu;
 	foreach my $samplename (@samplenames) {
 		my @stdotu;
@@ -511,7 +511,7 @@ sub estimateConcentration {
 			$filehandleinput1 = &readFile("$outputfile.temp/$samplename/slope.tsv");
 			while (<$filehandleinput1>) {
 				if (/(\S+)/ && eval($1) <= 0) {
-					print(STDERR " Slope of \"$samplename\" is negative.\nThis is weird.\nEstimated values will be replaced to \"NA\".\n");
+					print(STDERR " Slope of \"$samplename\" is negative.\nThis is weird.\nEstimated values will be replaced to 0.\n");
 					$error = 1;
 					last;
 				}
@@ -521,7 +521,7 @@ sub estimateConcentration {
 			$filehandleinput1 = &readFile("$outputfile.temp/$samplename/rsquared.tsv");
 			while (<$filehandleinput1>) {
 				if (/(\S+)/ && eval($1) < 0.49) {
-					print(STDERR " R-squared of \"$samplename\" is lower than 0.49.\nThis is weird.\nEstimated values will be replaced to \"NA\".\n");
+					print(STDERR " R-squared of \"$samplename\" is lower than 0.49.\nThis is weird.\nEstimated values will be replaced to 0.\n");
 					$error = 1;
 					last;
 				}
@@ -532,7 +532,7 @@ sub estimateConcentration {
 				foreach my $otuname (@otunames) {
 					if (exists($table{$samplename}{$otuname})) {
 						if ($table{$samplename}{$otuname} > 0) {
-							$table{$samplename}{$otuname} = 'NA';
+							$table{$samplename}{$otuname} = 0;
 						}
 					}
 				}
@@ -560,7 +560,7 @@ sub estimateConcentration {
 			foreach my $otuname (@otunames) {
 				if (exists($table{$samplename}{$otuname})) {
 					if ($table{$samplename}{$otuname} > 0) {
-						$table{$samplename}{$otuname} = 'NA';
+						$table{$samplename}{$otuname} = 0;
 					}
 				}
 			}
