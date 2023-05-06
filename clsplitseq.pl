@@ -136,6 +136,9 @@ sub getOptions {
 			if ($value =~ /^(?:i|illumina)$/i) {
 				$seqnamestyle = 'illumina';
 			}
+			elsif ($value =~ /^(?:m|mgi)$/i) {
+				$seqnamestyle = 'mgi';
+			}
 			elsif ($value =~ /^(?:o|other)$/i) {
 				$seqnamestyle = 'other';
 			}
@@ -1383,10 +1386,10 @@ sub saveToFile {
 		&errorMessage(__LINE__, "Cannot seek \"$outputfolder/$samplename$filenamesuffix/$child.fastq\".");
 	}
 	if ($seqnamestyle eq 'illumina') {
-		if ($seqname =~ / [12]:[NY]:\d+:([ACGT]+|[ACGT]+\+[ACGT]+)$/ && !$options->{'tagseq'}) {
+		if ($seqname =~ / [12]:[NY]:\d+:([ACGT]+\+[ACGT]+|[ACGT]+)$/ && !$options->{'tagseq'}) {
 			$options->{'tagseq'} = $1;
 		}
-		elsif ($seqname !~ / [12]:[NY]:\d+:(?:\d+|[ACGT]+|[ACGT]+\+[ACGT]+)$/ || $seqname =~ s/ [12]:N:0:\d+$//) {
+		elsif ($seqname !~ / [12]:[NY]:\d+:(?:\d+|[ACGT]+\+[ACGT]+|[ACGT]+)$/ || $seqname =~ s/ [12]:N:0:\d+$//) {
 			if ($strand == 2) {
 				$seqname .= ' 2:N:0:';
 			}
@@ -1422,19 +1425,24 @@ sub saveToFile {
 			}
 		}
 	}
-	if ($options->{'fumiseq'} && $options->{'rumiseq'}) {
-		$seqname .= ' UMI:' . $options->{'fumiseq'} . '+' . $options->{'rumiseq'};
+	elsif ($seqnamestyle eq 'mgi') {
+		$seqname =~ s/\/[12]$//;
 	}
-	elsif ($options->{'fumiseq'}) {
-		$seqname .= ' UMI:' . $options->{'fumiseq'};
+	if ($seqnamestyle ne 'nochange') {
+		if ($options->{'fumiseq'} && $options->{'rumiseq'}) {
+			$seqname .= ' UMI:' . $options->{'fumiseq'} . '+' . $options->{'rumiseq'};
+		}
+		elsif ($options->{'fumiseq'}) {
+			$seqname .= ' UMI:' . $options->{'fumiseq'};
+		}
+		if ($options->{'tagseq'}) {
+			$seqname .= ' MID:' . $options->{'tagseq'};
+		}
+		elsif ($commontagseq) {
+			$seqname .= ' MID:' . $commontagseq;
+		}
+		$seqname .= " SN:$samplename";
 	}
-	if ($options->{'tagseq'}) {
-		$seqname .= ' MID:' . $options->{'tagseq'};
-	}
-	elsif ($commontagseq) {
-		$seqname .= ' MID:' . $commontagseq;
-	}
-	$seqname .= " SN:$samplename";
 	if ($addUMI) {
 		if ($strand == 0) {
 			print($filehandleoutput1 "\@$seqname\n" . $options->{'fumiseq'} . "$nucseq" . $options->{'rumiseq'} . "\n+\n" . $options->{'fumiqual'} . "$qualseq" . $options->{'rumiqual'} . "\n");
@@ -1901,7 +1909,7 @@ Command line options
 --runname=RUNNAME
   Specify run name. This is mandatory. (default: none)
 
---seqnamestyle=ILLUMINA|OTHER|NOCHANGE
+--seqnamestyle=ILLUMINA|MGI|OTHER|NOCHANGE
   Specify sequence name style. (default:ILLUMINA)
 
 --primername=PRIMERNAME

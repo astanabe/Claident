@@ -609,7 +609,7 @@ sub plotWordCloud {
 							#}
 							unlink("$outfileprefix.png");
 							while (!-e "$outfileprefix.png" || (-s "$outfileprefix.png") < 10240) {
-								system("timeout 600 $chromeexec --headless --single-process --disable-dev-shm-usage --lang=en-US --disk-cache-dir=$outfileprefix --user-data-dir=$outfileprefix --crash-dumps-dir=$outfileprefix --screenshot=$outfileprefix.png --window-size=6000,6000 --virtual-time-budget=100000000 $outfileprefix.html 2>> $outfileprefix.log" . ' 1> ' . $devnull);
+								system("timeout 600 $chromeexec --headless --single-process --disable-dev-shm-usage --lang=en-US --disk-cache-dir=$outfileprefix --user-data-dir=$outfileprefix --crash-dumps-dir=$outfileprefix --screenshot=$outfileprefix.png --window-size=6000,6000 --run-all-compositor-stages-before-draw --virtual-time-budget=100000000 $outfileprefix.html 2>> $outfileprefix.log" . ' 1> ' . $devnull);
 								if (-e "$outfileprefix.png" && !-z "$outfileprefix.png") {
 									if (system("$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $outfileprefix.png 2>> $outfileprefix.log" . ' 1> ' . $devnull)) {
 										&errorMessage(__LINE__, "Cannot run \"$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $outfileprefix.png\" correctly.");

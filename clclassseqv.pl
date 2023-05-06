@@ -358,7 +358,7 @@ sub makeConcatenatedFiles {
 		$filehandleinput1 = &readFile($inputfiles[$i]);
 		{
 			my $otuname;
-			my $tempignoreotuseq;
+			my %tempignoreotuseq;
 			while (<$filehandleinput1>) {
 				s/\r?\n?$//;
 				s/;size=\d+;*//g;
@@ -378,14 +378,16 @@ sub makeConcatenatedFiles {
 				elsif ($otuname && exists($ignoreotulist{$otuname}) && /^([^>].*)$/) {
 					my $tempseq = $1;
 					$tempseq =~ s/[^A-Za-z]//g;
-					$tempignoreotuseq .= $tempseq;
+					$tempignoreotuseq{$otuname} .= $tempseq;
 				}
 				if ($otuname && !exists($ignoreotulist{$otuname})) {
 					print($filehandleoutput2 "$_\n");
 				}
 			}
-			if (!exists($ignoreotuseq{$otuname})) {
-				$ignoreotuseq{$otuname} = $tempignoreotuseq;
+			foreach my $tempotuname (keys(%tempignoreotuseq)) {
+				if (!exists($ignoreotuseq{$tempotuname})) {
+					$ignoreotuseq{$tempotuname} = $tempignoreotuseq{$tempotuname};
+				}
 			}
 		}
 		close($filehandleinput1);

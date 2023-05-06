@@ -28,6 +28,7 @@ my $vsearch5d;
 
 # global variables
 my $root = getcwd();
+my @stdlist;
 
 # file handles
 my $filehandleinput1;
@@ -50,6 +51,8 @@ sub main {
 	&getOptions();
 	# check variable consistency
 	&checkVariables();
+	# read sequence files
+	&readSequenceFiles();
 	# make concatenated files
 	&makeConcatenatedFiles();
 	# run assembling
@@ -266,6 +269,12 @@ sub checkVariables {
 	}
 }
 
+sub readSequenceFiles {
+	if ($stdseq) {
+		@stdlist = &readSeq($stdseq);
+	}
+}
+
 sub makeConcatenatedFiles {
 	$filehandleoutput1 = &writeFile("$outputfolder/concatenated.otu.gz");
 	$filehandleoutput2 = &writeFile("$outputfolder/concatenated.fasta");
@@ -411,6 +420,9 @@ sub convertUCtoOTUMembers {
 					&errorMessage(__LINE__, "\"$tempuc\" is invalid.");
 				}
 			}
+			elsif ($row[0] eq 'N') {
+				next;
+			}
 			else {
 				&errorMessage(__LINE__, "\"$tempuc\" is invalid.");
 			}
@@ -496,7 +508,11 @@ sub convertUCtoOTUMembers {
 	close($filehandleoutput1);
 	# save table
 	{
-		my @otunames = sort({$a cmp $b} keys(%otunames));
+		my @otunames = @stdlist;
+		foreach my $std (@stdlist) {
+			delete($otunames{$std});
+		}
+		push(@otunames, sort({$a cmp $b} keys(%otunames)));
 		my @samplenames = sort({$a cmp $b} keys(%samplenames));
 		unless (open($filehandleoutput1, "> $outputfolder/stdclustered.tsv")) {
 			&errorMessage(__LINE__, "Cannot make \"$outputfolder/stdclustered.tsv\".");
@@ -564,6 +580,22 @@ sub getMinimumLength {
 		$minlen = 10000;
 	}
 	return($minlen);
+}
+
+sub readSeq {
+	my $seqfile = shift(@_);
+	my @list;
+	$filehandleinput1 = &readFile($seqfile);
+	while (<$filehandleinput1>) {
+		s/\r?\n?$//;
+		if (/^> *(.+)/) {
+			my $seqname = $1;
+			$seqname =~ s/;+size=\d+;*//g;
+			push(@list, $seqname);
+		}
+	}
+	close($filehandleinput1);
+	return(@list);
 }
 
 sub writeFile {

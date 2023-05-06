@@ -214,7 +214,7 @@ sub readTableFiles {
 	if ($stdconctable) {
 		my $lineno = 1;
 		my @label;
-		$filehandleinput1 = &readFile($solutionvoltable);
+		$filehandleinput1 = &readFile($stdconctable);
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			my @row = split(/\t/, $_);
@@ -451,7 +451,11 @@ sub estimateConcentration {
 					print($filehandleoutput1 "watervol <- $watervol\n");
 				}
 				else {
-					print($filehandleoutput1 "watervol <- 1\n");
+					# change directory
+					unless (chdir($root)) {
+						&errorMessage(__LINE__, "Cannot change working directory.");
+					}
+					exit;
 				}
 				print($filehandleoutput1 "fitted <- lm(standard ~ stdconc + 0)\n");
 				print($filehandleoutput1 "slope <- fitted\$coefficients\n");
@@ -476,7 +480,7 @@ sub estimateConcentration {
 	# join
 	while (wait != -1) {
 		if ($?) {
-			&errorMessage(__LINE__, 'Cannot plot word cloud correctly.');
+			&errorMessage(__LINE__, 'Cannot calculate concentration correctly.');
 		}
 	}
 	# glob output files and get results
@@ -598,7 +602,7 @@ sub saveSummary {
 			print($filehandleoutput1 $samplename);
 			foreach my $otuname (@otunames) {
 				if ($table{$samplename}{$otuname}) {
-					print($filehandleoutput1 "\t$table{$samplename}{$otuname}");
+					printf($filehandleoutput1 "\t%.15f", $table{$samplename}{$otuname});
 				}
 				else {
 					print($filehandleoutput1 "\t0");
@@ -634,7 +638,8 @@ sub saveSummary {
 			foreach my $otuname (@tempotus) {
 				my $tempname = $otuname;
 				if ($table{$samplename}{$otuname}) {
-					print($filehandleoutput1 "$samplename\t$otuname\t$table{$samplename}{$otuname}\n");
+					print($filehandleoutput1 "$samplename\t$otuname\t");
+					printf($filehandleoutput1 "%.15f\n", $table{$samplename}{$otuname});
 				}
 			}
 		}
