@@ -339,7 +339,7 @@ sub runVSEARCH {
 	if (-e "$outputfolder/notmatched.fasta" && !-z "$outputfolder/notmatched.fasta") {
 		print(STDERR "WARNING!: There are unmatched internal standard. This is weird. Please check standard sequence and data.\n");
 	}
-	&convertUCtoOTUMembers("$outputfolder/concatenated.fasta", "$outputfolder/matched.uc", "$outputfolder/stdclustered.fasta", "$outputfolder/stdclustered.otu.gz", "$outputfolder/concatenated.otu.gz");
+	&convertUCtoOTUMembers("$outputfolder/concatenated.fasta", "$outputfolder/matched.uc", "$outputfolder/stdclustered.fasta", "$outputfolder/stdclustered.otu.gz", "$outputfolder/stdvariations.fasta", "$outputfolder/concatenated.otu.gz");
 	unless ($nodel) {
 		unlink("$outputfolder/concatenated.fasta");
 		unlink("$outputfolder/concatenated.otu.gz");
@@ -354,6 +354,7 @@ sub convertUCtoOTUMembers {
 	my $tempuc = shift(@_);
 	my $outfasta = shift(@_);
 	my $outotufile = shift(@_);
+	my $varfasta = shift(@_);
 	my %otumembers;
 	foreach my $subotufile (@_) {
 		$filehandleinput1 = &readFile($subotufile);
@@ -485,6 +486,7 @@ sub convertUCtoOTUMembers {
 	}
 	close($filehandleinput1);
 	$filehandleinput1 = &readFile($tempfasta);
+	$filehandleoutput2 = &writeFile($varfasta);
 	{
 		my $otuname;
 		my $switch = 0;
@@ -502,8 +504,12 @@ sub convertUCtoOTUMembers {
 			if ($switch) {
 				print($filehandleoutput1 "$_\n");
 			}
+			else {
+				print($filehandleoutput2 "$_\n");
+			}
 		}
 	}
+	close($filehandleoutput2);
 	close($filehandleinput1);
 	close($filehandleoutput1);
 	# save table
