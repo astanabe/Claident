@@ -12,6 +12,7 @@ my $reversecomplement;
 my $elimprimer = 1;
 my $seqnamestyle = 'illumina';
 my $outputjump = 1;
+my $outputmultihit = 0;
 my $truncateN = 0;
 my $useNasUMI = 0;
 my $addUMI;
@@ -195,6 +196,18 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
 				$outputjump = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+output(?:multihit|multiplehit)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$outputmultihit = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$outputmultihit = 0;
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -1224,7 +1237,12 @@ sub searchPrimers {
 				$fseq = lc($tempsubstr1) . $fseq;
 				$rseq = lc($tempsubstr2) . $rseq;
 				$primername = $tempname;
-				last;
+				if ($outputmultihit) {
+					next;
+				}
+				else {
+					last;
+				}
 			}
 		}
 		if ($fseq && $fqual && $rseq && $rqual) {
@@ -1330,7 +1348,12 @@ sub searchPrimers {
 				}
 				$fseq = lc($tempsubstr1) . $fseq . lc($tempsubstr2);
 				$primername = $tempname;
-				last;
+				if ($outputmultihit) {
+					next;
+				}
+				else {
+					last;
+				}
 			}
 		}
 		if ($fseq && $fqual) {
@@ -1959,6 +1982,10 @@ will be searched. (default: off)
 --needreverseprimer
   If this option is specified, unmatched sequence to reverse primer will not be
 output. (default: off)
+
+--outputmultihit=ENABLE|DISABLE
+  Specify whether primer-multihit sequences will be output to all demultiplexed
+files or not. (default: DISABLE)
 
 --outputjump=ENABLE|DISABLE
   Specify whether tag-jumped (index-hopped) combination samples will be output
