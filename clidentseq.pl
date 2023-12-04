@@ -1032,26 +1032,20 @@ sub outputFile {
 		my %tempaccs;
 		my $tempseq;
 		# retrieve query sequence
-		if (-e "$outputfile1.$i.temp/query.fasta") {
+		if ($identdb && -e "$outputfile1.$i.temp/query.fasta") {
 			local $/ = "\n>";
 			unless (open($filehandleinput1, "< $outputfile1.$i.temp/query.fasta")) {
 				&errorMessage(__LINE__, "Cannot read \"$outputfile1.$i.temp/query.fasta\".");
 			}
 			while (<$filehandleinput1>) {
-				if (/^>?\s*(\S[^\r\n]*)\r?\n(.*)/s) {
-					my $query = $1;
-					my $sequence = uc($2);
-					$query =~ s/\s+$//;
-					$query =~ s/;+size=\d+;*//g;
+				if (/^>?\s*\S[^\r\n]*\r?\n(.*)/s) {
+					my $sequence = uc($1);
 					$sequence =~ s/[^A-Z]//g;
 					$sequence =~ tr/CGT/BCD/;
 					$tempseq = cnv($sequence, 4, 62);
 				}
 			}
 			close($filehandleinput1);
-		}
-		else {
-			&errorMessage(__LINE__, "\"$outputfile1.$i.temp/query.fasta\" does not exist.");
 		}
 		# retrieve from database
 		if ($identdb) {
@@ -1080,10 +1074,20 @@ sub outputFile {
 		}
 		# save results to output file
 		if ($tempaccs{$queries[$i]} && $tempaccs{$queries[$i]}{0} != 1) {
-			print($filehandleoutput1 ">$queries[$i];base62=$tempseq\n" . join("\n", sort(keys(%{$tempaccs{$queries[$i]}}))) . "\n");
+			if ($tempseq) {
+				print($filehandleoutput1 ">$queries[$i];base62=$tempseq\n" . join("\n", sort(keys(%{$tempaccs{$queries[$i]}}))) . "\n");
+			}
+			else {
+				print($filehandleoutput1 ">$queries[$i]\n" . join("\n", sort(keys(%{$tempaccs{$queries[$i]}}))) . "\n");
+			}
 		}
 		else {
-			print($filehandleoutput1 ">$queries[$i];base62=$tempseq\n");
+			if ($tempseq) {
+				print($filehandleoutput1 ">$queries[$i];base62=$tempseq\n");
+			}
+			else {
+				print($filehandleoutput1 ">$queries[$i]\n");
+			}
 		}
 	}
 	close($filehandleoutput1);

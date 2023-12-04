@@ -222,8 +222,9 @@ my %query2acclist;
 	my $query;
 	while (<$inputhandle>) {
 		s/\r?\n?$//;
-		s/;+size=\d+;*//g;
-		s/;+base62=[A-Za-z0-9]+;*//g;
+		s/;+size=\d+;*/;/g;
+		s/;+base62=[A-Za-z0-9]+;*/;/g;
+		s/;+$//;
 		if (/^>(.+)$/) {
 			$query = $1;
 			push(@queries, $query);
