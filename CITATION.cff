@@ -1,0 +1,29 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Claident
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Akifumi S.
+    family-names: Tanabe
+    email: akifumi.tanabe@gmail.com
+    orcid: 'https://orcid.org/0000-0003-1017-6504'
+    affiliation: 'Graduate School of Life Sciences, Tohoku University'
+repository-code: 'https://github.com/astanabe/Claident'
+url: 'https://www.claident.org/'
+abstract: >-
+  A high-throughput analysis pipeline for metabarcoding and
+  DNA barcoding studies
+keywords:
+  - DNA
+  - environmental DNA
+  - eDNA
+  - DNA barcoding
+  - metabarcoding
+  - amplicon sequencing analysis
+  - community profiling
+license: GPL-2.0
