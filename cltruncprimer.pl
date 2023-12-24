@@ -143,6 +143,15 @@ sub getOptions {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+output(?:multihit|multiplehit)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t|disable|d|no|n|false|f)$/i) {
+				$clsplitseqoption .= " $ARGV[$i]";
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
 		elsif ($ARGV[$i] =~ /^-+(?:trunc|truncate)N=(.+)$/i) {
 			my $value = $1;
 			if ($value =~ /^(?:enable|e|yes|y|true|t|disable|d|no|n|false|f)$/i) {
