@@ -1506,6 +1506,13 @@ sub concatenateFASTQ {
 					}
 				}
 			}
+			if ($tempfolder =~ /__undetermined/) {
+				my $temp = "$outputfolder/$runname\__undetermined";
+				$temp = &escapetext($temp);
+				if ($tempfolder =~ /^$temp/) {
+					push(@fastqfolder, $tempfolder);
+				}
+			}
 		}
 	}
 	{
