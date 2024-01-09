@@ -1,0 +1,22 @@
+Converted BLASTDB and TAXDB must place appropreate directory.
+
+From SINTAX format
+==================
+gzip -dc input.gz | \
+perl -npe 'if(/^>/){s/^>.*tax=/>/;s/\;$//;s/([>,])d:/${1}superkingdom:/;s/([>,])k:/${1}kingdom:/;s/([>,])p:/${1}phylum:/;s/([>,])c:/${1}class:/;s/([>,])o:/${1}order:/;s/([>,])f:/${1}family:/;s/([>,])g:/${1}genus:/;s/([>,])s:/${1}species:/}' \
+> temporary.fasta
+clconvrefdb \
+--format="superkingdom,kingdom,phylum,class,order,family,genus,species" \
+--separator="," \
+temporary.fasta.fasta \
+outputprefix
+
+From UNITE format
+=================
+gzip -dc input.gz | \
+perl -npe 'if(/^>/){s/^>[A-Z0-9_.]+\|/>/;s/\|[A-Z0-9]+\.?[A-Z0-9]*$//;s/^>k__/>kingdom:/;s/\;p__/\;phylum:/;s/\;c__/\;class:/;s/\;o__/\;order:/;s/\;f__/\;family:/;s/\;g__/\;genus:/;s/\;s__/\;species:/}' \
+> temporary.fasta
+clconvrefdb \
+--format="kingdom;phylum;class;order;family;genus;species" \
+temporary.fasta.fasta \
+outputprefix
