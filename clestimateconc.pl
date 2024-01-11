@@ -772,7 +772,7 @@ clestimateconc options inputfile outputfile
 
 Command line options
 ====================
---stdconc=DECIMAL,DECIMAL(,DECIMAL...)
+--stdconc=STDNAME1,DECIMAL1,STDNAME2,DECIMAL2(,STDNAME3,DECIMAL3...)
   Specify DNA concentration of internal standard. (default: none)
 
 --stdconctable=FILENAME

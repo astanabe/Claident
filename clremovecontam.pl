@@ -9,6 +9,9 @@ my $buildno = '0.9.x';
 my @inputfiles;
 my @otufiles;
 my $outputfolder;
+my $stdconctable;
+my $solutionvoltable;
+my $watervoltable;
 
 # options
 my $tagfile;
@@ -24,9 +27,13 @@ my $model;
 my $numthreads = 1;
 my $tableformat = 'matrix';
 my $nodel;
+my $stdconc;
+my $solutionvol;
+my $watervol;
 
 # commands
 my $Rscript;
+my $clestimateconc;
 
 # the other global variables
 my $devnull = File::Spec->devnull();
@@ -251,6 +258,24 @@ sub getOptions {
 		elsif ($ARGV[$i] =~ /^-+(?:reversecomplement|revcomp)$/i) {
 			$reversecomplement = 1;
 		}
+		elsif ($ARGV[$i] =~ /^-+(?:std|standard)conc=(.+)$/i) {
+			$stdconc = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:std|standard)conctable=(.+)$/i) {
+			$stdconctable = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+solution(?:vol|volume)=(.+)$/i) {
+			$solutionvol = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+solution(?:vol|volume)table=(.+)$/i) {
+			$solutionvoltable = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+water(?:vol|volume)=(.+)$/i) {
+			$watervol = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+water(?:vol|volume)table=(.+)$/i) {
+			$watervoltable = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+tableformat=(.+)$/i) {
 			if ($1 =~ /^matrix$/i) {
 				$tableformat = 'matrix';
@@ -405,6 +430,17 @@ sub checkVariables {
 	if (!%blanklist && !$blanklist && (!$tagfile || !$reversetagfile)) {
 		&errorMessage(__LINE__, "Both blank list and forward/reverse tags were not given.");
 	}
+	if ((%blanklist || $blanklist) && ($stdconc || $stdconctable)) {
+		if (($solutionvol || $solutionvoltable) && (!$watervol && !$watervoltable)) {
+			&errorMessage(__LINE__, "DNA concentration of internal standard and total volume of DNA solution were given, but filtered water volume was lacking.");
+		}
+		elsif (($watervol || $watervoltable) && (!$solutionvol && !$solutionvoltable)) {
+			&errorMessage(__LINE__, "DNA concentration of internal standard and filtered water volume were given, but total volume of DNA solution was lacking.");
+		}
+		if ($test eq 'binomial') {
+			&errorMessage(__LINE__, "Binomial test-based decontamination cannot be applied for estimated DNA concentration.");
+		}
+	}
 	if (-e $outputfolder) {
 		&errorMessage(__LINE__, "\"$outputfolder\" already exists.");
 	}
@@ -415,6 +451,16 @@ sub checkVariables {
 		print(STDERR "Decontamination using blank samples will be performed ");
 		if ($test eq 'thompson') {
 			print(STDERR "based on one-sided modified Thompson Tau test.\n");
+			if ($stdconc || $stdconctable) {
+				if (($solutionvol || $solutionvoltable) && ($watervol || $watervoltable)) {
+					print(STDERR "DNA concentration of internal standard, total volume of DNA solution and filtered water volume were given.\n");
+					print(STDERR "Thus, DNA concentration of filtered water will be estimated and decontamination will be performed based on estimated DNA concentration of filtered water.\n");
+				}
+				else {
+					print(STDERR "DNA concentration of internal standard was given.\n");
+					print(STDERR "Thus, DNA concentration of extracted DNA solution will be estimated and decontamination will be performed based on estimated DNA concentration of extracted DNA solution.\n");
+				}
+			}
 		}
 		elsif ($test eq 'binomial') {
 			print(STDERR "based on binomial test");
@@ -496,9 +542,15 @@ sub checkVariables {
 				&errorMessage(__LINE__, "Cannot find \"$pathto\".");
 			}
 			$Rscript = "\"$pathto/Rscript\"";
+			$pathto =~ s/\/bin$/\/..\/..\/bin/;
+			if (!-e $pathto) {
+				&errorMessage(__LINE__, "Cannot find \"$pathto\".");
+			}
+			$clestimateconc = "\"$pathto/clestimateconc\"";
 		}
 		else {
 			$Rscript = 'Rscript';
+			$clestimateconc = 'clestimateconc';
 		}
 	}
 }
@@ -839,6 +891,10 @@ sub removeContaminants {
 	# case of decontamination using blank samples
 	if (%blanklist || $blanklist) {
 		if ($test eq 'thompson') {
+			if ($stdconc || $stdconctable) {
+				# estimate concentration
+				&estimateConcentration();
+			}
 			&performModifiedThompsonTauTest();
 		}
 		elsif ($test eq 'binomial') {
@@ -884,6 +940,69 @@ sub removeContaminants {
 		}
 	}
 	print(STDERR "done.\n\n");
+}
+
+sub estimateConcentration {
+	print(STDERR "Estimating concentration based on number of sequences of internal standard...\n");
+	my @samplenames = keys(%sample2blank);
+	my @otunames;
+	foreach my $otuname (keys(%otunames)) {
+		if (!defined($ignoreotulist{$otuname})) {
+			push(@otunames, $otuname);
+		}
+	}
+	my @blanksamples = keys(%blank2sample);
+	# make temporary community table file
+	$filehandleoutput1 = &writeFile("$outputfolder/temptable.tsv");
+	print($filehandleoutput1 "samplename\t". join("\t", @otunames) . "\n");
+	foreach my $samplename (@samplenames, @blanksamples) {
+		print($filehandleoutput1 "$samplename");
+		foreach my $otuname (@otunames) {
+			if ($table{$samplename}{$otuname} > 0) {
+				print($filehandleoutput1 "\t" . $table{$samplename}{$otuname});
+			}
+			else {
+				print($filehandleoutput1 "\t0");
+			}
+		}
+		print($filehandleoutput1 "\n");
+	}
+	close($filehandleoutput1);
+	# perform concentration estimation
+	my $clestimateconcoption;
+	if ($stdconctable) {
+		$clestimateconcoption .= " --stdconctable=$stdconctable";
+	}
+	elsif ($stdconc) {
+		$clestimateconcoption .= " --stdconc=$stdconc";
+	}
+	else {
+		&errorMessage(__LINE__, "Concentrations of internal standards were not given.");
+	}
+	if ($solutionvoltable) {
+		$clestimateconcoption .= " --solutionvoltable=$solutionvoltable";
+	}
+	elsif ($solutionvol) {
+		$clestimateconcoption .= " --solutionvol=$solutionvol";
+	}
+	else {
+		$clestimateconcoption .= " --solutionvol=1";
+	}
+	if ($watervoltable) {
+		$clestimateconcoption .= " --watervoltable=$watervoltable";
+	}
+	elsif ($watervol) {
+		$clestimateconcoption .= " --watervol=$watervol";
+	}
+	else {
+		$clestimateconcoption .= " --watervol=1";
+	}
+	if (system("$clestimateconc$clestimateconcoption --numthreads=$numthreads $outputfolder/temptable.tsv $outputfolder/estimatedconc.tsv 1> $devnull 2> $outputfolder/estimateconc.log")) {
+		&errorMessage(__LINE__, "Cannot run \"$clestimateconc$clestimateconcoption --numthreads=$numthreads $outputfolder/temptable.tsv $outputfolder/estimatedconc.tsv\".");
+	}
+	unless ($nodel) {
+		unlink("$outputfolder/temptable.tsv");
+	}
 }
 
 sub estimateContaminationProbability {
@@ -1481,6 +1600,39 @@ sub performModifiedThompsonTauTest {
 			push(@otunames, $otuname);
 		}
 	}
+	my %estimatedtable;
+	# using estimated concentration
+	if ($stdconc || $stdconctable) {
+		my $ncol;
+		my $format;
+		my @tempotunames;
+		# read input file
+		$filehandleinput1 = &readFile("$outputfolder/estimatedconc.tsv");
+		while (<$filehandleinput1>) {
+			s/\r?\n?$//;
+			if ($format eq 'matrix') {
+				my @row = split(/\t/);
+				if (scalar(@row) == $ncol + 1) {
+					my $samplename = shift(@row);
+					for (my $i = 0; $i < scalar(@row); $i ++) {
+						$estimatedtable{$samplename}{$tempotunames[$i]} += $row[$i];
+					}
+				}
+				else {
+					&errorMessage(__LINE__, "The input file is invalid.\nThe invalid line is \"$_\".");
+				}
+			}
+			elsif (/^samplename\t(.+)/i) {
+				@tempotunames = split(/\t/, $1);
+				$ncol = scalar(@tempotunames);
+				$format = 'matrix';
+			}
+			else {
+				&errorMessage(__LINE__, "The input file is invalid.");
+			}
+		}
+		close($filehandleinput1);
+	}
 	# calculate significance level
 	my $ntestwhole = 0;
 	foreach my $otuname (@otunames) {
@@ -1601,15 +1753,37 @@ sub performModifiedThompsonTauTest {
 					}
 					foreach my $blanksample (@blanksamples) {
 						if ($table{$blanksample}{$otuname} > 0) {
-							push(@nseqblank, $table{$blanksample}{$otuname});
+							if ($stdconc || $stdconctable) {
+								if ($estimatedtable{$blanksample}{$otuname} > 0) {
+									push(@nseqblank, $estimatedtable{$blanksample}{$otuname});
+								}
+								else {
+									&errorMessage(__LINE__, "Estimated concentration of \"$otuname\" of \"$blanksample\" is invalid.");
+								}
+							}
+							else {
+								push(@nseqblank, $table{$blanksample}{$otuname});
+							}
 						}
 						else {
 							push(@nseqblank, 0);
 						}
 					}
 					if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
-						unless (&isOutlier($otusiglevel{$otuname}, $table{$samplename}{$otuname}, @nseqblank)) {
-							&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+						if ($stdconc || $stdconctable) {
+							if ($estimatedtable{$samplename}{$otuname} > 0) {
+								unless (&isOutlier($otusiglevel{$otuname}, $estimatedtable{$samplename}{$otuname}, @nseqblank)) {
+									&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+								}
+							}
+							else {
+								&errorMessage(__LINE__, "Estimated concentration of \"$otuname\" of \"$samplename\" is invalid.");
+							}
+						}
+						else {
+							unless (&isOutlier($otusiglevel{$otuname}, $table{$samplename}{$otuname}, @nseqblank)) {
+								&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+							}
 						}
 					}
 					exit;
@@ -2368,6 +2542,24 @@ Command line options
 
 --index2file=FILENAME
   Specify index2 file name for Illumina data. (default: none)
+
+--stdconc=STDNAME1,DECIMAL1,STDNAME2,DECIMAL2(,STDNAME3,DECIMAL3...)
+  Specify DNA concentration of internal standard. (default: none)
+
+--stdconctable=FILENAME
+  Specify file name of DNA concentration table of internal standard.
+
+--solutionvol=DECIMAL
+  Specify DNA solution volume.
+
+--solutionvoltable=FILENAME
+  Specify file name of DNA solution volume of samples.
+
+--watervol=DECIMAL
+  Specify filtered water volume.
+
+--watervoltable=FILENAME
+  Specify file name of filtered water volume of samples.
 
 --tableformat=COLUMN|MATRIX
   Specify output table format. (default: MATRIX)

@@ -20,3 +20,9 @@ clconvrefdb \
 --format="kingdom;phylum;class;order;family;genus;species" \
 temporary.fasta.fasta \
 outputprefix
+
+Recommended databases
+=====================
+MIDORI Reference https://www.reference-midori.info/ (Download SINTAX_sp/uniq files which is SINTAX format FASTA files)
+DAIRYdb https://github.com/marcomeola/DAIRYdb (Download usearch/*.udb file and convert UDB to FASTA using vsearch, then you can get SINTAX format FASTA file)
+UNITE https://unite.ut.ee/ (Download Full dataset which is UNITE format FASTA file)
