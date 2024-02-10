@@ -218,10 +218,10 @@ sub readTableFiles {
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			my @row = split(/\t/, $_);
-			if ($lineno ==1 && scalar(@row) > 2 && $_ !~ /\t(?:\d+|\d+\.\d+)\t/ && $_ !~ /\t(?:\d+|\d+\.\d+)$/) {
+			if ($lineno == 1 && scalar(@row) > 2 && $_ !~ /\t(?:\d+|\d+\.\d+)\t/ && $_ !~ /\t(?:\d+|\d+\.\d+)$/) {
 				@label = @row;
 			}
-			elsif ($lineno > 1 && @label && scalar(@row) == scalar(@label)) {
+			elsif ($lineno > 1 && @label && scalar(@row) >= scalar(@label)) {
 				for (my $i = 1; $i < scalar(@label); $i ++) {
 					if ($row[$i] =~ /^(?:\d+|\d+\.\d+)$/) {
 						$stdconc{$row[0]}{$label[$i]} = $row[$i];
@@ -231,10 +231,10 @@ sub readTableFiles {
 					}
 				}
 			}
-			elsif (scalar(@row) == 2 && $row[1] =~ /^(?:\d+|\d+\.\d+)$/) {
+			elsif (!@label && scalar(@row) == 2 && $row[1] =~ /^(?:\d+|\d+\.\d+)$/) {
 				$stdconc{$row[0]} = $row[1];
 			}
-			elsif (scalar(@row) == 3 && $row[2] =~ /^(?:\d+|\d+\.\d+)$/) {
+			elsif (!@label && scalar(@row) == 3 && $row[2] =~ /^(?:\d+|\d+\.\d+)$/) {
 				$stdconc{$row[0]}{$row[1]} = $row[2];
 			}
 			elsif (@row) {
@@ -249,8 +249,12 @@ sub readTableFiles {
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			my @row = split(/\t/, $_);
-			if (scalar(@row) == 2 && $row[1] =~ /^(?:\d+|\d+\.\d+)$/) {
-				$solutionvol{$row[0]} = $row[1];
+			if (scalar(@row) >= 2) {
+				for (my $i = 1; $i < scalar(@row); $i ++) {
+					if ($row[$i] =~ /^(?:\d+|\d+\.\d+)$/) {
+						$solutionvol{$row[0]} += $row[$i];
+					}
+				}
 			}
 		}
 		close($filehandleinput1);
@@ -260,8 +264,12 @@ sub readTableFiles {
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			my @row = split(/\t/, $_);
-			if (scalar(@row) == 2 && $row[1] =~ /^(?:\d+|\d+\.\d+)$/) {
-				$watervol{$row[0]} = $row[1];
+			if (scalar(@row) >= 2) {
+				for (my $i = 1; $i < scalar(@row); $i ++) {
+					if ($row[$i] =~ /^(?:\d+|\d+\.\d+)$/) {
+						$watervol{$row[0]} += $row[$i];
+					}
+				}
 			}
 		}
 		close($filehandleinput1);
@@ -276,7 +284,7 @@ sub readSummary {
 }
 
 sub estimateConcentration {
-	print(STDERR "Estimating concentration based on number of sequences of internal standard...\n");
+	print(STDERR "Estimating concentrations based on numbers of sequences of internal standards...\n");
 	# make temporary folder
 	unless (mkdir("$outputfile.temp")) {
 		&errorMessage(__LINE__, "Cannot make working directory.");
@@ -342,99 +350,79 @@ sub estimateConcentration {
 				$filehandleoutput1 = &writeFile("estimateconc.R");
 				print($filehandleoutput1 "community <- c(\n");
 				if (@otunames && $table{$samplename}) {
-					for (my $i = 0; $i < scalar(@otunames); $i ++) {
-						if ($i == scalar(@otunames) - 1) {
-							if ($table{$samplename}{$otunames[$i]}) {
-								print($filehandleoutput1 "$table{$samplename}{$otunames[$i]}\n");
-							}
-							else {
-								print($filehandleoutput1 "0\n");
-							}
+					my $switch = 0;
+					foreach my $otuname (@otunames) {
+						if ($switch) {
+							print($filehandleoutput1 ",\n");
+						}
+						if ($table{$samplename}{$otuname}) {
+							print($filehandleoutput1 $table{$samplename}{$otuname});
 						}
 						else {
-							if ($table{$samplename}{$otunames[$i]}) {
-								print($filehandleoutput1 "$table{$samplename}{$otunames[$i]},\n");
-							}
-							else {
-								print($filehandleoutput1 "0,\n");
-							}
+							print($filehandleoutput1 0);
 						}
+						$switch = 1;
 					}
 				}
 				else {
 					&errorMessage(__LINE__, "Unknown error.");
 				}
-				print($filehandleoutput1 ")\n");
+				print($filehandleoutput1 "\n)\n");
 				print($filehandleoutput1 "standard <- c(\n");
 				if (@stdotu && $table{$samplename}) {
-					for (my $i = 0; $i < scalar(@stdotu); $i ++) {
-						if ($i == scalar(@stdotu) - 1) {
-							if (exists($table{$samplename}{$stdotu[$i]}) && $table{$samplename}{$stdotu[$i]} > 0) {
-								print($filehandleoutput1 "$table{$samplename}{$stdotu[$i]}\n");
-							}
-							else {
-								print($filehandleoutput1 "0\n");
-							}
+					my $switch = 0;
+					foreach my $stdotu (@stdotu) {
+						if ($switch) {
+							print($filehandleoutput1 ",\n");
+						}
+						if (exists($table{$samplename}{$stdotu}) && $table{$samplename}{$stdotu} > 0) {
+							print($filehandleoutput1 $table{$samplename}{$stdotu});
 						}
 						else {
-							if (exists($table{$samplename}{$stdotu[$i]}) && $table{$samplename}{$stdotu[$i]} > 0) {
-								print($filehandleoutput1 "$table{$samplename}{$stdotu[$i]},\n");
-							}
-							else {
-								print($filehandleoutput1 "0,\n");
-							}
+							print($filehandleoutput1 0);
 						}
+						$switch = 1;
 					}
 				}
 				else {
 					&errorMessage(__LINE__, "Unknown error.");
 				}
-				print($filehandleoutput1 ")\n");
+				print($filehandleoutput1 "\n)\n");
 				print($filehandleoutput1 "stdconc <- c(\n");
 				if (@stdotu && $stdconc{$samplename}) {
-					for (my $i = 0; $i < scalar(@stdotu); $i ++) {
-						if ($i == scalar(@stdotu) - 1) {
-							if (exists($stdconc{$samplename}{$stdotu[$i]}) && $stdconc{$samplename}{$stdotu[$i]} > 0) {
-								print($filehandleoutput1 "$stdconc{$samplename}{$stdotu[$i]}\n");
-							}
-							else {
-								print($filehandleoutput1 "0\n");
-							}
+					my $switch = 0;
+					foreach my $stdotu (@stdotu) {
+						if ($switch) {
+							print($filehandleoutput1 ",\n");
+						}
+						if (exists($stdconc{$samplename}{$stdotu}) && $stdconc{$samplename}{$stdotu} > 0) {
+							print($filehandleoutput1 $stdconc{$samplename}{$stdotu});
 						}
 						else {
-							if (exists($stdconc{$samplename}{$stdotu[$i]}) && $stdconc{$samplename}{$stdotu[$i]} > 0) {
-								print($filehandleoutput1 "$stdconc{$samplename}{$stdotu[$i]},\n");
-							}
-							else {
-								print($filehandleoutput1 "0,\n");
-							}
+							print($filehandleoutput1 0);
 						}
+						$switch = 1;
 					}
 				}
 				elsif (@stdotu && %stdconc) {
-					for (my $i = 0; $i < scalar(@stdotu); $i ++) {
-						if ($i == scalar(@stdotu) - 1) {
-							if (exists($stdconc{$stdotu[$i]}) && $stdconc{$stdotu[$i]} > 0) {
-								print($filehandleoutput1 "$stdconc{$stdotu[$i]}\n");
-							}
-							else {
-								print($filehandleoutput1 "0\n");
-							}
+					my $switch = 0;
+					foreach my $stdotu (@stdotu) {
+						if ($switch) {
+							print($filehandleoutput1 ",\n");
+						}
+						if (exists($stdconc{$stdotu}) && $stdconc{$stdotu} > 0) {
+							print($filehandleoutput1 $stdconc{$stdotu});
 						}
 						else {
-							if (exists($stdconc{$stdotu[$i]}) && $stdconc{$stdotu[$i]} > 0) {
-								print($filehandleoutput1 "$stdconc{$stdotu[$i]},\n");
-							}
-							else {
-								print($filehandleoutput1 "0,\n");
-							}
+							print($filehandleoutput1 0);
 						}
+						$switch = 1;
 					}
 				}
 				else {
 					&errorMessage(__LINE__, "Unknown error.");
 				}
-				print($filehandleoutput1 ")\n");
+				print($filehandleoutput1 "\n)\n");
 				if (exists($solutionvol{$samplename}) && $solutionvol{$samplename} > 0) {
 					print($filehandleoutput1 "solutionvol <- $solutionvol{$samplename}\n");
 				}
@@ -461,9 +449,9 @@ sub estimateConcentration {
 				print($filehandleoutput1 "slope <- fitted\$coefficients\n");
 				print($filehandleoutput1 "rsquared <- summary(fitted)\$r.squared\n");
 				print($filehandleoutput1 "estimated <- (community / slope) * (solutionvol / watervol)\n");
-				print($filehandleoutput1 "write.table(estimated, \"estimated.tsv\", sep=\"\t\", append=F, quote=F, row.names=F, col.names=F, na=\"NA\")\n");
-				print($filehandleoutput1 "write.table(slope, \"slope.tsv\", sep=\"\t\", append=F, quote=F, row.names=F, col.names=F, na=\"NA\")\n");
-				print($filehandleoutput1 "write.table(rsquared, \"rsquared.tsv\", sep=\"\t\", append=F, quote=F, row.names=F, col.names=F, na=\"NA\")\n");
+				print($filehandleoutput1 "write.table(estimated, \"estimated.tsv\", sep=\"\\t\", append=F, quote=F, row.names=F, col.names=F, na=\"NA\")\n");
+				print($filehandleoutput1 "write.table(slope, \"slope.tsv\", sep=\"\\t\", append=F, quote=F, row.names=F, col.names=F, na=\"NA\")\n");
+				print($filehandleoutput1 "write.table(rsquared, \"rsquared.tsv\", sep=\"\\t\", append=F, quote=F, row.names=F, col.names=F, na=\"NA\")\n");
 				close($filehandleoutput1);
 				# run R
 				if (system("$Rscript --vanilla estimateconc.R 1> $devnull 2> $devnull")) {
@@ -591,7 +579,7 @@ sub estimateConcentration {
 }
 
 sub saveSummary {
-	print(STDERR "Save results...\n");
+	print(STDERR "Saving results...\n");
 	# save output file
 	$filehandleoutput1 = &writeFile($outputfile);
 	if ($tableformat eq 'matrix') {
