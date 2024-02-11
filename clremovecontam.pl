@@ -22,7 +22,7 @@ my $pjump2;
 my $test = 'thompson';
 my $siglevel = 0.05;
 my $adjust = 'bonferroni';
-my $fwerunit = 'whole';
+my $fwerunit = 'otu';
 my $model;
 my $numthreads = 1;
 my $tableformat = 'matrix';
@@ -997,6 +997,9 @@ sub estimateConcentration {
 	else {
 		$clestimateconcoption .= " --watervol=1";
 	}
+	if ($nodel) {
+		$clestimateconcoption .= " --nodel";
+	}
 	if (system("$clestimateconc$clestimateconcoption --numthreads=$numthreads $outputfolder/temptable.tsv $outputfolder/estimatedconc.tsv 1> $devnull 2> $outputfolder/estimateconc.log")) {
 		&errorMessage(__LINE__, "Cannot run \"$clestimateconc$clestimateconcoption --numthreads=$numthreads $outputfolder/temptable.tsv $outputfolder/estimatedconc.tsv\".");
 	}
@@ -1604,18 +1607,16 @@ sub performModifiedThompsonTauTest {
 	# using estimated concentration
 	if ($stdconc || $stdconctable) {
 		my $ncol;
-		my $format;
-		my @tempotunames;
 		# read input file
 		$filehandleinput1 = &readFile("$outputfolder/estimatedconc.tsv");
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
-			if ($format eq 'matrix') {
+			if ($ncol) {
 				my @row = split(/\t/);
 				if (scalar(@row) == $ncol + 1) {
 					my $samplename = shift(@row);
 					for (my $i = 0; $i < scalar(@row); $i ++) {
-						$estimatedtable{$samplename}{$tempotunames[$i]} += $row[$i];
+						$estimatedtable{$samplename}{$otunames[$i]} += $row[$i];
 					}
 				}
 				else {
@@ -1623,9 +1624,8 @@ sub performModifiedThompsonTauTest {
 				}
 			}
 			elsif (/^samplename\t(.+)/i) {
-				@tempotunames = split(/\t/, $1);
-				$ncol = scalar(@tempotunames);
-				$format = 'matrix';
+				@otunames = split(/\t/, $1);
+				$ncol = scalar(@otunames);
 			}
 			else {
 				&errorMessage(__LINE__, "The input file is invalid.");
@@ -2045,14 +2045,14 @@ sub saveResults {
 	foreach my $blanksample (keys(%blanksamples)) {
 		delete($samplenames{$blanksample});
 	}
+	my %removedotu;
 	foreach my $otuname (keys(%otunames)) {
 		my $tempsum = 0;
 		foreach my $samplename (keys(%samplenames)) {
 			$tempsum += $table{$samplename}{$otuname};
 		}
 		if ($tempsum == 0) {
-			print(STDERR "The OTU \"$otuname\" was removed because all sequences of this OTU were removed.\n");
-			delete($otunames{$otuname});
+			print(STDERR "The all sequences of the OTU \"$otuname\" was removed. This might be weird.\n");
 		}
 	}
 	# save table
@@ -2505,7 +2505,7 @@ Command line options
 
 --fwerunit=WHOLE|OTU
   Specify family-wise error rate unit for Bonferroni correction.
-(default: WHOLE)
+(default: OTU)
 
 --pjump=DECIMAL(,DECIMAL)
   Specify the probability of tag jump. (default: none)

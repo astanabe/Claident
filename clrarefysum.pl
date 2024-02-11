@@ -592,7 +592,7 @@ sub rarefySamples {
 	$filehandleoutput1 = &writeFile("rarefy.R");
 	print($filehandleoutput1 <<"_END");
 library(vegan)
-unrarefied <- read.delim("unrarefied.tsv", header=T, row.names=1)
+unrarefied <- read.delim("unrarefied.tsv", header=T, row.names=1, check.names=F)
 rownames <- as.data.frame(row.names(unrarefied), row.names=row.names(unrarefied))
 colnames(rownames) <- "samplename"
 ranseed <- $seed
@@ -619,15 +619,17 @@ _END
 	}
 	print($filehandleoutput1 "\n)\n");
 	print($filehandleoutput1 <<'_END');
+options(warn = -1)
 for(i in 1:nreplicate) {
+	message(paste("Replicate", i, "..."))
 	rarefied <- rrarefy(unrarefied, nseq)
 	write.table(cbind(rownames, rarefied), paste0("rarefied", i, ".tsv"), sep="\t", append=F, quote=F, row.names=F, col.names=T, na="NA")
 }
 _END
 	close($filehandleoutput1);
 	# run R
-	if (system("$Rscript --vanilla rarefy.R 1> $devnull 2> $devnull")) {
-		&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla rarefy.R 1> $devnull\".");
+	if (system("$Rscript --vanilla rarefy.R")) {
+		&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla rarefy.R\".");
 	}
 	# change directory
 	unless (chdir($root)) {
@@ -705,7 +707,7 @@ sub saveSummary {
 				my @tempsamplenames;
 				my $ncol;
 				# read input file
-				print(STDERR "Rarefied table $i...\n");
+				print(STDERR "Replicate $i...\n");
 				$filehandleinput1 = &readFile("$output.temp/rarefied$i.tsv");
 				while (<$filehandleinput1>) {
 					s/\r?\n?$//;
