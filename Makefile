@@ -1,8 +1,8 @@
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 PERL ?= $(filter /%,$(shell /bin/sh -c 'type perl'))
-VERSION := 0.9.2024.02.10
-PROGRAM := classigntax clblastdbcmd clblastprimer clblastseq clcalcfastqstatv clclassseqv clclusterstdv clconcatpair clconcatpairv clconvrefdb cldenoiseseqd clderepblastdb cldivseq clelimdupacc clestimateconc clextractdupacc clfillassign clfilterclass clfilterseq clfilterseqv clfiltersum clidentseq climportfastq clmakeblastdb clmakecachedb clmakeidentdb clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clplotwordcloud clrecoverseqv clremovechimev clremovecontam clretrieveacc clshrinkblastdb clsplitseq clsumclass clsumtaxa cltruncprimer
+VERSION := 0.9.2024.02.11
+PROGRAM := classigntax clblastdbcmd clblastprimer clblastseq clcalcfastqstatv clclassseqv clclusterstdv clconcatpair clconcatpairv clconvrefdb cldenoiseseqd clderepblastdb cldivseq clelimdupacc clestimateconc clextractdupacc clfillassign clfilterclass clfilterseq clfilterseqv clfiltersum clidentseq climportfastq clmakeblastdb clmakecachedb clmakeidentdb clmaketaxdb clmaketsv clmakeuchimedb clmakexml clmergeassign clplotwordcloud clrarefysum clrecoverseqv clremovechimev clremovecontam clretrieveacc clshrinkblastdb clsplitseq clsumclass clsumtaxa cltruncprimer
 
 all: $(PROGRAM)
 
@@ -131,6 +131,10 @@ clmergeassign: clmergeassign.pl
 	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
 clplotwordcloud: clplotwordcloud.pl
+	echo '#!'$(PERL) > $@
+	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
+
+clrarefysum: clrarefysum.pl
 	echo '#!'$(PERL) > $@
 	$(PERL) -npe "s/buildno = '0\.9\.x'/buildno = '$(VERSION)'/" $< >> $@
 
