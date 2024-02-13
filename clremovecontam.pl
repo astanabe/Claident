@@ -807,22 +807,9 @@ sub readListFiles {
 			}
 		}
 	}
-	if (%ignoresamplelist) {
-		foreach my $ignoresample (keys(%ignoresamplelist)) {
-			delete($sample2blank{$ignoresample});
-			delete($sample2sample{$ignoresample});
-			foreach my $blanksample (keys(%blank2sample)) {
-				delete($blank2sample{$blanksample}{$ignoresample});
-			}
-		}
-	}
 	if ($ignoresamplelist) {
 		foreach my $ignoresample (&readList($ignoresamplelist)) {
-			delete($sample2blank{$ignoresample});
-			delete($sample2sample{$ignoresample});
-			foreach my $blanksample (keys(%blank2sample)) {
-				delete($blank2sample{$blanksample}{$ignoresample});
-			}
+			$ignoresamplelist{$ignoresample} = 1;
 		}
 	}
 	if ($ignoreotulist) {
@@ -1639,40 +1626,42 @@ sub performModifiedThompsonTauTest {
 		if ($adjust eq 'bonferroni') {
 			my $ntest = 0;
 			foreach my $samplename (@samplenames) {
-				my @nseqblank;
-				my @blanksamples;
-				if (%sample2blank && exists($sample2blank{$samplename})) {
-					@blanksamples = keys(%{$sample2blank{$samplename}});
-				}
-				else {
-					&errorMessage(__LINE__, "There is no associated blanks for \"$samplename\".");
-				}
-				if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
-					my @tempblanks;
-					if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
-						push(@tempblanks, keys(%{$sample2blank{$samplename}{'reversejump'}}));
+				if (!$ignoresamplelist{$samplename}) {
+					my @nseqblank;
+					my @blanksamples;
+					if (%sample2blank && exists($sample2blank{$samplename})) {
+						@blanksamples = keys(%{$sample2blank{$samplename}});
 					}
 					else {
-						&errorMessage(__LINE__, "Unknown error.");
+						&errorMessage(__LINE__, "There is no associated blanks for \"$samplename\".");
 					}
-					if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
-						push(@tempblanks, keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+					if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
+						my @tempblanks;
+						if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
+							push(@tempblanks, keys(%{$sample2blank{$samplename}{'reversejump'}}));
+						}
+						else {
+							&errorMessage(__LINE__, "Unknown error.");
+						}
+						if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
+							push(@tempblanks, keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+						}
+						else {
+							&errorMessage(__LINE__, "Unknown error.");
+						}
+						@blanksamples = @tempblanks;
 					}
-					else {
-						&errorMessage(__LINE__, "Unknown error.");
+					foreach my $blanksample (@blanksamples) {
+						if ($table{$blanksample}{$otuname} > 0) {
+							push(@nseqblank, $table{$blanksample}{$otuname});
+						}
+						else {
+							push(@nseqblank, 0);
+						}
 					}
-					@blanksamples = @tempblanks;
-				}
-				foreach my $blanksample (@blanksamples) {
-					if ($table{$blanksample}{$otuname} > 0) {
-						push(@nseqblank, $table{$blanksample}{$otuname});
+					if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
+						$ntest ++;
 					}
-					else {
-						push(@nseqblank, 0);
-					}
-				}
-				if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
-					$ntest ++;
 				}
 			}
 			if ($ntest) {
@@ -1700,93 +1689,95 @@ sub performModifiedThompsonTauTest {
 		$| = 1;
 		$? = 0;
 		foreach my $samplename (@samplenames) {
-			print(STDERR "\"$samplename\"...\n");
-			foreach my $otuname (@otunames) {
-				if (my $pid = fork()) {
-					$pid{$pid} = $child;
-					if ($nchild == $numthreads) {
-						my $endpid = wait();
-						while (!exists($pid{$endpid}) && $endpid != -1) {
-							$endpid = wait();
+			if (!$ignoresamplelist{$samplename}) {
+				print(STDERR "\"$samplename\"...\n");
+				foreach my $otuname (@otunames) {
+					if (my $pid = fork()) {
+						$pid{$pid} = $child;
+						if ($nchild == $numthreads) {
+							my $endpid = wait();
+							while (!exists($pid{$endpid}) && $endpid != -1) {
+								$endpid = wait();
+							}
+							if (exists($pid{$endpid})) {
+								$child = $pid{$endpid};
+								delete($pid{$endpid});
+							}
+							elsif ($endpid == -1) {
+								$child = 0;
+							}
 						}
-						if (exists($pid{$endpid})) {
-							$child = $pid{$endpid};
-							delete($pid{$endpid});
+						elsif ($nchild < $numthreads) {
+							$child = $nchild;
+							$nchild ++;
 						}
-						elsif ($endpid == -1) {
-							$child = 0;
+						if ($?) {
+							die(__LINE__);
 						}
-					}
-					elsif ($nchild < $numthreads) {
-						$child = $nchild;
-						$nchild ++;
-					}
-					if ($?) {
-						die(__LINE__);
-					}
-					next;
-				}
-				else {
-					my @nseqblank;
-					my @blanksamples;
-					if (%sample2blank && exists($sample2blank{$samplename})) {
-						@blanksamples = keys(%{$sample2blank{$samplename}});
+						next;
 					}
 					else {
-						&errorMessage(__LINE__, "There is no associated blanks for \"$samplename\".");
-					}
-					if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
-						my @tempblanks;
-						if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
-							push(@tempblanks, keys(%{$sample2blank{$samplename}{'reversejump'}}));
+						my @nseqblank;
+						my @blanksamples;
+						if (%sample2blank && exists($sample2blank{$samplename})) {
+							@blanksamples = keys(%{$sample2blank{$samplename}});
 						}
 						else {
-							&errorMessage(__LINE__, "Unknown error.");
+							&errorMessage(__LINE__, "There is no associated blanks for \"$samplename\".");
 						}
-						if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
-							push(@tempblanks, keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+						if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
+							my @tempblanks;
+							if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
+								push(@tempblanks, keys(%{$sample2blank{$samplename}{'reversejump'}}));
+							}
+							else {
+								&errorMessage(__LINE__, "Unknown error.");
+							}
+							if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
+								push(@tempblanks, keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+							}
+							else {
+								&errorMessage(__LINE__, "Unknown error.");
+							}
+							@blanksamples = @tempblanks;
 						}
-						else {
-							&errorMessage(__LINE__, "Unknown error.");
-						}
-						@blanksamples = @tempblanks;
-					}
-					foreach my $blanksample (@blanksamples) {
-						if ($table{$blanksample}{$otuname} > 0) {
-							if ($stdconc || $stdconctable) {
-								if ($estimatedtable{$blanksample}{$otuname} > 0) {
-									push(@nseqblank, $estimatedtable{$blanksample}{$otuname});
+						foreach my $blanksample (@blanksamples) {
+							if ($table{$blanksample}{$otuname} > 0) {
+								if ($stdconc || $stdconctable) {
+									if ($estimatedtable{$blanksample}{$otuname} > 0) {
+										push(@nseqblank, $estimatedtable{$blanksample}{$otuname});
+									}
+									else {
+										&errorMessage(__LINE__, "Estimated concentration of \"$otuname\" of \"$blanksample\" is invalid.");
+									}
 								}
 								else {
-									&errorMessage(__LINE__, "Estimated concentration of \"$otuname\" of \"$blanksample\" is invalid.");
+									push(@nseqblank, $table{$blanksample}{$otuname});
 								}
 							}
 							else {
-								push(@nseqblank, $table{$blanksample}{$otuname});
+								push(@nseqblank, 0);
 							}
 						}
-						else {
-							push(@nseqblank, 0);
-						}
-					}
-					if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
-						if ($stdconc || $stdconctable) {
-							if ($estimatedtable{$samplename}{$otuname} > 0) {
-								unless (&isOutlier($otusiglevel{$otuname}, $estimatedtable{$samplename}{$otuname}, @nseqblank)) {
+						if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
+							if ($stdconc || $stdconctable) {
+								if ($estimatedtable{$samplename}{$otuname} > 0) {
+									unless (&isOutlier($otusiglevel{$otuname}, $estimatedtable{$samplename}{$otuname}, @nseqblank)) {
+										&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+									}
+								}
+								else {
+									&errorMessage(__LINE__, "Estimated concentration of \"$otuname\" of \"$samplename\" is invalid.");
+								}
+							}
+							else {
+								unless (&isOutlier($otusiglevel{$otuname}, $table{$samplename}{$otuname}, @nseqblank)) {
 									&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
 								}
 							}
-							else {
-								&errorMessage(__LINE__, "Estimated concentration of \"$otuname\" of \"$samplename\" is invalid.");
-							}
 						}
-						else {
-							unless (&isOutlier($otusiglevel{$otuname}, $table{$samplename}{$otuname}, @nseqblank)) {
-								&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
-							}
-						}
+						exit;
 					}
-					exit;
 				}
 			}
 		}
@@ -1815,7 +1806,7 @@ sub performBinomialTest1 {
 		if ($adjust eq 'bonferroni') {
 			my $ntest = 0;
 			foreach my $samplename (@samplenames) {
-				if ($table{$samplename}{$otuname} > 0) {
+				if (!$ignoresamplelist{$samplename} && $table{$samplename}{$otuname} > 0) {
 					$ntest ++;
 				}
 			}
@@ -1853,40 +1844,42 @@ sub performBinomialTest1 {
 		$| = 1;
 		$? = 0;
 		foreach my $samplename (@samplenames) {
-			print(STDERR "\"$samplename\"...\n");
-			foreach my $otuname (@otunames) {
-				if (my $pid = fork()) {
-					$pid{$pid} = $child;
-					if ($nchild == $numthreads) {
-						my $endpid = wait();
-						while (!exists($pid{$endpid}) && $endpid != -1) {
-							$endpid = wait();
+			if (!$ignoresamplelist{$samplename}) {
+				print(STDERR "\"$samplename\"...\n");
+				foreach my $otuname (@otunames) {
+					if (my $pid = fork()) {
+						$pid{$pid} = $child;
+						if ($nchild == $numthreads) {
+							my $endpid = wait();
+							while (!exists($pid{$endpid}) && $endpid != -1) {
+								$endpid = wait();
+							}
+							if (exists($pid{$endpid})) {
+								$child = $pid{$endpid};
+								delete($pid{$endpid});
+							}
+							elsif ($endpid == -1) {
+								$child = 0;
+							}
 						}
-						if (exists($pid{$endpid})) {
-							$child = $pid{$endpid};
-							delete($pid{$endpid});
+						elsif ($nchild < $numthreads) {
+							$child = $nchild;
+							$nchild ++;
 						}
-						elsif ($endpid == -1) {
-							$child = 0;
+						if ($?) {
+							die(__LINE__);
 						}
+						next;
 					}
-					elsif ($nchild < $numthreads) {
-						$child = $nchild;
-						$nchild ++;
-					}
-					if ($?) {
-						die(__LINE__);
-					}
-					next;
-				}
-				else {
-					if ($table{$samplename}{$otuname} > 0) {
-						my $pvalue = (1 - Math::CDF::pbinom($table{$samplename}{$otuname}, $otutotal{$otuname}, $pjump1));
-						if ($pvalue > $otusiglevel{$otuname}) {
-							&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+					else {
+						if ($table{$samplename}{$otuname} > 0) {
+							my $pvalue = (1 - Math::CDF::pbinom($table{$samplename}{$otuname}, $otutotal{$otuname}, $pjump1));
+							if ($pvalue > $otusiglevel{$otuname}) {
+								&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+							}
 						}
+						exit;
 					}
-					exit;
 				}
 			}
 		}
@@ -1919,7 +1912,7 @@ sub performBinomialTest2 {
 		if ($adjust eq 'bonferroni') {
 			my $ntest = 0;
 			foreach my $samplename (@samplenames) {
-				if ($table{$samplename}{$otuname} > 0) {
+				if (!$ignoresamplelist{$samplename} && $table{$samplename}{$otuname} > 0) {
 					$ntest ++;
 				}
 			}
@@ -1948,37 +1941,38 @@ sub performBinomialTest2 {
 		$| = 1;
 		$? = 0;
 		foreach my $samplename (@samplenames) {
-			print(STDERR "\"$samplename\"...\n");
-			foreach my $otuname (@otunames) {
-				if (my $pid = fork()) {
-					$pid{$pid} = $child;
-					if ($nchild == $numthreads) {
-						my $endpid = wait();
-						while (!exists($pid{$endpid}) && $endpid != -1) {
-							$endpid = wait();
+			if (!$ignoresamplelist{$samplename}) {
+				print(STDERR "\"$samplename\"...\n");
+				foreach my $otuname (@otunames) {
+					if (my $pid = fork()) {
+						$pid{$pid} = $child;
+						if ($nchild == $numthreads) {
+							my $endpid = wait();
+							while (!exists($pid{$endpid}) && $endpid != -1) {
+								$endpid = wait();
+							}
+							if (exists($pid{$endpid})) {
+								$child = $pid{$endpid};
+								delete($pid{$endpid});
+							}
+							elsif ($endpid == -1) {
+								$child = 0;
+							}
 						}
-						if (exists($pid{$endpid})) {
-							$child = $pid{$endpid};
-							delete($pid{$endpid});
+						elsif ($nchild < $numthreads) {
+							$child = $nchild;
+							$nchild ++;
 						}
-						elsif ($endpid == -1) {
-							$child = 0;
+						if ($?) {
+							die(__LINE__);
 						}
+						next;
 					}
-					elsif ($nchild < $numthreads) {
-						$child = $nchild;
-						$nchild ++;
-					}
-					if ($?) {
-						die(__LINE__);
-					}
-					next;
-				}
-				else {
-					if ($table{$samplename}{$otuname} > 0) {
-						my $rsum = &calcrsum($samplename, $otuname);
-						my $fsum = &calcfsum($samplename, $otuname);
-						my $rcode = <<"_END";
+					else {
+						if ($table{$samplename}{$otuname} > 0) {
+							my $rsum = &calcrsum($samplename, $otuname);
+							my $fsum = &calcfsum($samplename, $otuname);
+							my $rcode = <<"_END";
 # Sample: $samplename
 # OTU: $otuname
 otusiglevel <- $otusiglevel{$otuname}
@@ -1986,16 +1980,16 @@ otuobserved <- $table{$samplename}{$otuname}
 otursum <- $rsum
 otufsum <- $fsum
 _END
-						if (exists($pjump{$samplename}{'reversejump'}) && exists($pjump{$samplename}{'forwardjump'})) {
-							$rcode .= <<"_END";
+							if (exists($pjump{$samplename}{'reversejump'}) && exists($pjump{$samplename}{'forwardjump'})) {
+								$rcode .= <<"_END";
 preversejump <- $pjump{$samplename}{'reversejump'}
 pforwardjump <- $pjump{$samplename}{'forwardjump'}
 _END
-						}
-						else {
-							&errorMessage(__LINE__, "The probability of tag jump is missing for \"$samplename\".");
-						}
-						$rcode .= <<"_END";
+							}
+							else {
+								&errorMessage(__LINE__, "The probability of tag jump is missing for \"$samplename\".");
+							}
+							$rcode .= <<"_END";
 pval <- 1
 for(i in 0:otuobserved) {
 	for(j in 0:i) {
@@ -2009,25 +2003,26 @@ for(i in 0:otuobserved) {
 }
 print(pval <= otusiglevel)
 _END
-						&saveToTempFile("$outputfolder/$samplename.$child.R", $rcode);
-						unless (open($pipehandleinput1, "$Rscript --vanilla $outputfolder/$samplename.$child.R 2> $devnull |")) {
-							&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outputfolder/$samplename.$child.R\".");
-						}
-						my $testresult;
-						while (<$pipehandleinput1>) {
-							if (/TRUE/) {
-								$testresult = 1;
+							&saveToTempFile("$outputfolder/$samplename.$child.R", $rcode);
+							unless (open($pipehandleinput1, "$Rscript --vanilla $outputfolder/$samplename.$child.R 2> $devnull |")) {
+								&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla $outputfolder/$samplename.$child.R\".");
+							}
+							my $testresult;
+							while (<$pipehandleinput1>) {
+								if (/TRUE/) {
+									$testresult = 1;
+								}
+							}
+							close($pipehandleinput1);
+							unless ($testresult) {
+								&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+							}
+							unless ($nodel) {
+								unlink("$outputfolder/$samplename.$child.R");
 							}
 						}
-						close($pipehandleinput1);
-						unless ($testresult) {
-							&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
-						}
-						unless ($nodel) {
-							unlink("$outputfolder/$samplename.$child.R");
-						}
+						exit;
 					}
-					exit;
 				}
 			}
 		}

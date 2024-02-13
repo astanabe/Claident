@@ -447,7 +447,7 @@ sub readTags {
 						&errorMessage(__LINE__, "\"$tag\" is invalid tag. Do not use degenerate character in tag.");
 					}
 					if ($taglength && $taglength != length($tag)) {
-						&errorMessage(__LINE__, "All tags must have same length.");
+						&errorMessage(__LINE__, "All tags must have the same length.");
 					}
 					else {
 						$taglength = length($tag);
@@ -465,7 +465,7 @@ sub readTags {
 									$reversetag = &reversecomplement($reversetag);
 								}
 								if ($reversetaglength && $reversetaglength != length($reversetag)) {
-									&errorMessage(__LINE__, "All reverse tags must have same length.");
+									&errorMessage(__LINE__, "All reverse tags must have the same length.");
 								}
 								else {
 									$reversetaglength = length($reversetag);
