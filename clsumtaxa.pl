@@ -75,7 +75,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2023  Akifumi S. Tanabe
+Copyright (C) 2011-XXXX  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -413,7 +413,7 @@ sub processSummary {
 		}
 	}
 	if ($sortkey eq 'abundance') {
-		@otunames = sort({$newotu{$b} <=> $newotu{$a}} keys(%newotu));
+		@otunames = sort({$newotu{$b} <=> $newotu{$a} || $a cmp $b} keys(%newotu));
 	}
 	if ($topN) {
 		while (scalar(@otunames) > $topN) {
@@ -426,7 +426,7 @@ sub processSummary {
 		push(@otunames, 'others');
 	}
 	if ($sortkey =~ /^\d+$/) {
-		@otunames = sort({$taxonomy{$a}{$sortkey} cmp $taxonomy{$b}{$sortkey} || $newotu{$b} <=> $newotu{$a}} keys(%newotu));
+		@otunames = sort({$taxonomy{$a}{$sortkey} cmp $taxonomy{$b}{$sortkey} || $newotu{$b} <=> $newotu{$a} || $a cmp $b} keys(%newotu));
 	}
 	if ($numbering && $targetrank >= 0) {
 		my @newotu;
@@ -526,7 +526,7 @@ sub saveSummary {
 		foreach my $samplename (@samplenames) {
 			my @tempotus;
 			if ($sortkey eq 'abundance') {
-				@tempotus = sort({$table{$samplename}{$b} <=> $table{$samplename}{$a}} @otunames);
+				@tempotus = sort({$table{$samplename}{$b} <=> $table{$samplename}{$a} || $a cmp $b} @otunames);
 			}
 			else {
 				@tempotus = @otunames;

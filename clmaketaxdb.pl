@@ -11,7 +11,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2023  Akifumi S. Tanabe
+Copyright (C) 2011-XXXX  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -153,6 +153,7 @@ if ($acclist) {
 	unless ($accsdbhandle->do("CREATE TABLE accs (acc TEXT NOT NULL PRIMARY KEY);")) {
 		&errorMessage(__LINE__, "Cannot make table.");
 	}
+	$accsdbhandle->do("CREATE INDEX accindex ON accs (acc);");
 	# read accession list
 	print(STDERR "Reading accession list file...");
 	{
@@ -242,6 +243,7 @@ if ($acclist) {
 		# commit SQL transaction
 		$dbhandle->do('COMMIT;');
 	}
+	$dbhandle->do("CREATE INDEX accindex ON acc_taxid (acc);");
 	print(STDERR "done.\n\n");
 	# disconnect and delete accsdb
 	$accsdbhandle->disconnect;
@@ -436,6 +438,7 @@ if (!$acclist) {
 	$dbhandle->do('COMMIT;');
 	# close input file
 	close($inputhandle);
+	$dbhandle->do("CREATE INDEX accindex ON acc_taxid (acc);");
 	print(STDERR "done.\n\n");
 }
 

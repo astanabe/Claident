@@ -20,6 +20,7 @@ my $color = '"random-dark"';
 my $bgcolor = '"white"';
 my $size = '1600x900';
 my $rotation = 'rotateRatio=0';
+my $maxntry = 10;
 my $runname;
 my $numthreads = 1;
 my $nodel;
@@ -75,7 +76,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2023  Akifumi S. Tanabe
+Copyright (C) 2011-XXXX  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -188,6 +189,9 @@ sub getOptions {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is unknown option.");
 			}
 		}
+		elsif ($ARGV[$i] =~ /^-+max(?:imum)?n(?:um)?(?:try|trials?)=(.+)$/i) {
+			$maxntry = $1;
+		}
 		elsif ($ARGV[$i] =~ /^-+(?:replicate|repl?)list=(.+)$/i) {
 			$replicatelist = $1;
 		}
@@ -241,6 +245,8 @@ sub checkVariables {
 			&errorMessage(__LINE__, "Cannot make output folder.");
 		}
 	}
+	# sort targetrank
+	@targetrank = sort({$taxrank{$b} <=> $taxrank{$a}} @targetrank);
 	# search Chrome executable
 	if ($chromeexec) {
 		if (system("$chromeexec --version 2> " . $devnull . ' 1> ' . $devnull)) {
@@ -608,13 +614,18 @@ sub plotWordCloud {
 							#	&errorMessage(__LINE__, "Cannot run \"" . $^X . " -i -npe 's/(?:\\\\n)+ *//g' $outfileprefix.html\" correctly.");
 							#}
 							unlink("$outfileprefix.png");
-							while (!-e "$outfileprefix.png" || (-s "$outfileprefix.png") < 10240) {
+							my $ntry = 0;
+							while ((!-e "$outfileprefix.png" || (-s "$outfileprefix.png") < 10240) && $ntry < $maxntry) {
 								system("timeout 600 $chromeexec --headless --single-process --disable-dev-shm-usage --lang=en-US --disk-cache-dir=$outfileprefix --user-data-dir=$outfileprefix --crash-dumps-dir=$outfileprefix --screenshot=$outfileprefix.png --window-size=6000,6000 --run-all-compositor-stages-before-draw --virtual-time-budget=100000000 $outfileprefix.html 2>> $outfileprefix.log" . ' 1> ' . $devnull);
 								if (-e "$outfileprefix.png" && !-z "$outfileprefix.png") {
 									if (system("$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $outfileprefix.png 2>> $outfileprefix.log" . ' 1> ' . $devnull)) {
 										&errorMessage(__LINE__, "Cannot run \"$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $outfileprefix.png\" correctly.");
 									}
 								}
+								$ntry ++;
+							}
+							if ((-s "$outfileprefix.png") < 10240) {
+								unlink("$outfileprefix.png");
 							}
 						}
 						else {
@@ -713,6 +724,9 @@ DISABLE)
 
 --size=1600x900|1500x1000|1280x960|1200x1200|960x1280|1000x1500|900x1600
   Specify output image size. (default: 1600x900)
+
+--maxntry=INTEGER
+  Specify maximum number of trials. (default: 10)
 
 --replicatelist=FILENAME
   Specify the list file of PCR replicates. (default: none)

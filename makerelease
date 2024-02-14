@@ -3,17 +3,20 @@ do
 	perl -wc $f || exit $?
 done
 
-t=`TZ=JST-9 date +%Y.%m.%d`
-perl -i.bak -npe "s/^VERSION := 0\.9\.\d\d\d\d\.\d\d\.\d\d/VERSION := 0.9.$t/" Makefile
+date=`TZ=JST-9 date +%Y.%m.%d`
+perl -i.bak -npe "s/^VERSION := 0\.9\.\d\d\d\d\.\d\d\.\d\d/VERSION := 0.9.$date/" Makefile
+
+year=`TZ=JST-9 date +%Y`
+perl -i.bak -npe "s/^YEAR := \d\d\d\d/YEAR := $year/" Makefile
 
 mv claident-0.9.*.zip oldfiles/
 rm -rf claident-0.9.*
-mkdir claident-0.9.$t
-cp cl*.pl claident-0.9.$t/
-cp *.sh claident-0.9.$t/
-cp *.fasta claident-0.9.$t/
-cp LICENSE claident-0.9.$t/
-cp Makefile claident-0.9.$t/
-cp README.md claident-0.9.$t/
+mkdir claident-0.9.$date
+cp cl*.pl claident-0.9.$date/
+cp *.sh claident-0.9.$date/
+cp *.fasta claident-0.9.$date/
+cp LICENSE claident-0.9.$date/
+cp Makefile claident-0.9.$date/
+cp README.md claident-0.9.$date/
 
-zip -r -9 -y -X claident-0.9.$t.zip claident-0.9.$t
+zip -r -9 -y -X claident-0.9.$date.zip claident-0.9.$date

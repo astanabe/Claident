@@ -76,7 +76,7 @@ Official web site of this script is
 https://www.fifthdimension.jp/products/claident/ .
 To know script details, see above URL.
 
-Copyright (C) 2011-2023  Akifumi S. Tanabe
+Copyright (C) 2011-XXXX  Akifumi S. Tanabe
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -975,13 +975,13 @@ sub searchNeighborhoods {
 			$dbhandle->disconnect;
 		}
 	}
-	close($filehandleinput1);
 	# join
 	while (wait != -1) {
 		if ($?) {
 			&errorMessage(__LINE__, 'Cannot run BLAST search correctly.');
 		}
 	}
+	close($filehandleinput1);
 	print(STDERR "done.\n\n");
 	unlink("$outputfile1.nacclist");
 }
@@ -1048,7 +1048,7 @@ sub outputFile {
 			close($filehandleinput1);
 		}
 		# retrieve from database
-		if ($identdb) {
+		if ($identdb && $tempseq) {
 			my $statement;
 			unless ($statement = $dbhandle->prepare("SELECT acc FROM base62_acc WHERE base62 IN ('" . $tempseq . "')")) {
 				&errorMessage(__LINE__, "Cannot prepare SQL statement.");
