@@ -932,12 +932,7 @@ sub removeContaminants {
 sub estimateConcentration {
 	print(STDERR "Estimating concentration based on number of sequences of internal standard...\n");
 	my @samplenames = keys(%sample2blank);
-	my @otunames;
-	foreach my $otuname (keys(%otunames)) {
-		if (!defined($ignoreotulist{$otuname})) {
-			push(@otunames, $otuname);
-		}
-	}
+	my @otunames = keys(%otunames);
 	my @blanksamples = keys(%blank2sample);
 	# make temporary community table file
 	$filehandleoutput1 = &writeFile("$outputfolder/temptable.tsv");
