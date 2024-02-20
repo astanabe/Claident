@@ -1184,18 +1184,24 @@ sub checkTagQualities {
 
 sub searchPrimers {
 	my ($fseq, $fqual, $rseq, $rqual, $ward, $seqname, $options, $child) = @_;
-	if ($rseq && $rqual) {
-		my $primername;
-		my $fumiseq;
-		my $fumiqual;
-		my $rumiseq;
-		my $rumiqual;
+	if ($fseq && $fqual && $rseq && $rqual) {
+		my @primername;
+		my %fseq;
+		my %fqual;
+		my %rseq;
+		my %rqual;
+		my %fumiseq;
+		my %fumiqual;
+		my %rumiseq;
+		my %rumiqual;
 		foreach my $tempname (@primer) {
 			my $fstart;
 			my $fend;
 			my $fpmismatch;
 			my $fnmismatch;
-			($fstart, $fend, $fpmismatch, $fnmismatch, $fumiseq) = &alignPrimer(substr($fseq, 0, length($primer{$tempname}) * 2), $primer{$tempname}, 0);
+			$fseq{$tempname} = $fseq;
+			$fqual{$tempname} = $fqual;
+			($fstart, $fend, $fpmismatch, $fnmismatch, $fumiseq{$tempname}) = &alignPrimer(substr($fseq{$tempname}, 0, length($primer{$tempname}) * 2), $primer{$tempname}, 0);
 			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch) {
 				next;
 			}
@@ -1207,36 +1213,38 @@ sub searchPrimers {
 					my $rend;
 					my $rpmismatch;
 					my $rnmismatch;
-					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq) = &alignPrimer(substr($rseq, 0, length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
+					$rseq{$tempname} = $rseq;
+					$rqual{$tempname} = $rqual;
+					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq{$tempname}) = &alignPrimer(substr($rseq{$tempname}, 0, length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
 					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 						next;
 					}
 					else {
-						if ($rumiseq) {
-							$rumiqual = substr($rqual, $rstart, length($rumiseq));
+						if ($rumiseq{$tempname}) {
+							$rumiqual{$tempname} = substr($rqual{$tempname}, $rstart, length($rumiseq{$tempname}));
 						}
 						if ($elimprimer) {
-							substr($rseq, 0, $rend + 1, '');
-							substr($rqual, 0, $rend + 1, '');
+							substr($rseq{$tempname}, 0, $rend + 1, '');
+							substr($rqual{$tempname}, 0, $rend + 1, '');
 						}
 						else {
-							$tempsubstr2 = substr($rseq, 0, $rend + 1, '');
+							$tempsubstr2 = substr($rseq{$tempname}, 0, $rend + 1, '');
 						}
 					}
 				}
-				if ($fumiseq) {
-					$fumiqual = substr($fqual, $fstart, length($fumiseq));
+				if ($fumiseq{$tempname}) {
+					$fumiqual{$tempname} = substr($fqual{$tempname}, $fstart, length($fumiseq{$tempname}));
 				}
 				if ($elimprimer){
-					substr($fseq, 0, $fend + 1, '');
-					substr($fqual, 0, $fend + 1, '');
+					substr($fseq{$tempname}, 0, $fend + 1, '');
+					substr($fqual{$tempname}, 0, $fend + 1, '');
 				}
 				else {
-					$tempsubstr1 = substr($fseq, 0, $fend + 1, '');
+					$tempsubstr1 = substr($fseq{$tempname}, 0, $fend + 1, '');
 				}
-				$fseq = lc($tempsubstr1) . $fseq;
-				$rseq = lc($tempsubstr2) . $rseq;
-				$primername = $tempname;
+				$fseq{$tempname} = lc($tempsubstr1) . $fseq{$tempname};
+				$rseq{$tempname} = lc($tempsubstr2) . $rseq{$tempname};
+				push(@primername, $tempname);
 				if ($outputmultihit) {
 					next;
 				}
@@ -1245,39 +1253,53 @@ sub searchPrimers {
 				}
 			}
 		}
-		if ($fseq && $fqual && $rseq && $rqual) {
-			if ($fumiseq && $fumiqual) {
-				$options->{'fumiseq'} = $fumiseq;
-				$options->{'fumiqual'} = $fumiqual;
-			}
-			if ($rumiseq && $rumiqual) {
-				$options->{'rumiseq'} = $rumiseq;
-				$options->{'rumiqual'} = $rumiqual;
-			}
-			if ($primername) {
-				$options->{'primername'} = $primername;
-				&saveToFile($fseq, $fqual, 1, $seqname, $options, $child);
-				&saveToFile($rseq, $rqual, 2, $seqname, $options, $child);
-			}
-			else {
-				$options->{'primername'} = 'undetermined';
-				&saveToFile($fseq, $fqual, 1, $seqname, $options, $child);
-				&saveToFile($rseq, $rqual, 2, $seqname, $options, $child);
+		if (@primername) {
+			foreach my $primername (@primername) {
+				if ($fseq{$primername} && $fqual{$primername} && $rseq{$primername} && $rqual{$primername}) {
+					if ($fumiseq{$primername} && $fumiqual{$primername}) {
+						$options->{'fumiseq'} = $fumiseq{$primername};
+						$options->{'fumiqual'} = $fumiqual{$primername};
+					}
+					else {
+						delete($options->{'fumiseq'});
+						delete($options->{'fumiqual'});
+					}
+					if ($rumiseq{$primername} && $rumiqual{$primername}) {
+						$options->{'rumiseq'} = $rumiseq{$primername};
+						$options->{'rumiqual'} = $rumiqual{$primername};
+					}
+					else {
+						delete($options->{'rumiseq'});
+						delete($options->{'rumiqual'});
+					}
+					$options->{'primername'} = $primername;
+					&saveToFile($fseq{$primername}, $fqual{$primername}, 1, $seqname, $options, $child);
+					&saveToFile($rseq{$primername}, $rqual{$primername}, 2, $seqname, $options, $child);
+				}
 			}
 		}
+		else {
+			$options->{'primername'} = 'undetermined';
+			&saveToFile($fseq, $fqual, 1, $seqname, $options, $child);
+			&saveToFile($rseq, $rqual, 2, $seqname, $options, $child);
+		}
 	}
-	else {
-		my $primername;
-		my $fumiseq;
-		my $fumiqual;
-		my $rumiseq;
-		my $rumiqual;
+	elsif ($fseq && $fqual) {
+		my @primername;
+		my %fseq;
+		my %fqual;
+		my %fumiseq;
+		my %fumiqual;
+		my %rumiseq;
+		my %rumiqual;
 		foreach my $tempname (@primer) {
 			my $fstart;
 			my $fend;
 			my $fpmismatch;
 			my $fnmismatch;
-			($fstart, $fend, $fpmismatch, $fnmismatch, $fumiseq) = &alignPrimer(substr($fseq, 0, length($primer{$tempname}) * 2), $primer{$tempname}, 0);
+			$fseq{$tempname} = $fseq;
+			$fqual{$tempname} = $fqual;
+			($fstart, $fend, $fpmismatch, $fnmismatch, $fumiseq{$tempname}) = &alignPrimer(substr($fseq{$tempname}, 0, length($primer{$tempname}) * 2), $primer{$tempname}, 0);
 			if ((defined($maxnmismatch) && $fnmismatch > $maxnmismatch) || $fpmismatch > $maxpmismatch) {
 				next;
 			}
@@ -1289,22 +1311,22 @@ sub searchPrimers {
 					my $rend;
 					my $rpmismatch;
 					my $rnmismatch;
-					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq) = &alignPrimer($fseq, $reverseprimer{$tempname}, $ward);
+					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq{$tempname}) = &alignPrimer($fseq{$tempname}, $reverseprimer{$tempname}, $ward);
 					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 						if ($needreverseprimer) {
 							next;
 						}
 					}
 					else {
-						if ($rumiseq) {
-							$rumiqual = substr($fqual, $rend - length($rumiseq) + 1, length($rumiseq));
+						if ($rumiseq{$tempname}) {
+							$rumiqual{$tempname} = substr($fqual{$tempname}, $rend - length($rumiseq{$tempname}) + 1, length($rumiseq{$tempname}));
 						}
 						if ($elimprimer) {
-							substr($fseq, $rstart, length($fseq) - $rstart, '');
-							substr($fqual, $rstart, length($fqual) - $rstart, '');
+							substr($fseq{$tempname}, $rstart, length($fseq{$tempname}) - $rstart, '');
+							substr($fqual{$tempname}, $rstart, length($fqual{$tempname}) - $rstart, '');
 						}
 						else {
-							$tempsubstr2 = substr($fseq, $rstart, length($fseq) - $rstart, '');
+							$tempsubstr2 = substr($fseq{$tempname}, $rstart, length($fseq{$tempname}) - $rstart, '');
 						}
 					}
 				}
@@ -1313,41 +1335,41 @@ sub searchPrimers {
 					my $rend;
 					my $rpmismatch;
 					my $rnmismatch;
-					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq) = &alignPrimer(substr($fseq, -1 * length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
+					($rstart, $rend, $rpmismatch, $rnmismatch, $rumiseq{$tempname}) = &alignPrimer(substr($fseq{$tempname}, -1 * length($reverseprimer{$tempname}) * 2), $reverseprimer{$tempname}, $ward);
 					if ((defined($reversemaxnmismatch) && $rnmismatch > $reversemaxnmismatch) || $rpmismatch > $reversemaxpmismatch) {
 						if ($needreverseprimer) {
 							next;
 						}
 					}
 					else {
-						if (length($reverseprimer{$tempname}) * 2 < length($fseq)) {
-							$rstart += length($fseq) - (length($reverseprimer{$tempname}) * 2);
-							$rend += length($fseq) - (length($reverseprimer{$tempname}) * 2);
+						if (length($reverseprimer{$tempname}) * 2 < length($fseq{$tempname})) {
+							$rstart += length($fseq{$tempname}) - (length($reverseprimer{$tempname}) * 2);
+							$rend += length($fseq{$tempname}) - (length($reverseprimer{$tempname}) * 2);
 						}
-						if ($rumiseq) {
-							$rumiqual = substr($fqual, $rend - length($rumiseq) + 1, length($rumiseq));
+						if ($rumiseq{$tempname}) {
+							$rumiqual{$tempname} = substr($fqual{$tempname}, $rend - length($rumiseq{$tempname}) + 1, length($rumiseq{$tempname}));
 						}
 						if ($elimprimer) {
-							substr($fseq, $rstart, length($fseq) - $rstart, '');
-							substr($fqual, $rstart, length($fqual) - $rstart, '');
+							substr($fseq{$tempname}, $rstart, length($fseq{$tempname}) - $rstart, '');
+							substr($fqual{$tempname}, $rstart, length($fqual{$tempname}) - $rstart, '');
 						}
 						else {
-							$tempsubstr2 = substr($fseq, $rstart, length($fseq) - $rstart, '');
+							$tempsubstr2 = substr($fseq{$tempname}, $rstart, length($fseq{$tempname}) - $rstart, '');
 						}
 					}
 				}
-				if ($fumiseq) {
-					$fumiqual = substr($fqual, $fstart, length($fumiseq));
+				if ($fumiseq{$tempname}) {
+					$fumiqual{$tempname} = substr($fqual{$tempname}, $fstart, length($fumiseq{$tempname}));
 				}
 				if ($elimprimer){
-					substr($fseq, 0, $fend + 1, '');
-					substr($fqual, 0, $fend + 1, '');
+					substr($fseq{$tempname}, 0, $fend + 1, '');
+					substr($fqual{$tempname}, 0, $fend + 1, '');
 				}
 				else {
-					$tempsubstr1 = substr($fseq, 0, $fend + 1, '');
+					$tempsubstr1 = substr($fseq{$tempname}, 0, $fend + 1, '');
 				}
-				$fseq = lc($tempsubstr1) . $fseq . lc($tempsubstr2);
-				$primername = $tempname;
+				$fseq{$tempname} = lc($tempsubstr1) . $fseq{$tempname} . lc($tempsubstr2);
+				push(@primername, $tempname);
 				if ($outputmultihit) {
 					next;
 				}
@@ -1356,23 +1378,33 @@ sub searchPrimers {
 				}
 			}
 		}
-		if ($fseq && $fqual) {
-			if ($fumiseq && $fumiqual) {
-				$options->{'fumiseq'} = $fumiseq;
-				$options->{'fumiqual'} = $fumiqual;
+		if (@primername) {
+			foreach my $primername (@primername) {
+				if ($fseq{$primername} && $fqual{$primername}) {
+					if ($fumiseq{$primername} && $fumiqual{$primername}) {
+						$options->{'fumiseq'} = $fumiseq{$primername};
+						$options->{'fumiqual'} = $fumiqual{$primername};
+					}
+					else {
+						delete($options->{'fumiseq'});
+						delete($options->{'fumiqual'});
+					}
+					if ($rumiseq{$primername} && $rumiqual{$primername}) {
+						$options->{'rumiseq'} = $rumiseq{$primername};
+						$options->{'rumiqual'} = $rumiqual{$primername};
+					}
+					else {
+						delete($options->{'rumiseq'});
+						delete($options->{'rumiqual'});
+					}
+					$options->{'primername'} = $primername;
+					&saveToFile($fseq{$primername}, $fqual{$primername}, 0, $seqname, $options, $child);
+				}
 			}
-			if ($rumiseq && $rumiqual) {
-				$options->{'rumiseq'} = $rumiseq;
-				$options->{'rumiqual'} = $rumiqual;
-			}
-			if ($primername) {
-				$options->{'primername'} = $primername;
-				&saveToFile($fseq, $fqual, 0, $seqname, $options, $child);
-			}
-			else {
-				$options->{'primername'} = 'undetermined';
-				&saveToFile($fseq, $fqual, 0, $seqname, $options, $child);
-			}
+		}
+		else {
+			$options->{'primername'} = 'undetermined';
+			&saveToFile($fseq, $fqual, 0, $seqname, $options, $child);
 		}
 	}
 }
