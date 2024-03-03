@@ -27,6 +27,8 @@ my $root = getcwd();
 my %table;
 my %nsamplelist;
 my %inputpcov;
+my %inputnseq;
+my %inputmax;
 my %outputpcov;
 my %outputnseq;
 my @otunames;
@@ -142,7 +144,7 @@ sub checkVariables {
 		&errorMessage(__LINE__, "\"$inputfile\" does not exist.");
 	}
 	while (glob("$output*")) {
-		if (/^$output\_(?:inputpcov|outputpcov|outputnseq)\.tsv$/ || /^$output\-r\d+\.tsv$/) {
+		if (/^$output\_(?:inputpcov|inputnseq|inputmax|outputpcov|outputnseq)\.tsv$/ || /^$output\-r\d+\.tsv$/) {
 			&errorMessage(__LINE__, "Output file already exists.");
 		}
 		if (/^$output\.temp$/) {
@@ -209,7 +211,6 @@ sub checkVariables {
 sub readSummary {
 	my $ncol;
 	my $format;
-	my %ntotalseq;
 	# read input file
 	$filehandleinput1 = &readFile($inputfile);
 	while (<$filehandleinput1>) {
@@ -221,7 +222,6 @@ sub readSummary {
 					$row[0] =~ s/^.+?(__)/$runname$1/;
 				}
 				$table{$row[0]}{$row[1]} += $row[2];
-				$ntotalseq{$row[0]} += $row[2];
 			}
 			else {
 				&errorMessage(__LINE__, "The input file is invalid.\nThe invalid line is \"$_\".");
@@ -237,7 +237,6 @@ sub readSummary {
 				push(@samplenames, $samplename);
 				for (my $i = 0; $i < scalar(@row); $i ++) {
 					$table{$samplename}{$otunames[$i]} += $row[$i];
-					$ntotalseq{$samplename} += $row[$i];
 				}
 			}
 			else {
@@ -266,13 +265,6 @@ sub readSummary {
 	}
 	if (!$tableformat) {
 		$tableformat = $format;
-	}
-	if ($minntotalseqsample) {
-		foreach my $samplename (@samplenames) {
-			if ($ntotalseq{$samplename} < $minntotalseqsample) {
-				$nsamplelist{$samplename} = 1;
-			}
-		}
 	}
 }
 
@@ -315,8 +307,7 @@ sub calculateInputCoverage {
 				}
 				# make R script
 				$filehandleoutput1 = &writeFile("calculatepcov.R");
-				print($filehandleoutput1 "library(vegan)\n");
-				print($filehandleoutput1 "community <- c(\n");
+				print($filehandleoutput1 "library(vegan)\ncommunity <- c(\n");
 				if (@otunames && $table{$samplename}) {
 					my $switch = 0;
 					foreach my $otuname (@otunames) {
@@ -333,8 +324,35 @@ sub calculateInputCoverage {
 					&errorMessage(__LINE__, "Unknown error.");
 				}
 				print($filehandleoutput1 "\n)\n");
-				print($filehandleoutput1 "inputpcov <- 1 - rareslope(community, sum(community) - 1)\n");
-				print($filehandleoutput1 "write.table(inputpcov, \"inputpcov.tsv\", sep=\"\\t\", append=F, quote=F, row.names=F, col.names=F, na=\"NA\")\n");
+				print($filehandleoutput1 <<"_END");
+inputnseq <- sum(community)
+write.table(inputnseq, "inputnseq.tsv", sep="\\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
+inputmax <- inputnseq - 1
+inputpcov <- 1 - rareslope(community, inputmax)
+write.table(inputpcov, "inputpcov.tsv", sep="\\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
+initial <- inputmax
+pslide <- 0.1
+nslide <- trunc((initial * pslide) + 0.5)
+if (nslide < 1) {
+	nslide <- 1
+}
+while (inputmax > 0 && inputpcov + 0.0000000001 > 1) {
+	tempmax <- inputmax - nslide
+	temppcov <- 1 - rareslope(community, tempmax)
+	if (tempmax - nslide > 0 && temppcov + 0.0000000001 > 1 || nslide == 1 && temppcov + 0.0000000001 <= 1) {
+		inputpcov <- temppcov
+		inputmax <- tempmax
+	}
+	else {
+		pslide <- pslide * 0.1
+		nslide <- trunc((initial * pslide) + 0.5)
+		if (nslide < 1) {
+			nslide <- 1
+		}
+	}
+}
+write.table(inputmax + 1, "inputmax.tsv", sep="\\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
+_END
 				close($filehandleoutput1);
 				# run R
 				if (system("$Rscript --vanilla calculatepcov.R 1> $devnull 2> $devnull")) {
@@ -387,6 +405,55 @@ sub calculateInputCoverage {
 		}
 		else {
 			&errorMessage(__LINE__, "Cannot find \"$output.temp/$samplename/inputpcov.tsv\".");
+		}
+		if (-e "$output.temp/$samplename/inputnseq.tsv") {
+			# check coverage and store
+			$filehandleinput1 = &readFile("$output.temp/$samplename/inputnseq.tsv");
+			while (<$filehandleinput1>) {
+				if (/(\d+)/) {
+					my $inputnseq = $1;
+					if ($inputnseq > 0) {
+						if ($inputnseq < $minntotalseqsample) {
+							$nsamplelist{$samplename} = 1;
+						}
+						$inputnseq{$samplename} = $inputnseq;
+					}
+					else {
+						&errorMessage(__LINE__, "Input number of sequences of \"$samplename\" ($inputnseq) is invalid.");
+					}
+					last;
+				}
+				else {
+					&errorMessage(__LINE__, "\"$output.temp/$samplename/inputnseq.tsv\" is invalid.");
+				}
+			}
+			close($filehandleinput1);
+		}
+		else {
+			&errorMessage(__LINE__, "Cannot find \"$output.temp/$samplename/inputnseq.tsv\".");
+		}
+		if (-e "$output.temp/$samplename/inputmax.tsv") {
+			# check coverage and store
+			$filehandleinput1 = &readFile("$output.temp/$samplename/inputmax.tsv");
+			while (<$filehandleinput1>) {
+				if (/(\d+)/) {
+					my $inputmax = $1;
+					if ($inputmax > 0) {
+						$inputmax{$samplename} = $inputmax;
+					}
+					else {
+						&errorMessage(__LINE__, "Inputmax value of \"$samplename\" ($inputmax) is invalid.");
+					}
+					last;
+				}
+				else {
+					&errorMessage(__LINE__, "\"$output.temp/$samplename/inputmax.tsv\" is invalid.");
+				}
+			}
+			close($filehandleinput1);
+		}
+		else {
+			&errorMessage(__LINE__, "Cannot find \"$output.temp/$samplename/inputmax.tsv\".");
 		}
 		# delete temporary folder
 		unless ($nodel) {
@@ -454,7 +521,6 @@ sub determineOutputNumberOfSequences {
 				$filehandleoutput1 = &writeFile("calculatenseq.R");
 				print($filehandleoutput1 "library(vegan)\n");
 				print($filehandleoutput1 "community <- c(\n");
-				my $ntotalseq = 0;
 				if (@otunames && $table{$samplename}) {
 					my $switch = 0;
 					foreach my $otuname (@otunames) {
@@ -462,7 +528,6 @@ sub determineOutputNumberOfSequences {
 							if ($switch) {
 								print($filehandleoutput1 ",\n");
 							}
-							$ntotalseq += $table{$samplename}{$otuname};
 							print($filehandleoutput1 $table{$samplename}{$otuname});
 							$switch = 1;
 						}
@@ -472,15 +537,15 @@ sub determineOutputNumberOfSequences {
 					&errorMessage(__LINE__, "Unknown error.");
 				}
 				print($filehandleoutput1 "\n)\n");
-				print($filehandleoutput1 "ntotalseq <- $ntotalseq\n");
-				my $fibomax = &getLargerFibonacci($ntotalseq);
+				print($filehandleoutput1 "inputmax <- $inputmax{$samplename}\n");
+				my $fibomax = &getLargerFibonacci($inputmax{$samplename});
 				print($filehandleoutput1 "fibomax <- $fibomax\n");
 				my $targetslope = 1 - $pcov;
 				print($filehandleoutput1 "targetslope <- ");
 				printf($filehandleoutput1 "%.10f\n", $targetslope);
 				print($filehandleoutput1 <<"_END");
 calcResidual <- function (x) {
-	if (x > ntotalseq - 1) {
+	if (x >= inputmax) {
 		Inf
 	}
 	else {
@@ -488,10 +553,11 @@ calcResidual <- function (x) {
 	}
 }
 fit <- optimize(calcResidual, interval=c(0, fibomax), maximum=F, tol=1e-10)
+outputnseq <- trunc(fit\$minimum + 0.5)
+write.table(outputnseq, "outputnseq.tsv", sep="\\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
+outputpcov <- 1 - rareslope(community, outputnseq)
+write.table(outputpcov, "outputpcov.tsv", sep="\\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
 _END
-				print($filehandleoutput1 "outputnseq <- trunc(fit\$minimum + 0.5)\n");
-				print($filehandleoutput1 "outputpcov <- 1 - rareslope(community, outputnseq)\n");
-				print($filehandleoutput1 "write.table(cbind(outputnseq, outputpcov), \"outputnseq.tsv\", sep=\"\\t\", append=F, quote=F, row.names=F, col.names=F, na=\"NA\")\n");
 				close($filehandleoutput1);
 				# run R
 				if (system("$Rscript --vanilla calculatenseq.R 1> $devnull 2> $devnull")) {
@@ -522,20 +588,13 @@ _END
 			# check number of sequences and store
 			$filehandleinput1 = &readFile("$output.temp/$samplename/outputnseq.tsv");
 			while (<$filehandleinput1>) {
-				if (/(\d+)\t(\S+)/) {
+				if (/(\d+)/) {
 					my $outputnseq = $1;
-					my $outputpcov = eval($2);
 					if ($outputnseq > 0) {
 						$outputnseq{$samplename} = $outputnseq;
 					}
 					else {
 						&errorMessage(__LINE__, "Output number of sequences of \"$samplename\" ($outputnseq) is invalid.");
-					}
-					if ($outputpcov - $pcov < 0.5) {
-						$outputpcov{$samplename} = $outputpcov;
-					}
-					else {
-						&errorMessage(__LINE__, "Output coverage of \"$samplename\" ($outputpcov) is invalid.");
 					}
 					last;
 				}
@@ -547,6 +606,32 @@ _END
 		}
 		else {
 			&errorMessage(__LINE__, "Cannot find \"$output.temp/$samplename/outputnseq.tsv\".");
+		}
+		if (-e "$output.temp/$samplename/outputpcov.tsv") {
+			# check number of sequences and store
+			$filehandleinput1 = &readFile("$output.temp/$samplename/outputpcov.tsv");
+			while (<$filehandleinput1>) {
+				if (/(\S+)/) {
+					my $outputpcov = eval($1);
+					if (abs($outputpcov - $pcov) < 0.5) {
+						if (abs($outputpcov - $pcov) > 0.01) {
+							print(STDERR "Output coverage of \"$samplename\" ($outputpcov) might be weird.\nPlease check carefully.\n");
+						}
+						$outputpcov{$samplename} = $outputpcov;
+					}
+					else {
+						&errorMessage(__LINE__, "Output coverage of \"$samplename\" ($outputpcov) is invalid.");
+					}
+					last;
+				}
+				else {
+					&errorMessage(__LINE__, "\"$output.temp/$samplename/outputpcov.tsv\" is invalid.");
+				}
+			}
+			close($filehandleinput1);
+		}
+		else {
+			&errorMessage(__LINE__, "Cannot find \"$output.temp/$samplename/outputpcov.tsv\".");
 		}
 		# delete temporary folder
 		unless ($nodel) {
@@ -648,6 +733,19 @@ sub saveSummary {
 	foreach my $samplename (@samplenames) {
 		if ($inputpcov{$samplename}) {
 			printf($filehandleoutput1 "$samplename\t%.10f\n", $inputpcov{$samplename});
+		}
+		else {
+			print($filehandleoutput1 "$samplename\t0\n");
+		}
+	}
+	close($filehandleoutput1);
+	# inputnseq
+	print(STDERR "Input numbers of sequences...\n");
+	$filehandleoutput1 = &writeFile($output . "_inputnseq.tsv");
+	print($filehandleoutput1 "samplename\tinputnseq\n");
+	foreach my $samplename (@samplenames) {
+		if ($inputnseq{$samplename}) {
+			print($filehandleoutput1 "$samplename\t" . $inputnseq{$samplename} . "\n");
 		}
 		else {
 			print($filehandleoutput1 "$samplename\t0\n");
