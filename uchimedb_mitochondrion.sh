@@ -1,4 +1,9 @@
-export PATH=/usr/local/share/claident/bin:$PATH
+# Set PREFIX
+if test -z $PREFIX; then
+PREFIX=/usr/local || exit $?
+fi
+# Set PATH
+export PATH=$PREFIX/bin:$PREFIX/share/claident/bin:$PATH
 
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (mitochondrion[Filter] AND 13000:9999999[Sequence Length] NOT txid9606[Organism:exp])' mitochondrion.txt || exit $?
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (mitochondrion[Filter] AND 13000:9999999[Sequence Length] AND txid9606[Organism:exp])' mitochondrionHuman.txt || exit $?

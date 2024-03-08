@@ -12,7 +12,7 @@ my $makeblastdboption = ' -dbtype nucl -input_type fasta -hash_index -parse_seqi
 my $numthreads = 1;
 my $nacclist;
 my %nacclist;
-my $minlen = 0;
+my $minlen = 1;
 my $maxlen = 10000000000;
 
 # input/output
@@ -218,7 +218,7 @@ sub splitInputFile {
 		my $tempseqlen = 0;
 		my $tempnfile = 0;
 		my $switch = 0;
-		$filehandleoutput1 = &writeFile("$output." . sprintf("%02d", $tempnfile) . ".fasta");
+		$filehandleoutput1 = &writeFile("$output." . sprintf("%03d", $tempnfile) . ".fasta");
 		foreach my $inputfile (@inputfiles) {
 			$filehandleinput1 = &readFile($inputfile);
 			my $line = 0;
@@ -255,7 +255,7 @@ sub splitInputFile {
 							}
 							$temptotal = 0;
 							$tempnfile ++;
-							$filehandleoutput1 = &writeFile("$output." . sprintf("%02d", $tempnfile) . ".fasta");
+							$filehandleoutput1 = &writeFile("$output." . sprintf("%03d", $tempnfile) . ".fasta");
 							next;
 						}
 						else {
@@ -297,7 +297,7 @@ sub splitInputFile {
 				}
 			}
 			else {
-				unlink("$output." . sprintf("%02d", $tempnfile) . ".fasta");
+				unlink("$output." . sprintf("%03d", $tempnfile) . ".fasta");
 			}
 		}
 		else {
@@ -315,7 +315,7 @@ sub splitInputFile {
 
 sub runMakeblastdb {
 	my $tempnfile = shift(@_);
-	my $tempprefix = "$output." . sprintf("%02d", $tempnfile);
+	my $tempprefix = "$output." . sprintf("%03d", $tempnfile);
 	print(STDERR "Running makeblastdb using $tempprefix.fasta...\n");
 	system("$makeblastdb$makeblastdboption -in $tempprefix.fasta -out $tempprefix -title $tempprefix 1> $devnull 2> $devnull");
 	if (!-e "$tempprefix.nsq" || -z "$tempprefix.nsq") {
