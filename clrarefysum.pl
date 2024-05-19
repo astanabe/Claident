@@ -491,7 +491,7 @@ sub determineOutputNumberOfSequences {
 				}
 				print($filehandleoutput1 "\n)\n");
 				my $targetslope = sprintf("%.10f", 1 - $pcov);
-				print($filehandleoutput1 "targetslope <- $targetslope\n");
+				print($filehandleoutput1 "targetslope <- $targetslope - 0.0000000001\n");
 				my $outputslope = sprintf("%.10f", 1 - $inputpcov{$samplename});
 				print($filehandleoutput1 "outputslope <- $outputslope\n");
 				print($filehandleoutput1 "outputnseq <- $inputnseq{$samplename} - 1\n");
