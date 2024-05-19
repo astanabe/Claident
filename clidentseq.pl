@@ -468,6 +468,7 @@ sub searchNeighborhoods {
 			print(STDERR "Lock directory was found. Sleep 10 seconds.\n");
 			sleep(10);
 		}
+		print(STDERR "Lock directory has been correctly made.\n");
 		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 			&errorMessage(__LINE__, "Cannot connect database.");
 		}
@@ -1000,6 +1001,7 @@ sub searchNeighborhoods {
 			print(STDERR "Lock directory cannot be removed. Sleep 10 seconds.\n");
 			sleep(10);
 		}
+		print(STDERR "Lock directory has been correctly removed.\n");
 	}
 	close($filehandleinput1);
 	print(STDERR "done.\n\n");
