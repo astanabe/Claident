@@ -511,6 +511,7 @@ while (outputslope <= targetslope) {
 	}
 	else if (nslide == 1 && tempslope > targetslope) {
 		break
+	}
 	else {
 		pslide <- pslide * 0.1
 		nslide <- trunc((initial * pslide) + 0.5)
