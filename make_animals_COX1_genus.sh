@@ -1,6 +1,6 @@
 #!/bin/sh
 # Set number of processor cores used for computation
-export NCPU=`grep -c processor /proc/cpuinfo`
+export NCPU=0; for n in `grep cpu.cores /proc/cpuinfo | grep -o -P '\d+' | sort -u`; do NCPU=$(($NCPU + n)); done
 # Set PREFIX
 if test -z $PREFIX; then
 PREFIX=/usr/local || exit $?
@@ -9,21 +9,21 @@ fi
 export PATH=$PREFIX/bin:$PREFIX/share/claident/bin:$PATH
 # search by keywords at INSD
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid33208[Organism:exp] AND 150:50000[Sequence Length] AND ("cytochrome c oxidase subunit 1"[Title] OR "cytochrome c oxydase subunit 1"[Title] OR "cytochrome c oxidase subunit I"[Title] OR "cytochrome c oxydase subunit I"[Title] OR "cytochrome oxidase subunit 1"[Title] OR "cytochrome oxydase subunit 1"[Title] OR "cytochrome oxidase subunit I"[Title] OR "cytochrome oxydase subunit I"[Title] OR COX1[Title] OR CO1[Title] OR COI[Title]) NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' animals_COX11.txt &
-clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid33208[Organism:exp] AND "complete genome"[Title] AND mitochondrion[Filter] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' animals_mitogenomes.txt &
+#clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (txid33208[Organism:exp] AND "complete genome"[Title] AND mitochondrion[Filter] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' animals_mitogenomes.txt &
 wait
 cat animals_mitogenomes.txt >> animals_COX11.txt || exit $?
 # make taxonomy database
-clmaketaxdb --excluderefseq=enable --includetaxid=33208 taxonomy animals.taxdb || exit $?
+#clmaketaxdb --excluderefseq=enable --includetaxid=33208 taxonomy animals.taxdb || exit $?
 # search by keywords at taxdb
-clretrieveacc --maxrank=genus --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=animals.taxdb animals_genus.txt || exit $?
+#clretrieveacc --maxrank=genus --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=animals.taxdb animals_genus.txt || exit $?
 # make BLAST database
-cd blastdb || exit $?
-clblastdbcmd --blastdb=`pwd`/nt --output=ACCESSION --numthreads=$NCPU ../animals_genus.txt animals_genus.txt
-BLASTDB=`pwd` blastdb_aliastool -seqid_dbtype nucl -seqid_db nt -seqid_file_in animals_genus.txt -seqid_title animals_genus -seqid_file_out animals_genus.bsl || exit $?
-BLASTDB=`pwd` blastdb_aliastool -dbtype nucl -db nt -seqidlist animals_genus.bsl -out animals_genus -title animals_genus || exit $?
-cd .. || exit $?
+#cd blastdb || exit $?
+#clblastdbcmd --blastdb=`pwd`/nt --output=ACCESSION --numthreads=$NCPU ../animals_genus.txt animals_genus.txt
+#BLASTDB=`pwd` blastdb_aliastool -seqid_dbtype nucl -seqid_db nt -seqid_file_in animals_genus.txt -seqid_title animals_genus -seqid_file_out animals_genus.bsl || exit $?
+#BLASTDB=`pwd` blastdb_aliastool -dbtype nucl -db nt -seqidlist animals_genus.bsl -out animals_genus -title animals_genus || exit $?
+#cd .. || exit $?
 # search by reference sequences
-clblastseq blastn -db `pwd`/blastdb/animals_genus -word_size 9 -evalue 1e-5 -strand plus -task blastn -max_target_seqs 10000000 end --output=ACCESSION --numthreads=$NCPU --hyperthreads=16 references_animals_COX1.fasta animals_COX12.txt || exit $?
+clblastseq blastn -db `pwd`/blastdb/animals_genus -word_size 9 -evalue 1e-5 -strand plus -task blastn -max_target_seqs 10000000 end --output=ACCESSION --numthreads=8 --hyperthreads=16 references_animals_COX1.fasta animals_COX12.txt || exit $?
 # eliminate duplicate entries
 clelimdupacc animals_COX11.txt animals_COX12.txt animals_COX1.txt || exit $?
 # extract identified sequences

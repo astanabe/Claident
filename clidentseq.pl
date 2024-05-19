@@ -32,6 +32,7 @@ my $inputfile;
 my $outputfile1;
 my $outputfile2;
 my $identdb;
+my $lockdir;
 
 # commands
 my $blastn;
@@ -228,6 +229,9 @@ sub checkVariables {
 	if ($identdb && !-e $identdb) {
 		&errorMessage(__LINE__, "Specified ident database does not exist.");
 	}
+	if ($identdb && -e $identdb) {
+		$lockdir = "$identdb.lock";
+	}
 	while (glob("$outputfile1.*.*")) {
 		if (/^$outputfile1\..+\.temp$/) {
 			&errorMessage(__LINE__, "Temporary folder already exists.");
@@ -385,6 +389,14 @@ sub checkVariables {
 	}
 }
 
+$SIG{'TERM'} = $SIG{'PIPE'} = $SIG{'HUP'} = "sigexit";
+sub sigexit {
+	if ($lockdir =~ /\.lock$/ && -d $lockdir) {
+		rmdir($lockdir);
+	}
+	exit(1);
+}
+
 sub readListFiles {
 	print(STDERR "Reading several lists...\n");
 	if ($nacclist) {
@@ -451,12 +463,16 @@ sub searchNeighborhoods {
 	# read input file
 	print(STDERR "Searching neighborhoods...\n");
 	$filehandleinput1 = &readFile($inputfile);
-	{
-		if ($identdb) {
-			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
-				&errorMessage(__LINE__, "Cannot connect database.");
-			}
+	if ($identdb) {
+		while (!mkdir($lockdir)) {
+			print(STDERR "Lock directory was found. Sleep 10 seconds.\n");
+			sleep(10);
 		}
+		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
+			&errorMessage(__LINE__, "Cannot connect database.");
+		}
+	}
+	{
 		my $qnum = -1;
 		my $child = 0;
 		$| = 1;
@@ -971,14 +987,18 @@ sub searchNeighborhoods {
 				}
 			}
 		}
-		if ($identdb) {
-			$dbhandle->disconnect;
-		}
 	}
 	# join
 	while (wait != -1) {
 		if ($?) {
 			&errorMessage(__LINE__, 'Cannot run BLAST search correctly.');
+		}
+	}
+	if ($identdb) {
+		$dbhandle->disconnect;
+		while (!rmdir($lockdir)) {
+			print(STDERR "Lock directory cannot be removed. Sleep 10 seconds.\n");
+			sleep(10);
 		}
 	}
 	close($filehandleinput1);
@@ -1154,6 +1174,13 @@ sub errorMessage {
 	my $message = shift(@_);
 	print(STDERR "ERROR!: line $lineno\n$message\n");
 	print(STDERR "If you want to read help message, run this script without options.\n");
+	if ($lockdir =~ /\.lock$/ && -d $lockdir) {
+		while (!rmdir($lockdir)) {
+			print(STDERR "Lock directory cannot be removed. Sleep 10 seconds.\n");
+			sleep(10);
+		}
+		print(STDERR "Lock directory has been correctly removed.\n");
+	}
 	exit(1);
 }
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Set number of processor cores used for computation
-export NCPU=`grep -c processor /proc/cpuinfo`
+export NCPU=0; for n in `grep cpu.cores /proc/cpuinfo | grep -o -P '\d+' | sort -u`; do NCPU=$(($NCPU + n)); done
 # Set PREFIX
 if test -z $PREFIX; then
 PREFIX=/usr/local || exit $?
@@ -21,7 +21,7 @@ cat plants_cpgenomes.txt >> plants_trnH-psbA1.txt || exit $?
 #BLASTDB=`pwd` blastdb_aliastool -dbtype nucl -db nt -seqidlist plants_genus.bsl -out plants_genus -title plants_genus || exit $?
 #cd .. || exit $?
 # search by reference sequences
-clblastseq blastn -db `pwd`/blastdb/plants_genus -word_size 11 -evalue 1e-15 -strand plus -task blastn -max_target_seqs 10000000 end --output=ACCESSION --numthreads=$NCPU --hyperthreads=8 references_plants_trnH-psbA.fasta plants_trnH-psbA2.txt || exit $?
+clblastseq blastn -db `pwd`/blastdb/plants_genus -word_size 9 -evalue 1e-10 -strand plus -task blastn -max_target_seqs 10000000 end --output=ACCESSION --numthreads=$NCPU --hyperthreads=8 references_plants_trnH-psbA.fasta plants_trnH-psbA2.txt || exit $?
 # eliminate duplicate entries
 clelimdupacc plants_trnH-psbA1.txt plants_trnH-psbA2.txt plants_trnH-psbA.txt || exit $?
 # extract identified sequences

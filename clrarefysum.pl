@@ -28,7 +28,6 @@ my %table;
 my %nsamplelist;
 my %inputpcov;
 my %inputnseq;
-my %inputmax;
 my %outputpcov;
 my %outputnseq;
 my @otunames;
@@ -144,7 +143,7 @@ sub checkVariables {
 		&errorMessage(__LINE__, "\"$inputfile\" does not exist.");
 	}
 	while (glob("$output*")) {
-		if (/^$output\_(?:inputpcov|inputnseq|inputmax|outputpcov|outputnseq)\.tsv$/ || /^$output\-r\d+\.tsv$/) {
+		if (/^$output\_(?:inputpcov|inputnseq|outputpcov|outputnseq)\.tsv$/ || /^$output\-r\d+\.tsv$/) {
 			&errorMessage(__LINE__, "Output file already exists.");
 		}
 		if (/^$output\.temp$/) {
@@ -324,34 +323,11 @@ sub calculateInputCoverage {
 					&errorMessage(__LINE__, "Unknown error.");
 				}
 				print($filehandleoutput1 "\n)\n");
-				print($filehandleoutput1 <<"_END");
+				print($filehandleoutput1 <<'_END');
 inputnseq <- sum(community)
-write.table(inputnseq, "inputnseq.tsv", sep="\\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
-inputmax <- inputnseq - 1
-inputpcov <- 1 - rareslope(community, inputmax)
-write.table(inputpcov, "inputpcov.tsv", sep="\\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
-initial <- inputmax
-pslide <- 0.1
-nslide <- trunc((initial * pslide) + 0.5)
-if (nslide < 1) {
-	nslide <- 1
-}
-while (inputmax > 0 && inputpcov + 0.0000000001 > 1) {
-	tempmax <- inputmax - nslide
-	temppcov <- 1 - rareslope(community, tempmax)
-	if (tempmax - nslide > 0 && temppcov + 0.0000000001 > 1 || nslide == 1 && temppcov + 0.0000000001 <= 1) {
-		inputpcov <- temppcov
-		inputmax <- tempmax
-	}
-	else {
-		pslide <- pslide * 0.1
-		nslide <- trunc((initial * pslide) + 0.5)
-		if (nslide < 1) {
-			nslide <- 1
-		}
-	}
-}
-write.table(inputmax + 1, "inputmax.tsv", sep="\\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
+write.table(inputnseq, "inputnseq.tsv", sep="\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
+inputpcov <- 1 - rareslope(community, (inputnseq - 1))
+write.table(inputpcov, "inputpcov.tsv", sep="\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
 _END
 				close($filehandleoutput1);
 				# run R
@@ -431,29 +407,6 @@ _END
 		}
 		else {
 			&errorMessage(__LINE__, "Cannot find \"$output.temp/$samplename/inputnseq.tsv\".");
-		}
-		if (-e "$output.temp/$samplename/inputmax.tsv") {
-			# check coverage and store
-			$filehandleinput1 = &readFile("$output.temp/$samplename/inputmax.tsv");
-			while (<$filehandleinput1>) {
-				if (/(\d+)/) {
-					my $inputmax = $1;
-					if ($inputmax > 0) {
-						$inputmax{$samplename} = $inputmax;
-					}
-					else {
-						&errorMessage(__LINE__, "Inputmax value of \"$samplename\" ($inputmax) is invalid.");
-					}
-					last;
-				}
-				else {
-					&errorMessage(__LINE__, "\"$output.temp/$samplename/inputmax.tsv\" is invalid.");
-				}
-			}
-			close($filehandleinput1);
-		}
-		else {
-			&errorMessage(__LINE__, "Cannot find \"$output.temp/$samplename/inputmax.tsv\".");
 		}
 		# delete temporary folder
 		unless ($nodel) {
@@ -537,26 +490,38 @@ sub determineOutputNumberOfSequences {
 					&errorMessage(__LINE__, "Unknown error.");
 				}
 				print($filehandleoutput1 "\n)\n");
-				print($filehandleoutput1 "inputmax <- $inputmax{$samplename}\n");
-				my $fibomax = &getLargerFibonacci($inputmax{$samplename});
-				print($filehandleoutput1 "fibomax <- $fibomax\n");
-				my $targetslope = 1 - $pcov;
-				print($filehandleoutput1 "targetslope <- ");
-				printf($filehandleoutput1 "%.10f\n", $targetslope);
-				print($filehandleoutput1 <<"_END");
-calcResidual <- function (x) {
-	if (x >= inputmax) {
-		Inf
+				my $targetslope = sprintf("%.10f", 1 - $pcov);
+				print($filehandleoutput1 "targetslope <- $targetslope\n");
+				my $outputslope = sprintf("%.10f", 1 - $inputpcov{$samplename});
+				print($filehandleoutput1 "outputslope <- $outputslope\n");
+				print($filehandleoutput1 "outputnseq <- $inputnseq{$samplename} - 1\n");
+				print($filehandleoutput1 <<'_END');
+initial <- outputnseq
+pslide <- 0.1
+nslide <- trunc((initial * pslide) + 0.5)
+if (nslide < 1) {
+	nslide <- 1
+}
+while (outputslope <= targetslope) {
+	tempnseq <- outputnseq - nslide
+	tempslope <- rareslope(community, tempnseq)
+	if (tempnseq - nslide > 0 && tempslope <= targetslope) {
+		outputslope <- tempslope
+		outputnseq <- tempnseq
 	}
+	else if (nslide == 1 && tempslope > targetslope) {
+		break
 	else {
-		abs(rareslope(community, trunc(x + 0.5)) - targetslope)
+		pslide <- pslide * 0.1
+		nslide <- trunc((initial * pslide) + 0.5)
+		if (nslide < 1) {
+			nslide <- 1
+		}
 	}
 }
-fit <- optimize(calcResidual, interval=c(0, fibomax), maximum=F, tol=1e-10)
-outputnseq <- trunc(fit\$minimum + 0.5)
-write.table(outputnseq, "outputnseq.tsv", sep="\\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
-outputpcov <- 1 - rareslope(community, outputnseq)
-write.table(outputpcov, "outputpcov.tsv", sep="\\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
+write.table(outputnseq, "outputnseq.tsv", sep="\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
+outputpcov <- 1 - outputslope
+write.table(outputpcov, "outputpcov.tsv", sep="\t", append=F, quote=F, row.names=F, col.names=F, na="NA")
 _END
 				close($filehandleoutput1);
 				# run R

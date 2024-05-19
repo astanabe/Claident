@@ -1,4 +1,6 @@
 #!/bin/sh
+# Set number of processor cores used for computation
+export NCPU=0; for n in `grep cpu.cores /proc/cpuinfo | grep -o -P '\d+' | sort -u`; do NCPU=$(($NCPU + n)); done
 # Set PREFIX
 if test -z $PREFIX; then
 PREFIX=/usr/local || exit $?
@@ -6,9 +8,21 @@ fi
 # Set PATH
 export PATH=$PREFIX/bin:$PREFIX/share/claident/bin:$PATH
 # search by keywords at INSD
-clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND ((txid2[Organism:exp] OR txid2157[Organism:exp]) AND 150:1000000000000[Sequence Length] AND (16S[Title] AND ("ribosomal RNA"[Title] OR rRNA[Title] OR "ribosomal DNA"[Title] OR rDNA[Title])) NOT spacer[Title] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' prokaryota_16S.txt || exit $?
+clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND ((txid2[Organism:exp] OR txid2157[Organism:exp]) AND 150:1000000000000[Sequence Length] AND (16S[Title] AND ("ribosomal RNA"[Title] OR rRNA[Title] OR "ribosomal DNA"[Title] OR rDNA[Title])) NOT spacer[Title] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT metagenome[Title] NOT metagenomic[Title])' prokaryota_16S1.txt || exit $?
 # make taxonomy database
 #clmaketaxdb --excluderefseq=enable --includetaxid=2,2157 taxonomy prokaryota.taxdb || exit $?
+# search by keywords at taxdb
+clretrieveacc --maxrank=genus --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --taxdb=prokaryota.taxdb prokaryota_genus.txt || exit $?
+# make BLAST database
+cd blastdb || exit $?
+clblastdbcmd --blastdb=`pwd`/nt --output=ACCESSION --numthreads=$NCPU ../prokaryota_genus.txt prokaryota_genus.txt
+BLASTDB=`pwd` blastdb_aliastool -seqid_dbtype nucl -seqid_db nt -seqid_file_in prokaryota_genus.txt -seqid_title prokaryota_genus -seqid_file_out prokaryota_genus.bsl || exit $?
+BLASTDB=`pwd` blastdb_aliastool -dbtype nucl -db nt -seqidlist prokaryota_genus.bsl -out prokaryota_genus -title prokaryota_genus || exit $?
+cd .. || exit $?
+# search by reference sequences
+clblastseq blastn -db `pwd`/blastdb/prokaryota_genus -word_size 9 -evalue 1e-5 -strand plus -task blastn -max_target_seqs 10000000 end --output=ACCESSION --numthreads=$NCPU --hyperthreads=8 references_prokaryota_16S.fasta prokaryota_16S2.txt || exit $?
+# eliminate duplicate entries
+clelimdupacc prokaryota_16S1.txt prokaryota_16S2.txt prokaryota_16S.txt || exit $?
 # extract identified sequences
 clretrieveacc --maxrank=genus --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=prokaryota_16S.txt --taxdb=prokaryota.taxdb prokaryota_16S_genus.txt &
 clretrieveacc --maxrank=species --ngword='^x , x ,environmental,uncultured,unclassified,unidentified,metagenome,metagenomic' --acclist=prokaryota_16S.txt --taxdb=prokaryota.taxdb prokaryota_16S_species_wsp.txt &

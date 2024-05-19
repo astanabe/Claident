@@ -1,9 +1,15 @@
+#!/bin/sh
+# Set number of processor cores used for computation
+export NCPU=`grep -c processor /proc/cpuinfo`
 # Set PREFIX
 if test -z $PREFIX; then
 PREFIX=/usr/local || exit $?
 fi
 # Set PATH
 export PATH=$PREFIX/bin:$PREFIX/share/claident/bin:$PATH
+
+mkdir -p uchimedb
+cd uchimedb
 
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (mitochondrion[Filter] AND 13000:9999999[Sequence Length] NOT txid9606[Organism:exp])' mitochondrion.txt || exit $?
 clretrieveacc --keywords='"ddbj embl genbank"[Filter] AND (mitochondrion[Filter] AND 13000:9999999[Sequence Length] AND txid9606[Organism:exp])' mitochondrionHuman.txt || exit $?
@@ -12,24 +18,27 @@ pgretrieveseq --output=GenBank --database=nucleotide mitochondrion.txt mitochond
 
 extractfeat -type CDS -tag "gene|product" -value "COX1|COI|COXI" -join mitochondrion.gb COX1.fasta &
 extractfeat -type CDS -tag "gene|product" -value "CYTB|cytochrome*b" -join mitochondrion.gb CytB.fasta &
-extractfeat -type rRNA -tag product -value "12S*|s*RNA" mitochondrion.gb 12S.fasta &
-extractfeat -type rRNA -tag product -value "16S*|l*RNA" mitochondrion.gb 16S.fasta &
-extractfeat -type D-loop mitochondrion.gb D-loop_temp1.fasta &
-extractfeat -type misc_feature -tag note -value "*control*region*" mitochondrion.gb D-loop_temp2.fasta &
+extractfeat -type rRNA -tag product -value "12S*|s*RNA" -join mitochondrion.gb 12S.fasta &
+extractfeat -type rRNA -tag product -value "16S*|l*RNA" -join mitochondrion.gb 16S.fasta &
+extractfeat -type D-loop -join mitochondrion.gb D-loop_temp1.fasta &
+extractfeat -type misc_feature -tag note -value "*control*region*" -join mitochondrion.gb D-loop_temp2.fasta &
 wait
 cat D-loop_temp1.fasta D-loop_temp2.fasta > D-loop.fasta
 
-vsearch --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp COX1.fasta --fastaout COX1rc.fasta
-cat COX1.fasta COX1rc.fasta > cducox1.fasta
+# Cluster sequences
+for locus in COX1 CytB 12S 16S D-loop
+do vsearch --fasta_width 0 --notrunclabels --threads $NCPU --minseqlength 100 --strand both --derep_fulllength $locus.fasta --output $locus\_dereplicated.fasta
+done
 
-vsearch --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp CytB.fasta --fastaout CytBrc.fasta
-cat CytB.fasta CytBrc.fasta > cducytb.fasta
+# Reverse-complement
+for locus in COX1 CytB 12S 16S D-loop
+do vsearch --fasta_width 0 --notrunclabels --threads $NCPU --label_suffix revcomp --fastx_revcomp $locus\_dereplicated.fasta --fastaout $locus\_dereplicated_revcomp.fasta
+done
 
-vsearch --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp 12S.fasta --fastaout 12Src.fasta
-cat 12S.fasta 12Src.fasta > cdu12s.fasta
+cat COX1_dereplicated.fasta COX1_dereplicated_revcomp.fasta > cducox1.fasta
+cat CytB_dereplicated.fasta CytB_dereplicated_revcomp.fasta > cducytb.fasta
+cat 12S_dereplicated.fasta 12S_dereplicated_revcomp.fasta > cdu12s.fasta
+cat 16S_dereplicated.fasta 16S_dereplicated_revcomp.fasta > cdu16s.fasta
+cat D-loop_dereplicated.fasta D-loop_dereplicated_revcomp.fasta > cdudloop.fasta
 
-vsearch --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp 16S.fasta --fastaout 16Src.fasta
-cat 16S.fasta 16Src.fasta > cdu16s.fasta
-
-vsearch --fasta_width 0 --notrunclabels --label_suffix revcomp --fastx_revcomp D-loop.fasta --fastaout D-looprc.fasta
-cat D-loop.fasta D-looprc.fasta > cdudloop.fasta
+cd ..

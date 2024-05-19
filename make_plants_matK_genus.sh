@@ -1,6 +1,6 @@
 #!/bin/sh
 # Set number of processor cores used for computation
-export NCPU=`grep -c processor /proc/cpuinfo`
+export NCPU=0; for n in `grep cpu.cores /proc/cpuinfo | grep -o -P '\d+' | sort -u`; do NCPU=$(($NCPU + n)); done
 # Set PREFIX
 if test -z $PREFIX; then
 PREFIX=/usr/local || exit $?
