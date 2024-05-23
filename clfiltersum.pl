@@ -513,6 +513,11 @@ sub filterColumnsRows {
 					delete($table{$samplename}{$otuname});
 				}
 			}
+			foreach my $otuname (keys(%otulist)) {
+				unless ($table{$samplename}{$otuname}) {
+					$table{$samplename}{$otuname} = 0;
+				}
+			}
 		}
 	}
 	elsif (%notulist) {
