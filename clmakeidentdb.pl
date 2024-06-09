@@ -128,19 +128,16 @@ sub checkVariables {
 	$lockdir = "$outputfile.lock";
 }
 
-$SIG{'TERM'} = $SIG{'PIPE'} = $SIG{'HUP'} = "sigexit";
-sub sigexit {
-	if ($lockdir =~ /\.lock$/ && -d $lockdir) {
-		rmdir($lockdir);
-	}
-	exit(1);
-}
-
 sub makeIdentDB {
 	print(STDERR "Reading input file and register to the database...\n");
 	while (!mkdir($lockdir)) {
 		print(STDERR "Lock directory was found. Sleep 10 seconds.\n");
 		sleep(10);
+	}
+	$SIG{'TERM'} = $SIG{'PIPE'} = $SIG{'HUP'} = "sigexit";
+	sub sigexit {
+		rmdir($lockdir);
+		exit(1);
 	}
 	print(STDERR "Lock directory has been correctly made.\n");
 	my $switch = 0;

@@ -1,5 +1,6 @@
 use strict;
 use File::Spec;
+use File::Copy::Recursive ('fcopy', 'rcopy', 'dircopy');
 use DBI;
 use Math::BaseCnv;
 Math::BaseCnv::dig('m64');
@@ -236,7 +237,7 @@ sub checkVariables {
 		if (/^$outputfile1\..+\.temp$/) {
 			&errorMessage(__LINE__, "Temporary folder already exists.");
 		}
-		elsif (/^$outputfile1\..+\.(?:nacclist)$/) {
+		elsif (/^$outputfile1\..+\.(?:nacclist|identdb)$/) {
 			&errorMessage(__LINE__, "Temporary file already exists.");
 		}
 	}
@@ -387,14 +388,25 @@ sub checkVariables {
 			}
 		}
 	}
-}
-
-$SIG{'TERM'} = $SIG{'PIPE'} = $SIG{'HUP'} = "sigexit";
-sub sigexit {
-	if ($lockdir =~ /\.lock$/ && -d $lockdir) {
-		rmdir($lockdir);
+	# copy identdb
+	if ($identdb) {
+		while (!mkdir($lockdir)) {
+			print(STDERR "Lock directory was found. Sleep 10 seconds.\n");
+			sleep(10);
+		}
+		$SIG{'TERM'} = $SIG{'PIPE'} = $SIG{'HUP'} = "sigexit";
+		sub sigexit {
+			rmdir($lockdir);
+			exit(1);
+		}
+		unless (fcopy($identdb, "$outputfile1.identdb")) {
+			&errorMessage(__LINE__, "Cannot copy \"$identdb\" to \"$outputfile1.identdb\".");
+		}
+		while (!rmdir($lockdir)) {
+			print(STDERR "Lock directory cannot be removed. Sleep 10 seconds.\n");
+			sleep(10);
+		}
 	}
-	exit(1);
 }
 
 sub readListFiles {
@@ -464,12 +476,7 @@ sub searchNeighborhoods {
 	print(STDERR "Searching neighborhoods...\n");
 	$filehandleinput1 = &readFile($inputfile);
 	if ($identdb) {
-		while (!mkdir($lockdir)) {
-			print(STDERR "Lock directory was found. Sleep 10 seconds.\n");
-			sleep(10);
-		}
-		print(STDERR "Lock directory has been correctly made.\n");
-		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
+		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile1.identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 			&errorMessage(__LINE__, "Cannot connect database.");
 		}
 	}
@@ -997,15 +1004,9 @@ sub searchNeighborhoods {
 	}
 	if ($identdb) {
 		$dbhandle->disconnect;
-		while (!rmdir($lockdir)) {
-			print(STDERR "Lock directory cannot be removed. Sleep 10 seconds.\n");
-			sleep(10);
-		}
-		print(STDERR "Lock directory has been correctly removed.\n");
 	}
 	close($filehandleinput1);
 	print(STDERR "done.\n\n");
-	unlink("$outputfile1.nacclist");
 }
 
 sub makeOutputFile {
@@ -1026,7 +1027,6 @@ sub makeOutputFile {
 			&outputFile('qblasthit.txt', $outputfile1);
 		}
 	}
-	print(STDERR "done.\n\n");
 	unless ($nodel) {
 		for (my $i = 0; $i < scalar(@queries); $i ++) {
 			unlink("$outputfile1.$i.temp/query.fasta");
@@ -1038,14 +1038,17 @@ sub makeOutputFile {
 			unlink("$outputfile1.$i.temp/qblasthit.txt");
 			rmdir("$outputfile1.$i.temp");
 		}
+		unlink("$outputfile1.nacclist");
+		unlink("$outputfile1.identdb");
 	}
+	print(STDERR "done.\n\n");
 }
 
 sub outputFile {
 	my $listfile = shift(@_);
 	my $outputfile = shift(@_);
 	if ($identdb) {
-		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
+		unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfile1.identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 			&errorMessage(__LINE__, "Cannot connect database.");
 		}
 	}

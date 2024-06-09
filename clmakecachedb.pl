@@ -1,5 +1,6 @@
 use strict;
 use File::Spec;
+use File::Copy::Recursive ('fcopy', 'rcopy', 'dircopy');
 use Cwd 'getcwd';
 use DBI;
 use Math::BaseCnv;
@@ -285,14 +286,25 @@ sub checkVariables {
 			}
 		}
 	}
-}
-
-$SIG{'TERM'} = $SIG{'PIPE'} = $SIG{'HUP'} = "sigexit";
-sub sigexit {
-	if ($lockdir =~ /\.lock$/ && -d $lockdir) {
-		rmdir($lockdir);
+	# copy identdb
+	if ($identdb) {
+		while (!mkdir($lockdir)) {
+			print(STDERR "Lock directory was found. Sleep 10 seconds.\n");
+			sleep(10);
+		}
+		$SIG{'TERM'} = $SIG{'PIPE'} = $SIG{'HUP'} = "sigexit";
+		sub sigexit {
+			rmdir($lockdir);
+			exit(1);
+		}
+		unless (fcopy($identdb, "$outputfolder/temp.identdb")) {
+			&errorMessage(__LINE__, "Cannot copy \"$identdb\" to \"$outputfolder/temp.identdb\".");
+		}
+		while (!rmdir($lockdir)) {
+			print(STDERR "Lock directory cannot be removed. Sleep 10 seconds.\n");
+			sleep(10);
+		}
 	}
-	exit(1);
 }
 
 sub readListFiles {
@@ -392,12 +404,7 @@ sub retrieveSimilarSequences {
 	}
 	{
 		if ($identdb) {
-			while (!mkdir($lockdir)) {
-				print(STDERR "Lock directory was found. Sleep 10 seconds.\n");
-				sleep(10);
-			}
-			print(STDERR "Lock directory has been correctly made.\n");
-			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
+			unless ($dbhandle = DBI->connect("dbi:SQLite:dbname=$outputfolder/temp.identdb", '', '', {RaiseError => 1, PrintError => 0, AutoCommit => 1, AutoInactiveDestroy => 1})) {
 				&errorMessage(__LINE__, "Cannot connect database.");
 			}
 		}
@@ -457,11 +464,9 @@ sub retrieveSimilarSequences {
 		}
 		if ($identdb) {
 			$dbhandle->disconnect;
-			while (!rmdir($lockdir)) {
-				print(STDERR "Lock directory cannot be removed. Sleep 10 seconds.\n");
-				sleep(10);
+			unless ($nodel) {
+				unlink("$outputfolder/temp.identdb");
 			}
-			print(STDERR "Lock directory has been correctly removed.\n");
 		}
 		if (-e "$outputfolder/tempquery.fasta") {
 			&runBLAST(scalar(@queries) % $nseqpersearch);
