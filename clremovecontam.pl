@@ -2042,7 +2042,8 @@ sub saveResults {
 			$tempsum += $table{$samplename}{$otuname};
 		}
 		if ($tempsum == 0) {
-			print(STDERR "The all sequences of the OTU \"$otuname\" was removed. This might be weird.\n");
+			print(STDERR "The all sequences of the OTU \"$otuname\" was removed. If this OTU is contained in blanks only, abundant in one or more blanks or rare in all samples and blanks, this is not problem. If this OTU is rare in all blanks and contained in one or more samples and not rare, this might be weird. Please check input file.\n");
+			delete($otunames{$otuname});
 		}
 	}
 	# save table

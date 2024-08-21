@@ -372,7 +372,7 @@ sub makeConcatenatedFiles {
 						s/$otuname/$replace{$otuname};size=$size;/;
 					}
 					else {
-						&errorMessage(__LINE__, "\"$inputfiles[$i]\" is invalid.");
+						&errorMessage(__LINE__, "The OTU \"$otuname\" has no member in \"$inputfiles[$i]\".");
 					}
 				}
 				elsif ($otuname && exists($ignoreotulist{$otuname}) && /^([^>].*)$/) {
