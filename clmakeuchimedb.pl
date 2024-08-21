@@ -8,6 +8,7 @@ my $inputfile;
 my $outputfile;
 
 # options
+my $chimeraremoval = 0;
 my $numthreads = 1;
 my $maxpchimera = 0;
 my $maxnchimera;
@@ -79,6 +80,14 @@ sub getOptions {
 		elsif ($ARGV[$i] eq 'vsearch') {
 			$vsearchmode = 1;
 		}
+		elsif ($ARGV[$i] =~ /^-+chimeraremoval=(enable|disable|yes|no|true|false|E|D|Y|N|T|F)/i) {
+			if ($1 =~ /^(?:enable|yes|true|E|Y|T)$/i) {
+				$chimeraremoval = 1;
+			}
+			elsif ($1 =~ /^(?:disable|no|false|D|N|F)$/i) {
+				$chimeraremoval = 0;
+			}
+		}
 		elsif ($ARGV[$i] =~ /^-+max(?:imum)?(?:r|rate|p|percentage)chimeras?=(.+)$/i) {
 			$maxpchimera = $1;
 		}
@@ -146,30 +155,27 @@ sub checkVariables {
 	if ($vsearchoption !~ /-selfid/) {
 		$vsearchoption .= " --selfid";
 	}
-	if ($vsearchoption !~ /-abskew /) {
-		$vsearchoption .= " --abskew 2.0";
-	}
-	if ($vsearchoption !~ /-dn /) {
-		$vsearchoption .= " --dn 1.4";
-	}
-	if ($vsearchoption !~ /-mindiffs /) {
-		$vsearchoption .= " --mindiffs 3";
-	}
-	if ($vsearchoption !~ /-mindiv /) {
-		$vsearchoption .= " --mindiv 0.8";
-	}
 	if ($vsearchoption !~ /-minh /) {
-		$vsearchoption .= " --minh 0.28";
+		$vsearchoption .= " --minh 0.3";
 	}
 	if ($vsearchoption !~ /-xn /) {
-		$vsearchoption .= " --xn 8.0";
+		$vsearchoption .= " --xn 5.0";
+	}
+	if ($vsearchoption !~ /-mindiffs /) {
+		$vsearchoption .= " --mindiffs 2";
+	}
+	if ($vsearchoption !~ /-mindiv /) {
+		$vsearchoption .= " --mindiv 0.5";
 	}
 	print(STDERR "Command line options for vsearch :$vsearchoption\n\n");
 }
 
 sub deleteChimericSequences {
 	my $niter = 1;
-	my $continueflag = 1;
+	my $continueflag = 0;
+	if ($chimeraremoval) {
+		$continueflag = 1;
+	}
 	while ($continueflag) {
 		my $inputfasta;
 		if ($niter == 1) {
@@ -254,7 +260,7 @@ sub deleteChimericSequences {
 			}
 		}
 	}
-	for (my $i = 0; $i <= $niter; $i ++) {
+	for (my $i = 0; $i < $niter; $i ++) {
 		unlink("$outputfile.$i.fasta");
 		unlink("$outputfile.$i.txt");
 	}
@@ -289,6 +295,10 @@ Command line options
 ====================
 vsearch options end
   Specify options for vsearch.
+
+--chimeraremoval=ENABLE|DISABLE
+  Specify whether chimera removal should be performed or not.
+(default: DISABLE)
 
 --maxpchimera=DECIMAL
   Specify maximum acceptable percentage of chimeras. (default: 0)
