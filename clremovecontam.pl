@@ -2043,7 +2043,7 @@ sub saveResults {
 		}
 		if ($tempsum == 0) {
 			print(STDERR "The all sequences of the OTU \"$otuname\" was removed. If this OTU is contained in blanks only, abundant in one or more blanks or rare in all samples and blanks, this is not problem. If this OTU is rare in all blanks and contained in one or more samples and not rare, this might be weird. Please check input file.\n");
-			delete($otunames{$otuname});
+			$removedotu{$otuname} = 1;
 		}
 	}
 	# save table
@@ -2254,7 +2254,7 @@ sub saveResults {
 			if (/^>(.+)$/) {
 				$otuname = $1;
 			}
-			if ($otuname && $otunames{$otuname}) {
+			if ($otuname && $otunames{$otuname} && !defined($removedotu{$otuname})) {
 				print($filehandleoutput1 "$_\n");
 			}
 		}
@@ -2275,7 +2275,7 @@ sub saveResults {
 				$labelline = "$_\n"
 				#print($filehandleoutput1 );
 			}
-			elsif ($otuname && $otunames{$otuname} && / SN:(\S+)/) {
+			elsif ($otuname && $otunames{$otuname} && !defined($removedotu{$otuname}) && / SN:(\S+)/) {
 				my $samplename = $1;
 				if ($samplename && $samplenames{$samplename} && $table{$samplename}{$otuname} > 0) {
 					if ($labelline) {
