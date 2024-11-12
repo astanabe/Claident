@@ -311,6 +311,13 @@ sub estimateConcentration {
 			}
 			else {
 				print(STDERR "\"$samplename\"...\n");
+				my $tagname;
+				{
+					my @temp = split(/__/, $samplename);
+					if (scalar(@temp) == 3) {
+						$tagname = $temp[1];
+					}
+				}
 				my $tempfolder = "$outputfile.temp/$samplename";
 				# make temporary folder
 				unless (mkdir($tempfolder)) {
@@ -322,8 +329,11 @@ sub estimateConcentration {
 				}
 				# check stdconc and store stdotu
 				my @stdotu;
-				if ($stdconc{$samplename}) {
+				if (%{$stdconc{$samplename}}) {
 					@stdotu = sort({$stdconc{$samplename}{$a} <=> $stdconc{$samplename}{$b}} keys(%{$stdconc{$samplename}}));
+				}
+				elsif (%{$stdconc{$tagname}}) {
+					@stdotu = sort({$stdconc{$tagname}{$a} <=> $stdconc{$tagname}{$b}} keys(%{$stdconc{$tagname}}));
 				}
 				elsif (%stdconc) {
 					@stdotu = keys(%stdconc);
@@ -335,7 +345,7 @@ sub estimateConcentration {
 					@stdotu = sort({$stdconc{$a} <=> $stdconc{$b}} @stdotu);
 				}
 				else {
-					&errorMessage(__LINE__, "There is no stdconc.");
+					exit;
 				}
 				# check nreads of stdotus and those order
 				if (@stdotu) {
@@ -426,23 +436,25 @@ sub estimateConcentration {
 				if (exists($solutionvol{$samplename}) && $solutionvol{$samplename} > 0) {
 					print($filehandleoutput1 "solutionvol <- $solutionvol{$samplename}\n");
 				}
+				elsif (exists($solutionvol{$tagname}) && $solutionvol{$tagname} > 0) {
+					print($filehandleoutput1 "solutionvol <- $solutionvol{$tagname}\n");
+				}
 				elsif ($solutionvol > 0) {
 					print($filehandleoutput1 "solutionvol <- $solutionvol\n");
 				}
 				else {
-					print($filehandleoutput1 "solutionvol <- 1\n");
+					exit;
 				}
 				if (exists($watervol{$samplename}) && $watervol{$samplename} > 0) {
 					print($filehandleoutput1 "watervol <- $watervol{$samplename}\n");
+				}
+				elsif (exists($watervol{$tagname}) && $watervol{$tagname} > 0) {
+					print($filehandleoutput1 "watervol <- $watervol{$tagname}\n");
 				}
 				elsif ($watervol > 0) {
 					print($filehandleoutput1 "watervol <- $watervol\n");
 				}
 				else {
-					# change directory
-					unless (chdir($root)) {
-						&errorMessage(__LINE__, "Cannot change working directory.");
-					}
 					exit;
 				}
 				print($filehandleoutput1 "fitted <- lm(standard ~ stdconc + 0)\n");
@@ -456,10 +468,6 @@ sub estimateConcentration {
 				# run R
 				if (system("$Rscript --vanilla estimateconc.R 1> $devnull 2> $devnull")) {
 					&errorMessage(__LINE__, "Cannot run \"$Rscript --vanilla estimateconc.R 1> $devnull\".");
-				}
-				# change directory
-				unless (chdir($root)) {
-					&errorMessage(__LINE__, "Cannot change working directory.");
 				}
 				exit;
 			}
