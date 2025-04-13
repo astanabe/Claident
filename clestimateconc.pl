@@ -218,10 +218,10 @@ sub readTableFiles {
 		while (<$filehandleinput1>) {
 			s/\r?\n?$//;
 			my @row = split(/\t/, $_);
-			if ($lineno == 1 && scalar(@row) > 2 && $_ !~ /\t(?:\d+|\d+\.\d+)\t/ && $_ !~ /\t(?:\d+|\d+\.\d+)$/) {
+			if ($lineno == 1 && scalar(@row) >= 2 && $_ !~ /\t(?:\d+|\d+\.\d+)\t/ && $_ !~ /\t(?:\d+|\d+\.\d+)$/) {
 				@label = @row;
 			}
-			elsif ($lineno > 1 && @label && scalar(@row) >= scalar(@label)) {
+			elsif ($lineno > 1 && @label && scalar(@row) >= 2 && scalar(@row) >= scalar(@label)) {
 				for (my $i = 1; $i < scalar(@label); $i ++) {
 					if ($row[$i] =~ /^(?:\d+|\d+\.\d+)$/) {
 						$stdconc{$row[0]}{$label[$i]} = $row[$i];

@@ -13,8 +13,10 @@ my $otulist;
 my $otuseq;
 my $notulist;
 my $notuseq;
+my $otusearchmode = 0;
 my $samplelist;
 my $nsamplelist;
+my $samplesearchmode = 0;
 my $taxfile;
 my $base62encoding = 0;
 my $otunamereplace = 0;
@@ -183,6 +185,30 @@ sub getOptions {
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:tax|taxonomy)file=(.+)$/i) {
 			$taxfile = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+samplesearchmode=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:r|regexp)$/i) {
+				$samplesearchmode = 1;
+			}
+			elsif ($value =~ /^(?:e|exact)$/i) {
+				$samplesearchmode = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+otusearchmode=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:r|regexp)$/i) {
+				$otusearchmode = 1;
+			}
+			elsif ($value =~ /^(?:e|exact)$/i) {
+				$otusearchmode = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
 		}
 		elsif ($ARGV[$i] =~ /^-+otunamereplace=(.+)$/i) {
 			my $value = $1;
@@ -489,42 +515,126 @@ sub readSummary {
 
 sub filterColumnsRows {
 	# filter samples
-	if ($samplelist) {
-		foreach my $samplename (@samplenames) {
-			unless ($samplelist{$samplename}) {
-				delete($table{$samplename});
+	if ($samplesearchmode) {
+		if (%samplelist) {
+			my @samplelist = keys(%samplelist);
+			foreach my $samplename (@samplenames) {
+				my $nmatch = 0;
+				foreach my $keyword (@samplelist) {
+					if ($samplename =~ /$keyword/i) {
+						$nmatch ++;
+						last;
+					}
+				}
+				if ($nmatch == 0) {
+					delete($table{$samplename});
+				}
+			}
+		}
+		elsif (%nsamplelist) {
+			my @nsamplelist = keys(%nsamplelist);
+			foreach my $samplename (@samplenames) {
+				my $nmatch = 0;
+				foreach my $keyword (@nsamplelist) {
+					if ($samplename =~ /$keyword/i) {
+						$nmatch ++;
+						last;
+					}
+				}
+				if ($nmatch > 0) {
+					delete($table{$samplename});
+				}
 			}
 		}
 	}
-	elsif ($nsamplelist) {
-		foreach my $samplename (@samplenames) {
-			if ($nsamplelist{$samplename}) {
-				delete($table{$samplename});
+	else {
+		if (%samplelist) {
+			foreach my $samplename (@samplenames) {
+				unless ($samplelist{$samplename}) {
+					delete($table{$samplename});
+				}
+			}
+		}
+		elsif (%nsamplelist) {
+			foreach my $samplename (@samplenames) {
+				if ($nsamplelist{$samplename}) {
+					delete($table{$samplename});
+				}
 			}
 		}
 	}
 	# renew samplenames
 	@samplenames = sort({$a cmp $b} keys(%table));
 	# filter OTUs
-	if (%otulist) {
-		foreach my $samplename (@samplenames) {
+	if ($otusearchmode) {
+		if (%otulist) {
+			my @otulist = keys(%otulist);
+			my %keepotulist;
 			foreach my $otuname (@otunames) {
-				unless ($otulist{$otuname}) {
-					delete($table{$samplename}{$otuname});
+				my $nmatch = 0;
+				foreach my $keyword (@otulist) {
+					if ($otuname =~ /$keyword/i) {
+						$nmatch ++;
+						last;
+					}
+				}
+				if ($nmatch == 0) {
+					$keepotulist{$otuname} = 1;
 				}
 			}
-			foreach my $otuname (keys(%otulist)) {
-				unless ($table{$samplename}{$otuname}) {
-					$table{$samplename}{$otuname} = 0;
+			foreach my $samplename (@samplenames) {
+				foreach my $otuname (@otunames) {
+					unless ($keepotulist{$otuname}) {
+						delete($table{$samplename}{$otuname});
+					}
+				}
+			}
+		}
+		elsif (%notulist) {
+			my @notulist = keys(%notulist);
+			my %delotulist;
+			foreach my $otuname (@otunames) {
+				my $nmatch = 0;
+				foreach my $keyword (@notulist) {
+					if ($otuname =~ /$keyword/i) {
+						$nmatch ++;
+						last;
+					}
+				}
+				if ($nmatch == 0) {
+					$delotulist{$otuname} = 1;
+				}
+			}
+			foreach my $samplename (@samplenames) {
+				foreach my $otuname (@otunames) {
+					if ($delotulist{$otuname}) {
+						delete($table{$samplename}{$otuname});
+					}
 				}
 			}
 		}
 	}
-	elsif (%notulist) {
-		foreach my $samplename (@samplenames) {
-			foreach my $otuname (@otunames) {
-				if ($notulist{$otuname}) {
-					delete($table{$samplename}{$otuname});
+	else {
+		if (%otulist) {
+			foreach my $samplename (@samplenames) {
+				foreach my $otuname (@otunames) {
+					unless ($otulist{$otuname}) {
+						delete($table{$samplename}{$otuname});
+					}
+				}
+				foreach my $otuname (keys(%otulist)) {
+					unless ($table{$samplename}{$otuname}) {
+						$table{$samplename}{$otuname} = 0;
+					}
+				}
+			}
+		}
+		elsif (%notulist) {
+			foreach my $samplename (@samplenames) {
+				foreach my $otuname (@otunames) {
+					if ($notulist{$otuname}) {
+						delete($table{$samplename}{$otuname});
+					}
 				}
 			}
 		}
@@ -906,6 +1016,9 @@ name at a line.
   Specify delete OTU sequence file name. The file must contain 1 OTU
 name at a line.
 
+--otusearchmode=EXACT|REGEXP
+  Specify OTU search mode. (default: EXACT)
+
 --samplelist=FILENAME
   Specify output sample list file name. The file must contain 1 sample
 name at a line.
@@ -913,6 +1026,9 @@ name at a line.
 --negativesamplelist=FILENAME
   Specify delete sample list file name. The file must contain 1 sample
 name at a line.
+
+--samplesearchmode=EXACT|REGEXP
+  Specify sample search mode. (default: EXACT)
 
 --minnseqotu=INTEGER
   Specify minimum number of sequences of OTU. If the number of
