@@ -569,7 +569,7 @@ sub readFile {
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "lbzip2 -n $numthreads -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pbzip2 -p$numthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}

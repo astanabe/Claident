@@ -523,7 +523,7 @@ sub readFile {
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "lbzip2 -n $numthreads -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pbzip2 -p$numthreads -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
@@ -549,7 +549,7 @@ sub writeFile {
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "| lbzip2 -n $numthreads -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| pbzip2 -p$numthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
@@ -575,8 +575,8 @@ sub extractcopyFile {
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		if (system("lbzip2 -n $qthreads -dc $filename > $extractedfile")) {
-			&errorMessage(__LINE__, "Cannot run \"lbzip2 -dc $filename > $extractedfile\".");
+		if (system("pbzip2 -p$qthreads -dc $filename > $extractedfile")) {
+			&errorMessage(__LINE__, "Cannot run \"pbzip2 -dc $filename > $extractedfile\".");
 		}
 	}
 	elsif ($filename =~ /\.xz$/i) {

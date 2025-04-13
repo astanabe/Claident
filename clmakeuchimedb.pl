@@ -249,8 +249,8 @@ sub deleteChimericSequences {
 				}
 			}
 			elsif ($outputfile =~ /\.bz2$/) {
-				if (system("lbzip2 -n $numthreads $outputfasta")) {
-					&errorMessage(__LINE__, "Cannot run lbzip2.");
+				if (system("pbzip2 -p$numthreads $outputfasta")) {
+					&errorMessage(__LINE__, "Cannot run pbzip2.");
 				}
 			}
 			elsif ($outputfile =~ /\.xz$/) {

@@ -227,8 +227,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("lbzip2 -n 8 $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"lbzip2 -n 8 $temp\".");
+		if (system("pbzip2 -p8 $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"pbzip2 -p8 $temp\".");
 		}
 	}
 	elsif ($outputfile =~ /\.xz$/) {
@@ -252,7 +252,7 @@ sub readFile {
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "lbzip2 -n 8 -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pbzip2 -p8 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}

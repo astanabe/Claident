@@ -539,8 +539,8 @@ sub compressInParallel {
 					}
 				}
 				elsif ($compress eq 'bz2') {
-					if (system("lbzip2 -n $qthreads $fastq")) {
-						&errorMessage(__LINE__, "Cannot run \"lbzip2 $fastq\".");
+					if (system("pbzip2 -p$qthreads $fastq")) {
+						&errorMessage(__LINE__, "Cannot run \"pbzip2 $fastq\".");
 					}
 				}
 				elsif ($compress eq 'xz') {
@@ -578,8 +578,8 @@ sub compressFileByName {
 		unless (rename($outputfile, $temp)) {
 			&errorMessage(__LINE__, "Cannot rename \"$outputfile\" to \"$temp\".");
 		}
-		if (system("lbzip2 -n $numthreads $temp")) {
-			&errorMessage(__LINE__, "Cannot run \"lbzip2 $temp\".");
+		if (system("pbzip2 -p$numthreads $temp")) {
+			&errorMessage(__LINE__, "Cannot run \"pbzip2 $temp\".");
 		}
 	}
 	elsif ($outputfile =~ /\.xz$/) {

@@ -1885,7 +1885,7 @@ sub readFile {
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "lbzip2 -n 8 -dc $filename 2> $devnull |")) {
+		unless (open($filehandle, "pbzip2 -p8 -dc $filename 2> $devnull |")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
@@ -1911,7 +1911,7 @@ sub writeFile {
 		}
 	}
 	elsif ($filename =~ /\.bz2$/i) {
-		unless (open($filehandle, "| lbzip2 -p $qthreads -c >> $filename 2> $devnull")) {
+		unless (open($filehandle, "| pbzip2 -p $qthreads -c >> $filename 2> $devnull")) {
 			&errorMessage(__LINE__, "Cannot open \"$filename\".");
 		}
 	}
