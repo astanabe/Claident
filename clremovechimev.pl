@@ -329,14 +329,14 @@ sub checkVariables {
 	if ($vsearchoption !~ /-minh /) {
 		$vsearchoption .= ' --minh 0.3';
 	}
-	if ($vsearchoption !~ /-xn /) {
-		$vsearchoption .= ' --xn 5.0';
-	}
 	if ($vsearchoption !~ /-mindiffs /) {
-		$vsearchoption .= ' --mindiffs 2';
+		$vsearchoption .= ' --mindiffs 3';
 	}
 	if ($vsearchoption !~ /-mindiv /) {
-		$vsearchoption .= ' --mindiv 0.5';
+		$vsearchoption .= ' --mindiv 1.0';
+	}
+	if ($vsearchoption !~ /-xn /) {
+		$vsearchoption .= ' --xn 5.0';
 	}
 	if ($vsearchoption =~ /-(?:chimeras|db|nonchimeras|uchime_denovo|uchime2_denovo|uchime3_denovo|uchime_ref|uchimealns|uchimeout|uchimeout5|centroids|cluster_fast|cluster_size|cluster_smallmem|clusters|consout|cons_truncate|derep_fulllength|sortbylength|sortbysize|output|allpairs_global|shuffle) /) {
 		&errorMessage(__LINE__, "The option for vsearch is invalid.");

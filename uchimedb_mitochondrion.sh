@@ -18,8 +18,8 @@ pgretrieveseq --output=GenBank --database=nucleotide mitochondrion.txt mitochond
 
 extractfeat -type CDS -tag "gene|product" -value "COX1|COI|COXI" -join mitochondrion.gb COX1.fasta &
 extractfeat -type CDS -tag "gene|product" -value "CYTB|cytochrome*b" -join mitochondrion.gb CytB.fasta &
-extractfeat -type rRNA -tag product -value "12S*|s*RNA" -join mitochondrion.gb 12S.fasta &
-extractfeat -type rRNA -tag product -value "16S*|l*RNA" -join mitochondrion.gb 16S.fasta &
+extractfeat -type rRNA -tag "gene|product" -value "12S*|s*RNA" -join mitochondrion.gb 12S.fasta &
+extractfeat -type rRNA -tag "gene|product" -value "16S*|l*RNA" -join mitochondrion.gb 16S.fasta &
 extractfeat -type D-loop -join mitochondrion.gb D-loop_temp1.fasta &
 extractfeat -type misc_feature -tag note -value "*control*region*" -join mitochondrion.gb D-loop_temp2.fasta &
 wait
