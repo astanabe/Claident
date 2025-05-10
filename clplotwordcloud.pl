@@ -616,8 +616,21 @@ sub plotWordCloud {
 							unlink("$outfileprefix.png");
 							my $ntry = 0;
 							while ((!-e "$outfileprefix.png" || (-s "$outfileprefix.png") < 10240) && $ntry < $maxntry) {
-								system("timeout 600 $chromeexec --headless --single-process --disable-dev-shm-usage --lang=en-US --disk-cache-dir=$outfileprefix --user-data-dir=$outfileprefix --crash-dumps-dir=$outfileprefix --screenshot=$outfileprefix.png --window-size=6000,6000 --run-all-compositor-stages-before-draw --virtual-time-budget=100000000 $outfileprefix.html 2>> $outfileprefix.log" . ' 1> ' . $devnull);
-								if (-e "$outfileprefix.png" && !-z "$outfileprefix.png") {
+								my $chromeerror = 0;
+								system("timeout 600 $chromeexec --headless --single-process --disable-dev-shm-usage --disable-gpu --no-proxy-server --lang=en-US --disk-cache-dir=$outfileprefix --user-data-dir=$outfileprefix --crash-dumps-dir=$outfileprefix --screenshot=$outfileprefix.png --window-size=6000,6000 --run-all-compositor-stages-before-draw --virtual-time-budget=100000000 $outfileprefix.html 2>> $outfileprefix.log" . ' 1> ' . $devnull);
+								$filehandleinput1 = &readFile("$outfileprefix.log");
+								while (<$filehandleinput1>) {
+									if (/^Fontconfig error: /) {
+										$chromeerror = 1;
+										last;
+									}
+								}
+								close($filehandleinput1);
+								if ($chromeerror) {
+									unlink("$outfileprefix.png");
+									unlink("$outfileprefix.log");
+								}
+								elsif (-e "$outfileprefix.png" && !-z "$outfileprefix.png") {
 									if (system("$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $outfileprefix.png 2>> $outfileprefix.log" . ' 1> ' . $devnull)) {
 										&errorMessage(__LINE__, "Cannot run \"$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $outfileprefix.png\" correctly.");
 									}

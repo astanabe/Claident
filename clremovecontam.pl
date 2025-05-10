@@ -1621,7 +1621,10 @@ sub performModifiedThompsonTauTest {
 		if ($adjust eq 'bonferroni') {
 			my $ntest = 0;
 			foreach my $samplename (@samplenames) {
-				if (!$ignoresamplelist{$samplename}) {
+				if (!$ignoresamplelist{$samplename} && $table{$samplename}{$otuname} > 0) {
+					if (($stdconc || $stdconctable) && (!defined($estimatedtable{$samplename}{$otuname}) || $estimatedtable{$samplename}{$otuname} == 0)) {
+						next;
+					}
 					my @nseqblank;
 					my @blanksamples;
 					if (%sample2blank && exists($sample2blank{$samplename})) {
@@ -1654,7 +1657,7 @@ sub performModifiedThompsonTauTest {
 							push(@nseqblank, 0);
 						}
 					}
-					if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
+					if (scalar(@nseqblank) > 1) {
 						$ntest ++;
 					}
 				}
@@ -1712,62 +1715,68 @@ sub performModifiedThompsonTauTest {
 						next;
 					}
 					else {
-						my @nseqblank;
-						my @blanksamples;
-						if (%sample2blank && exists($sample2blank{$samplename})) {
-							@blanksamples = keys(%{$sample2blank{$samplename}});
-						}
-						else {
-							&errorMessage(__LINE__, "There is no associated blanks for \"$samplename\".");
-						}
-						if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
-							my @tempblanks;
-							if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
-								push(@tempblanks, keys(%{$sample2blank{$samplename}{'reversejump'}}));
+						if ($table{$samplename}{$otuname} > 0) {
+							if (($stdconc || $stdconctable) && (!defined($estimatedtable{$samplename}{$otuname}) || $estimatedtable{$samplename}{$otuname} == 0)) {
+								print(STDERR "Estimated concentration of \"$otuname\" of \"$samplename\" is invalid. If this sample is not the subject of concentration estimation, then there is no problem. If not, check the input file.\n");
+								exit;
+							}
+							my @nseqblank;
+							my @blanksamples;
+							if (%sample2blank && exists($sample2blank{$samplename})) {
+								@blanksamples = keys(%{$sample2blank{$samplename}});
 							}
 							else {
-								&errorMessage(__LINE__, "Unknown error.");
+								&errorMessage(__LINE__, "There is no associated blanks for \"$samplename\".");
 							}
-							if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
-								push(@tempblanks, keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+							if (scalar(@blanksamples) == 2 && ($blanksamples[0] eq 'forwardjump' || $blanksamples[0] eq 'reversejump')) {
+								my @tempblanks;
+								if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'reversejump'})) {
+									push(@tempblanks, keys(%{$sample2blank{$samplename}{'reversejump'}}));
+								}
+								else {
+									&errorMessage(__LINE__, "Unknown error.");
+								}
+								if (%sample2blank && exists($sample2blank{$samplename}) && exists($sample2blank{$samplename}{'forwardjump'})) {
+									push(@tempblanks, keys(%{$sample2blank{$samplename}{'forwardjump'}}));
+								}
+								else {
+									&errorMessage(__LINE__, "Unknown error.");
+								}
+								@blanksamples = @tempblanks;
 							}
-							else {
-								&errorMessage(__LINE__, "Unknown error.");
-							}
-							@blanksamples = @tempblanks;
-						}
-						foreach my $blanksample (@blanksamples) {
-							if ($table{$blanksample}{$otuname} > 0) {
-								if ($stdconc || $stdconctable) {
-									if ($estimatedtable{$blanksample}{$otuname} > 0) {
-										push(@nseqblank, $estimatedtable{$blanksample}{$otuname});
+							foreach my $blanksample (@blanksamples) {
+								if ($table{$blanksample}{$otuname} > 0) {
+									if ($stdconc || $stdconctable) {
+										if ($estimatedtable{$blanksample}{$otuname} > 0) {
+											push(@nseqblank, $estimatedtable{$blanksample}{$otuname});
+										}
+										else {
+											&errorMessage(__LINE__, "Estimated concentration of \"$otuname\" of \"$blanksample\" is invalid.");
+										}
 									}
 									else {
-										&errorMessage(__LINE__, "Estimated concentration of \"$otuname\" of \"$blanksample\" is invalid.");
+										push(@nseqblank, $table{$blanksample}{$otuname});
 									}
 								}
 								else {
-									push(@nseqblank, $table{$blanksample}{$otuname});
+									push(@nseqblank, 0);
 								}
 							}
-							else {
-								push(@nseqblank, 0);
-							}
-						}
-						if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
-							if ($stdconc || $stdconctable) {
-								if ($estimatedtable{$samplename}{$otuname} > 0) {
-									unless (&isOutlier($otusiglevel{$otuname}, $estimatedtable{$samplename}{$otuname}, @nseqblank)) {
+							if ($table{$samplename}{$otuname} > 0 && scalar(@nseqblank) > 1) {
+								if ($stdconc || $stdconctable) {
+									if ($estimatedtable{$samplename}{$otuname} > 0) {
+										unless (&isOutlier($otusiglevel{$otuname}, $estimatedtable{$samplename}{$otuname}, @nseqblank)) {
+											&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
+										}
+									}
+									else {
+										&errorMessage(__LINE__, "Estimated concentration of \"$otuname\" of \"$samplename\" is invalid.");
+									}
+								}
+								else {
+									unless (&isOutlier($otusiglevel{$otuname}, $table{$samplename}{$otuname}, @nseqblank)) {
 										&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
 									}
-								}
-								else {
-									&errorMessage(__LINE__, "Estimated concentration of \"$otuname\" of \"$samplename\" is invalid.");
-								}
-							}
-							else {
-								unless (&isOutlier($otusiglevel{$otuname}, $table{$samplename}{$otuname}, @nseqblank)) {
-									&saveToTempFile("$outputfolder/$samplename.$child.temp", "$samplename\t$otuname\t0\n");
 								}
 							}
 						}
