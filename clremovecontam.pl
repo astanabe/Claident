@@ -938,16 +938,18 @@ sub estimateConcentration {
 	$filehandleoutput1 = &writeFile("$outputfolder/temptable.tsv");
 	print($filehandleoutput1 "samplename\t". join("\t", @otunames) . "\n");
 	foreach my $samplename (@samplenames, @blanksamples) {
-		print($filehandleoutput1 "$samplename");
-		foreach my $otuname (@otunames) {
-			if ($table{$samplename}{$otuname} > 0) {
-				print($filehandleoutput1 "\t" . $table{$samplename}{$otuname});
+		if (!$ignoresamplelist{$samplename}) {
+			print($filehandleoutput1 "$samplename");
+			foreach my $otuname (@otunames) {
+				if ($table{$samplename}{$otuname} > 0) {
+					print($filehandleoutput1 "\t" . $table{$samplename}{$otuname});
+				}
+				else {
+					print($filehandleoutput1 "\t0");
+				}
 			}
-			else {
-				print($filehandleoutput1 "\t0");
-			}
+			print($filehandleoutput1 "\n");
 		}
-		print($filehandleoutput1 "\n");
 	}
 	close($filehandleoutput1);
 	# perform concentration estimation
