@@ -526,9 +526,64 @@ sub readMembers {
 			$filehandleinput1 = &readFile($replicatelist);
 			while (<$filehandleinput1>) {
 				s/\r?\n?$//;
-				my @temp = split(/\t/, $_);
-				for (my $i = 0; $i < scalar(@temp); $i ++) {
-					push(@{$replicate{$temp[0]}}, $temp[$i]);
+				my @row = split(/\t/, $_);
+				my @temp0 = split(/__/, $row[0]);
+				my $temp0 = scalar(@temp0);
+				my $parentsample;
+				if ($temp0 == 3) {
+					$parentsample = $row[0];
+				}
+				elsif ($temp0 == 1) {
+					foreach my $samplename (keys(%table)) {
+						if ($samplename =~ /^.+__$row[0]__.+$/) {
+							if ($parentsample) {
+								&errorMessage(__LINE__, "\"$replicatelist\" is invalid. There are multiple matches to \"$row[0]\". Invalid line is \"$_\".");
+							}
+							else {
+								$parentsample = $samplename;
+							}
+						}
+					}
+				}
+				else {
+					&errorMessage(__LINE__, "\"$replicatelist\" is invalid. Invalid line is \"$_\".");
+				}
+				if ($parentsample) {
+					for (my $i = 0; $i < scalar(@row); $i ++) {
+						my @tempi = split(/__/, $row[$i]);
+						my $tempi = scalar(@tempi);
+						if ($tempi == 3) {
+							push(@{$replicate{$parentsample}}, $row[$i]);
+						}
+						elsif ($tempi == 1 && $i == 0) {
+							push(@{$replicate{$parentsample}}, $parentsample);
+						}
+						elsif ($tempi == 1) {
+							my $daughersample;
+							foreach my $samplename (keys(%table)) {
+								if ($samplename =~ /^.+__$row[$i]__.+$/) {
+									if ($daughersample) {
+										&errorMessage(__LINE__, "\"$replicatelist\" is invalid. There are multiple matches to \"$row[$i]\". Invalid line is \"$_\".");
+									}
+									else {
+										$daughersample = $samplename;
+									}
+								}
+							}
+							if ($daughersample) {
+								push(@{$replicate{$parentsample}}, $daughersample);
+							}
+							else {
+								print(STDERR "\"$replicatelist\" seems weird. There is no matched sample to \"$row[$i]\".");
+							}
+						}
+						else {
+							&errorMessage(__LINE__, "\"$replicatelist\" is invalid. Invalid line is \"$_\".");
+						}
+					}
+				}
+				else {
+					print(STDERR "\"$replicatelist\" seems weird. There is no matched sample to \"$row[0]\".");
 				}
 			}
 			close($filehandleinput1);

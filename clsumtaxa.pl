@@ -322,8 +322,20 @@ sub readSummary {
 				if ($runname) {
 					$row[0] =~ s/^.+?(__)/$runname$1/;
 				}
-				if ($replicatelist && $parentsample{$row[0]}) {
-					$row[0] = $parentsample{$row[0]};
+				if ($replicatelist) {
+					if ($parentsample{$row[0]}) {
+						$row[0] = $parentsample{$row[0]};
+					}
+					else {
+						my $tagname;
+						my @temp = split(/__/, $row[0]);
+						if (scalar(@temp) == 3) {
+							$tagname = $temp[1];
+						}
+						if ($parentsample{$tagname}) {
+							$row[0] =~ s/__$tagname\__/__$parentsample{$tagname}\__/;
+						}
+					}
 				}
 				$table{$row[0]}{$row[1]} += $row[2];
 			}
@@ -338,8 +350,20 @@ sub readSummary {
 				if ($runname) {
 					$samplename =~ s/^.+?(__)/$runname$1/;
 				}
-				if ($replicatelist && $parentsample{$samplename}) {
-					$samplename = $parentsample{$samplename};
+				if ($replicatelist) {
+					if ($parentsample{$samplename}) {
+						$samplename = $parentsample{$samplename};
+					}
+					else {
+						my $tagname;
+						my @temp = split(/__/, $samplename);
+						if (scalar(@temp) == 3) {
+							$tagname = $temp[1];
+						}
+						if ($parentsample{$tagname}) {
+							$samplename =~ s/__$tagname\__/__$parentsample{$tagname}\__/;
+						}
+					}
 				}
 				push(@samplenames, $samplename);
 				for (my $i = 0; $i < scalar(@row); $i ++) {
