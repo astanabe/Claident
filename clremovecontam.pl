@@ -916,8 +916,8 @@ sub removeContaminants {
 			$filehandleinput1 = &readFile($tempfile);
 			while (<$filehandleinput1>) {
 				if (/^$samplename\t(\S+)\t(\d+)/) {
+					$removed{$samplename}{$1} = $table{$samplename}{$1};
 					$table{$samplename}{$1} = $2;
-					$removed{$samplename}{$1} = 1;
 				}
 			}
 			close($filehandleinput1);
@@ -2112,7 +2112,7 @@ sub saveResults {
 						print($filehandleoutput1 "\t0");
 					}
 					if ($removed{$samplename}{$otuname}) {
-						print($filehandleoutput2 "\t1");
+						print($filehandleoutput2 "\t$removed{$samplename}{$otuname}");
 					}
 					else {
 						print($filehandleoutput2 "\t0");
@@ -2192,7 +2192,7 @@ sub saveResults {
 						print($filehandleoutput1 "$samplename\t$otuname\t0\n");
 					}
 					if ($removed{$samplename}{$otuname}) {
-						print($filehandleoutput2 "$samplename\t$otuname\t1\n");
+						print($filehandleoutput2 "$samplename\t$otuname\t$removed{$samplename}{$otuname}\n");
 					}
 					else {
 						print($filehandleoutput2 "$samplename\t$otuname\t0\n");
