@@ -50,6 +50,8 @@ my %taxrank;
 for (my $i = 0; $i < scalar(@taxrank); $i ++) {
 	$taxrank{$taxrank[$i]} = $i;
 }
+$taxrank{'domain'} = 1;
+$taxrank{'realm'} = 1;
 my %taxonomy;
 
 # file handles

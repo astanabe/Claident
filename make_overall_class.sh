@@ -36,7 +36,7 @@ wait
 cd blastdb || exit $?
 # make BLAST database
 # NT-independent
-clblastdbcmd --blastdb=`pwd`/nt --minlen=150 --output=FASTA --numthreads=$NCPU --compress=gzip --filejoin=disable ../overall_class.txt temp_class || exit $?
+clblastdbcmd --blastdb=`pwd`/nt --minlen=100 --output=FASTA --numthreads=$NCPU --compress=gzip --filejoin=disable ../overall_class.txt temp_class || exit $?
 clmakeblastdb --numthreads=$NCPU "temp_class.*.gz" overall_class || exit $?
 rm temp_class.*.gz || exit $?
 clblastdbcmd --blastdb=`pwd`/nt --output=ACCESSION --numthreads=$NCPU ../overall_class.txt overall_class.txt || exit $?

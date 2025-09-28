@@ -63,6 +63,8 @@ my %taxrank;
 for (my $i = 0; $i < scalar(@taxrank); $i ++) {
 	$taxrank{$taxrank[$i]} = $i;
 }
+$taxrank{'domain'} = 1;
+$taxrank{'realm'} = 1;
 for (my $i = 0; $i < scalar(@ARGV) - 2; $i ++) {
 	if ($ARGV[$i] =~ /^-+(?:taxdb|tdb)=(.+)$/i) {
 		$taxdb = $1;

@@ -5,11 +5,16 @@ export NCPU=`grep -c processor /proc/cpuinfo`
 if test -z $PREFIX; then
 PREFIX=/usr/local || exit $?
 fi
+# Set date
+if test -z ${date}; then
+date=`TZ=JST-9 date +%Y.%m.%d` || exit $?
+fi
 # Set PATH
 export PATH=$PREFIX/bin:$PREFIX/share/claident/bin:$PATH
+# Compress BLAST DBs
 cd blastdb
-ls overall_class.*.nsq | grep -o -P '^.+\.' | xargs -P $(($NCPU / 8)) -I {} sh -c 'tar -c --use-compress-program="xz -T 8 -9e" -f {}tar.xz {}n*'
-ls *_*_genus.nal | grep -o -P '^[^_]+_[^_]+_' | xargs -P $(($NCPU / 8)) -I {} sh -c 'tar -c --use-compress-program="xz -T 8 -9e" -f {}genus.tar.xz {}*.bsl {}*.nal'
-tar -c --use-compress-program="xz -T 0 -9e" -f overall_class.tar.xz overall_*.bsl overall_*.nal
-ls *.tar.xz | xargs -P $NCPU -I {} sh -c 'sha256sum {} > {}.sha256'
+ls overall_class.*.nsq | grep -o -P '^.+\.' | xargs -P $(($NCPU / 4)) -I {} sh -c 'tar -c --use-compress-program="xz -T 4 -9e" -f ../{}blastdb-v0.1.${date}.tar.xz {}n*'
+tar -c --use-compress-program="xz -T 0 -9e" -f ../blastdb-v0.1.${date}.tar.xz *_*_genus.bsl *_*_genus.nal overall_*.bsl overall_*.nal
 cd ..
+ls blastdb-v0.1.${date}.tar.xz *.blastdb-v0.1.${date}.tar.xz | xargs -P $NCPU -I {} sh -c 'sha256sum {} > {}.sha256'
+for f in `ls *.blastdb-v0.1.${date}.tar.xz.sha256`; do cat $f >> blastdb-v0.1.${date}.tar.xz.sha256; rm $f; done

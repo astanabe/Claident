@@ -523,8 +523,9 @@ print(STDERR "Making table for nodes...");
 		s/\t?\|?$//;
 		my @columns = split(/\t\|\t/, $_);
 		if ($includetaxid{$columns[0]} || !%includetaxid) {
-			$columns[2] =~ s/^(?:morph|subvariety||pathogroup|serogroup)$/subspecies/;
+			$columns[2] =~ s/^(?:morph|subvariety|pathogroup|serogroup)$/subspecies/;
 			$columns[2] =~ s/^(?:biotype|genotype|serotype)$/varietas/;
+			$columns[2] =~ s/^(?:domain|realm)$/superkingdom/;
 			$columns[2] =~ s/^clade$/no rank/;
 			unless ($statement->execute($columns[0], $columns[1], $columns[2])) {
 				&errorMessage(__LINE__, "Cannot insert \"$columns[0], $columns[1], $columns[2]\".");

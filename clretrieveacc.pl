@@ -67,6 +67,8 @@ my %taxrank;
 for (my $i = 0; $i < scalar(@taxrank); $i ++) {
 	$taxrank{$taxrank[$i]} = $i;
 }
+$taxrank{'domain'} = 1;
+$taxrank{'realm'} = 1;
 for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 	if ($ARGV[$i] =~ /^-+(?:timeout|t)=(\d+)$/i) {
 		$timeout = $1;
@@ -120,7 +122,7 @@ for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 	}
 	elsif ($ARGV[$i] =~ /^-+max(?:imum)?(?:rank)?=(.+)$/i) {
 		my $rank = $1;
-		if ($rank =~ /^(?:superkingdom|kingdom|subkingdom|superphylum|phylum|subphylum|superclass|class|subclass|infraclass|cohort|subcohort|superorder|order|suborder|infraorder|parvorder|superfamily|family|subfamily|tribe|subtribe|genus|subgenus|section|subsection|series|species group|species subgroup|species|subspecies|varietas|forma|forma specialis|strain|isolate)$/) {
+		if ($rank =~ /^(?:superkingdom|domain|realm|kingdom|subkingdom|superphylum|phylum|subphylum|superclass|class|subclass|infraclass|cohort|subcohort|superorder|order|suborder|infraorder|parvorder|superfamily|family|subfamily|tribe|subtribe|genus|subgenus|section|subsection|series|species group|species subgroup|species|subspecies|varietas|forma|forma specialis|strain|isolate)$/) {
 			$maxrank = $taxrank{$rank};
 		}
 		else {
@@ -129,7 +131,7 @@ for (my $i = 0; $i < scalar(@ARGV) - 1; $i ++) {
 	}
 	elsif ($ARGV[$i] =~ /^-+min(?:imum)?(?:rank)?=(.+)$/i) {
 		my $rank = $1;
-		if ($rank =~ /^(?:superkingdom|kingdom|subkingdom|superphylum|phylum|subphylum|superclass|class|subclass|infraclass|cohort|subcohort|superorder|order|suborder|infraorder|parvorder|superfamily|family|subfamily|tribe|subtribe|genus|subgenus|section|subsection|series|species group|species subgroup|species|subspecies|varietas|forma|forma specialis|strain|isolate)$/) {
+		if ($rank =~ /^(?:superkingdom|domain|realm|kingdom|subkingdom|superphylum|phylum|subphylum|superclass|class|subclass|infraclass|cohort|subcohort|superorder|order|suborder|infraorder|parvorder|superfamily|family|subfamily|tribe|subtribe|genus|subgenus|section|subsection|series|species group|species subgroup|species|subspecies|varietas|forma|forma specialis|strain|isolate)$/) {
 			$minrank = $taxrank{$rank};
 		}
 		else {

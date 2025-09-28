@@ -5,9 +5,13 @@ export NCPU=`grep -c processor /proc/cpuinfo`
 if test -z $PREFIX; then
 PREFIX=/usr/local || exit $?
 fi
+# Set date
+if test -z ${date}; then
+date=`TZ=JST-9 date +%Y.%m.%d` || exit $?
+fi
 # Set PATH
 export PATH=$PREFIX/bin:$PREFIX/share/claident/bin:$PATH
+# Compress Taxonomy DB
 chmod 666 *.taxdb
-ls *_*_genus.taxdb | grep -P -o '^[^_]+_[^_]+_' | xargs -P $(($NCPU / 8)) -I {} sh -c 'tar -c --use-compress-program="xz -T 8 -9e" -f {}genus.taxdb.tar.xz {}*.taxdb'
-tar -c --use-compress-program="xz -T 0 -9e" -f overall_class.taxdb.tar.xz overall_*.taxdb
-ls *.tar.xz | xargs -P $NCPU -I {} sh -c 'sha256sum {} > {}.sha256'
+tar -c --use-compress-program="xz -T 0 -9e" -f taxdb-v0.1.${date}.tar.xz *_*_genus.taxdb overall_*.taxdb
+sha256sum taxdb-v0.1.${date}.tar.xz > taxdb-v0.1.${date}.tar.xz.sha256
