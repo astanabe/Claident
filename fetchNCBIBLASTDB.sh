@@ -8,10 +8,10 @@ fi
 mkdir -p blastdb || exit $?
 cd blastdb || exit $?
 aria2c https://ftp.ncbi.nih.gov/blast/db/ -o index.html || exit $?
-grep -o -P 'nt_(euk|prok).\d+.tar.gz.md5' index.html | sort -u | perl -npe 's/^/https:\/\/ftp.ncbi.nih.gov\/blast\/db\//' > md5list.txt || exit $?
+grep -o -P '"nt.\d+.tar.gz.md5"' index.html | sort -u | perl -npe 's/"//g;s/^/https:\/\/ftp.ncbi.nih.gov\/blast\/db\//' > md5list.txt || exit $?
 aria2c -c -i md5list.txt -j 3 -x 1 || exit $?
 rm md5list.txt || exit $?
-grep -o -P 'nt_(euk|prok).\d+.tar.gz' index.html | sort -u | perl -npe 's/^/https:\/\/ftp.ncbi.nih.gov\/blast\/db\//' > targzlist.txt || exit $?
+grep -o -P '"nt.\d+.tar.gz"' index.html | sort -u | perl -npe 's/"//g;s/^/https:\/\/ftp.ncbi.nih.gov\/blast\/db\//' > targzlist.txt || exit $?
 aria2c -c -i targzlist.txt -j 3 -x 1 || exit $?
 rm targzlist.txt || exit $?
 rm index.html || exit $?
@@ -21,6 +21,5 @@ ls *.md5 | xargs -P $NCPU -I {} sh -c "md5sum -c {} || exit $?" || exit $?
 rm *.md5 || exit $?
 ls *.tar.gz | xargs -P $NCPU -I {} sh -c "tar -xzf {} || exit $?" || exit $?
 chmod 644 *.tar.gz || sudo chmod 644 *.tar.gz || exit $?
-rm *.tar.gz || sudo rm *.tar.gz || exit $?
-BLASTDB=./ $PREFIX/share/claident/bin/blastdb_aliastool -dbtype nucl -out nt -title nt -dblist 'nt_euk nt_prok' || exit $?
+rm -f *.tar.gz || sudo rm -f *.tar.gz || exit $?
 cd .. || exit $?
