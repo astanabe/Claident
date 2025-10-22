@@ -11,6 +11,12 @@ my @samplenames;
 
 # options
 my $pooling = 0;
+my $errorestimationfunction = 'loessErrfun';
+my $nbases = '1e8';
+my $randomize = 0;
+my $selfconsist = 0;
+my $maxnconsist = 10;
+my $usequals = 1;
 my $seed = time^$$;
 my $numthreads = 1;
 my $qthreads;
@@ -99,6 +105,48 @@ sub getOptions {
 			}
 			elsif ($value =~ /^(?:pseudo|p)$/i) {
 				$pooling = 'pseudo';
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+errorestimationfunction=(.+)$/i) {
+			my $errorestimationfunction = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+nbases?=(.+)$/i) {
+			my $nbases = $1;
+		}
+		elsif ($ARGV[$i] =~ /^-+(?:random|randomize)=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$randomize = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$randomize = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+selfconsist=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$selfconsist = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$selfconsist = 0;
+			}
+			else {
+				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
+			}
+		}
+		elsif ($ARGV[$i] =~ /^-+usequals?=(.+)$/i) {
+			my $value = $1;
+			if ($value =~ /^(?:enable|e|yes|y|true|t)$/i) {
+				$usequals = 1;
+			}
+			elsif ($value =~ /^(?:disable|d|no|n|false|f)$/i) {
+				$usequals = 0;
 			}
 			else {
 				&errorMessage(__LINE__, "\"$ARGV[$i]\" is invalid option.");
@@ -301,12 +349,35 @@ sub runDADA2 {
 	elsif ($pooling == 0) {
 		print($filehandleoutput1 "pooling <- F\n");
 	}
+	print($filehandleoutput1 "numbases <- $nbases\n");
+	print($filehandleoutput1 "errorestimationfunc <- \"$errorestimationfunction\"\n");
+	if ($randomize == 1) {
+		print($filehandleoutput1 "randomize <- T\n");
+	}
+	elsif ($randomize == 0) {
+		print($filehandleoutput1 "randomize <- F\n");
+	}
+	if ($selfconsist == 1) {
+		print($filehandleoutput1 "selfconsist <- T\n");
+	}
+	elsif ($selfconsist == 0) {
+		print($filehandleoutput1 "selfconsist <- F\n");
+	}
+	print($filehandleoutput1 "maxnconsist <- $maxnconsist\n");
+	if ($usequals == 1) {
+		print($filehandleoutput1 "usequals <- T\n");
+	}
+	elsif ($usequals == 0) {
+		print($filehandleoutput1 "usequals <- F\n");
+	}
 	print($filehandleoutput1 <<'_END');
 library(dada2)
 library(foreach)
 library(doParallel)
 set.seed(ranseed)
 setDadaOpt(OMEGA_C=0)
+setDadaOpt(MAX_CONSIST=maxnconsist)
+setDadaOpt(USE_QUALS=usequals)
 fn1 <- sort(list.files(outputfolder, pattern="\\.fastq$", full.names=T))
 extract.sample.names <- function (x) { sub("\\.fastq$", "", sub("^.*\\/", "", x)) }
 names(fn1) <- sapply(fn1, extract.sample.names)
@@ -317,11 +388,11 @@ derep1 <- foreach(i = 1:length(fn1), .packages="dada2") %dopar% {
     derepFastq(fn1[[i]], verbose=T, qualityType="FastqQuality")
 }
 stopCluster(cl)
-err1 <- learnErrors(derep1, verbose=T, multithread=numthreads, qualityType="FastqQuality")
+err1 <- learnErrors(derep1, errorEstimationFunction=errorestimationfunc, nbases=numbases, randomize=randomize, qualityType="FastqQuality", verbose=T, multithread=numthreads)
 pdf(file=paste0(outputfolder, "/plotErrors.pdf"))
 plotErrors(err1, obs=T, err_out=T, err_in=T, nominalQ=T)
 dev.off()
-dada1 <- dada(derep1, err=err1, verbose=T, multithread=numthreads, pool=pooling)
+dada1 <- dada(derep1, err=err1, errorEstimationFunction=errorestimationfunc, pool=pooling, selfConsist=selfconsist, verbose=T, multithread=numthreads)
 if (length(fn1) == 1) {
     dada1 <- list(dada1)
 }
@@ -610,6 +681,24 @@ Command line options
 ====================
 --pooling=ENABLE|DISABLE|PSEUDO
   Specify pooling mode for DADA2. (default: ENABLE)
+
+--randomize=ENABLE|DISABLE
+  Specify randomize mode for DADA2. (default: DISABLE)
+
+--selfconsist=ENABLE|DISABLE
+  Specify selfconsist mode for DADA2. (default: DISABLE)
+
+--maxnconsist=INTEGER
+  Specify maximum number of steps for DADA2. (default: 10)
+
+--errorestimationfunction=TEXT
+  Specify error estimation function for DADA2. (default: loessErrfun)
+
+--nbases=INTEGER
+  Specify nbases value for DADA2. (default: 1e8)
+
+--usequals=ENABLE|DISABLE
+  Specify whether quality scores will be used or not. (default: ENABLE)
 
 --seed=INTEGER
   Specify the random number seed. (default: auto)

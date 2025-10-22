@@ -14,7 +14,6 @@ rm -rf claident-0.9.*
 mkdir claident-0.9.$date
 cp cl*.pl claident-0.9.$date/
 cp *.sh claident-0.9.$date/
-cp *.fasta claident-0.9.$date/
 cp LICENSE claident-0.9.$date/
 cp Makefile claident-0.9.$date/
 cp README.md claident-0.9.$date/
