@@ -258,7 +258,12 @@ sub checkVariables {
 	else {
 		if (system("google-chrome --version 2> " . $devnull . ' 1> ' . $devnull)) {
 			if (system("chromium-browser --version 2> " . $devnull . ' 1> ' . $devnull)) {
-				&errorMessage(__LINE__, "Cannot find Chrome executable.\nThis command require Google Chrome or Chromium.\nPlease install one of them.");
+				if (system("chromium --version 2> " . $devnull . ' 1> ' . $devnull)) {
+					&errorMessage(__LINE__, "Cannot find Chrome executable.\nThis command require Google Chrome or Chromium.\nPlease install one of them.");
+				}
+				else {
+					$chromeexec = 'chromium';
+				}
 			}
 			else {
 				$chromeexec = 'chromium-browser';
@@ -643,7 +648,7 @@ sub plotWordCloud {
 							my $ntry = 0;
 							while ((!-e "$outfileprefix.png" || (-s "$outfileprefix.png") < 10240) && $ntry < $maxntry) {
 								my $chromeerror = 0;
-								system("timeout 600 $chromeexec --headless --single-process --disable-dev-shm-usage --disable-gpu --no-proxy-server --lang=en-US --disk-cache-dir=$outfileprefix --user-data-dir=$outfileprefix --crash-dumps-dir=$outfileprefix --screenshot=$outfileprefix.png --window-size=6000,6000 --run-all-compositor-stages-before-draw --virtual-time-budget=100000000 $outfileprefix.html 2>> $outfileprefix.log" . ' 1> ' . $devnull);
+								system("timeout -k 10 300 $chromeexec --headless=new --disable-crash-reporter --disable-breakpad --hide-scrollbars --force-color-profile=srgb --font-render-hinting=none --disable-dev-shm-usage --disable-gpu --no-proxy-server --lang=en-US --disk-cache-dir=$outfileprefix --user-data-dir=$outfileprefix --crash-dumps-dir=$outfileprefix --screenshot=$outfileprefix.png --window-size=6000,6000 --run-all-compositor-stages-before-draw --virtual-time-budget=100000000 $outfileprefix.html 2>> $outfileprefix.log" . ' 1> ' . $devnull);
 								$filehandleinput1 = &readFile("$outfileprefix.log");
 								while (<$filehandleinput1>) {
 									if (/^Fontconfig error: /) {
@@ -657,8 +662,8 @@ sub plotWordCloud {
 									unlink("$outfileprefix.log");
 								}
 								elsif (-e "$outfileprefix.png" && !-z "$outfileprefix.png") {
-									if (system("$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $outfileprefix.png 2>> $outfileprefix.log" . ' 1> ' . $devnull)) {
-										&errorMessage(__LINE__, "Cannot run \"$mogrifyexec -fuzz 50% -trim -fuzz 50% -trim -background $bgcolor -resize $size -gravity center -extent $size $outfileprefix.png\" correctly.");
+									if (system("$mogrifyexec -background $bgcolor -alpha remove -alpha off -fuzz 20% -trim +repage -fuzz 20% -trim +repage -resize $size -gravity center -extent $size -strip -define png:compression-level=9 $outfileprefix.png 2>> $outfileprefix.log" . ' 1> ' . $devnull)) {
+										&errorMessage(__LINE__, "Cannot run \"$mogrifyexec -background $bgcolor -alpha remove -alpha off -fuzz 20% -trim +repage -fuzz 20% -trim +repage -resize $size -gravity center -extent $size -strip -define png:compression-level=9 $outfileprefix.png\" correctly.");
 									}
 								}
 								$ntry ++;

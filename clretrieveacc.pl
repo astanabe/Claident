@@ -246,9 +246,12 @@ unless ($taxdb) {
 	$ua->timeout($timeout);
 	$ua->agent('clretrieveacc/prerelease');
 	$ua->env_proxy;
-	my $baseurl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=nucleotide&idtype=acc&term=' . &encodeURL($keyword);
+	my $baseurl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi';
+	my $content = 'db=nucleotide&idtype=acc&term=' . &encodeURL($keyword) . '&rettype=count';
 	print(STDERR "Requesting $baseurl...\n");
-	my $req = HTTP::Request->new(POST => $baseurl . '&rettype=count');
+	my $req = HTTP::Request->new(POST => $baseurl);
+	$req->content_type('application/x-www-form-urlencoded');
+	$req->content($content);
 	my $res = $ua->request($req);
 	if ($res->is_success) {
 		foreach (split(/\n/,$res->content)) {
@@ -264,7 +267,10 @@ unless ($taxdb) {
 	}
 	print(STDERR "Total number of matched sequences: $numhits\nNow downloading accession list...");
 	for (my $i = 0; $i < $numhits; $i += 10000) {
-		$req = HTTP::Request->new(POST => $baseurl . '&retstart=' . $i . '&retmax=10000');
+		$content = 'db=nucleotide&idtype=acc&term=' . &encodeURL($keyword) . '&retstart=' . $i . '&retmax=10000';
+		$req = HTTP::Request->new(POST => $baseurl);
+		$req->content_type('application/x-www-form-urlencoded');
+		$req->content($content);
 		$res = $ua->request($req);
 		if ($res->is_success) {
 			my $outputhandle;
@@ -294,7 +300,9 @@ unless ($taxdb) {
 		}
 		else {
 			sleep(30);
-			$req = HTTP::Request->new(POST => $baseurl . '&retstart=' . $i . '&retmax=10000');
+			$req = HTTP::Request->new(POST => $baseurl);
+			$req->content_type('application/x-www-form-urlencoded');
+			$req->content($content);
 			$res = $ua->request($req);
 			if ($res->is_success) {
 				my $outputhandle;
