@@ -111,10 +111,10 @@ sub getOptions {
 			}
 		}
 		elsif ($ARGV[$i] =~ /^-+errorestimationfunction=(.+)$/i) {
-			my $errorestimationfunction = $1;
+			$errorestimationfunction = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+nbases?=(.+)$/i) {
-			my $nbases = $1;
+			$nbases = $1;
 		}
 		elsif ($ARGV[$i] =~ /^-+(?:random|randomize)=(.+)$/i) {
 			my $value = $1;
